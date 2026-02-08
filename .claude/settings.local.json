@@ -13,7 +13,8 @@
       "Bash(git stash:*)",
       "Bash(git fetch:*)",
       "Bash(git pull)",
-      "Bash(dotnet new:*)"
+      "Bash(dotnet new:*)",
+      "Bash(dotnet restore:*)"
     ],
     "deny": [
       "Bash(cd:*)"

@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/DynamoDbLite/DynamoDbLite.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/DynamoDbLite.Tests/DynamoDbLite.Tests.csproj" />
+  </Folder>
+</Solution>

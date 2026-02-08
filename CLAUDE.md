@@ -57,6 +57,10 @@ C# 14 / .NET 10 — high-performance, functional, zero-allocation.
 - use index `[^1]` and range `[1..^1]` operators
 - chain expressions; minimize intermediate variables
 - prefer pure functions with no side effects
+- prefer deconstructed variable declarations
+- prefer simple `default` over `default(T)`
+- prefer conditional delegate calls (`handler?.Invoke()`)
+- discard unused variables with `_`
 
 ### Collections
 - use collection expressions: `[]`, `[1, 2, 3]`, `[..existing, newItem]`
@@ -70,6 +74,8 @@ C# 14 / .NET 10 — high-performance, functional, zero-allocation.
 - use `static` local functions (no captures)
 - use `ArgumentNullException.ThrowIfNull()` and similar guard methods
 - suffix async methods with `Async`
+- require explicit accessibility modifiers on non-interface members
+- prefer language keywords (`int`, `string`) over BCL types (`Int32`, `String`)
 
 ### Naming
 | Element | Style | Example |
@@ -83,7 +89,7 @@ C# 14 / .NET 10 — high-performance, functional, zero-allocation.
 No `_` prefix. No `this.` qualifier. No Hungarian notation.
 
 ### Formatting
-- 4-space indentation, spaces only, CRLF line endings
+- 4-space indentation, spaces only, CRLF line endings, final newline at end of files
 - Allman braces (open brace on new line)
 - usings outside namespace, not grouped or sorted specially
 - modifier order: `public` `private` `protected` `internal` `file` `static` `extern` `new` `virtual` `abstract` `sealed` `override` `readonly` `unsafe` `required` `volatile` `async`
