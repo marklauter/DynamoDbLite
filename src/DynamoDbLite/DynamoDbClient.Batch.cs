@@ -137,7 +137,25 @@ public sealed partial class DynamoDbClient
             }
         }
 
-        await store.BatchWriteItemsAsync(operations, cancellationToken);
+        // Load index info for tables that have indexes
+        Dictionary<string, (List<IndexDefinition> Indexes, List<AttributeDefinition> AttrDefs)>? indexInfoByTable = null;
+        foreach (var (tableName, _) in request.RequestItems)
+        {
+            if (indexInfoByTable?.ContainsKey(tableName) is true)
+                continue;
+
+            var keyInfo = await store.GetKeySchemaAsync(tableName, cancellationToken)
+                ?? throw new ResourceNotFoundException($"Requested resource not found: Table: {tableName} not found");
+            var indexes = await store.GetIndexDefinitionsAsync(tableName, cancellationToken);
+
+            if (indexes.Count > 0)
+            {
+                indexInfoByTable ??= [];
+                indexInfoByTable[tableName] = (indexes, keyInfo.AttributeDefinitions);
+            }
+        }
+
+        await store.BatchWriteItemsAsync(operations, indexInfoByTable, cancellationToken);
 
         return new BatchWriteItemResponse
         {

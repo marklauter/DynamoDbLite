@@ -53,6 +53,27 @@ internal static class KeyHelper
                 "One or more parameter values were invalid: Key attributes must be scalars (S, N, or B)")
         };
 
+    internal static (string Pk, string Sk)? TryExtractIndexKeys(
+        Dictionary<string, AttributeValue> item,
+        List<KeySchemaElement> keySchema,
+        List<AttributeDefinition> attributeDefinitions)
+    {
+        var hashKey = keySchema.First(static k => k.KeyType == KeyType.HASH);
+        if (!item.TryGetValue(hashKey.AttributeName, out _))
+            return null;
+
+        var rangeKey = keySchema.FirstOrDefault(static k => k.KeyType == KeyType.RANGE);
+        if (rangeKey is not null && !item.TryGetValue(rangeKey.AttributeName, out _))
+            return null;
+
+        var pk = ExtractKeyValue(item, hashKey.AttributeName, attributeDefinitions);
+        var sk = rangeKey is not null
+            ? ExtractKeyValue(item, rangeKey.AttributeName, attributeDefinitions)
+            : string.Empty;
+
+        return (pk, sk);
+    }
+
     private static string ExtractKeyValue(
         Dictionary<string, AttributeValue> item,
         string attributeName,

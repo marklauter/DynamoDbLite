@@ -31,7 +31,10 @@
       "WebFetch(domain:github.com)",
       "WebFetch(domain:api.github.com)",
       "Bash(Select-String -Pattern \"passed|failed|total|Tests run\")",
-      "Bash(dotnet nuget:*)"
+      "Bash(dotnet nuget:*)",
+      "Bash(ls -la \"D:\\\\DynamoDbLite\\\\src\\\\DynamoDbLite\"\" | grep -E \".csproj)",
+      "Bash(.cs$ \")",
+      "Bash(ls -la \"D:\\\\DynamoDbLite\\\\src\\\\DynamoDbLite\"\" | grep \"DynamoDbClient \")"
     ],
     "deny": [
       "Bash(cd:*)"

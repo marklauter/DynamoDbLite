@@ -29,6 +29,11 @@ public sealed partial class DynamoDbClient
 
         ValidateKeySchema(request.KeySchema, request.AttributeDefinitions);
 
+        var gsiDefs = ValidateAndConvertGsiDefinitions(request.GlobalSecondaryIndexes, request.KeySchema, request.AttributeDefinitions);
+        var lsiDefs = ValidateAndConvertLsiDefinitions(request.LocalSecondaryIndexes, request.KeySchema, request.AttributeDefinitions);
+
+        ValidateAttributeDefinitionsCoverage(request.KeySchema, request.GlobalSecondaryIndexes, request.LocalSecondaryIndexes, request.AttributeDefinitions);
+
         if (await store.TableExistsAsync(request.TableName, cancellationToken))
             throw new ResourceInUseException($"Table already exists: {request.TableName}");
 
@@ -37,6 +42,8 @@ public sealed partial class DynamoDbClient
             request.KeySchema,
             request.AttributeDefinitions,
             request.ProvisionedThroughput,
+            gsiDefs,
+            lsiDefs,
             cancellationToken);
 
         var description = await store.GetTableDescriptionAsync(request.TableName, cancellationToken);
@@ -186,6 +193,142 @@ public sealed partial class DynamoDbClient
             var missing = keyAttributeNames.Except(definedAttributeNames);
             throw new AmazonDynamoDBException(
                 $"Key schema attribute(s) not defined in attribute definitions: {string.Join(", ", missing)}");
+        }
+    }
+
+    private static List<IndexDefinition>? ValidateAndConvertGsiDefinitions(
+        List<GlobalSecondaryIndex>? gsis,
+        List<KeySchemaElement> tableKeySchema,
+        List<AttributeDefinition> attributeDefinitions)
+    {
+        if (gsis is not { Count: > 0 })
+            return null;
+
+        if (gsis.Count > 5)
+            throw new AmazonDynamoDBException(
+                "One or more parameter values were invalid: GlobalSecondaryIndex count exceeds the per-table limit of 5");
+
+        var indexNames = new HashSet<string>();
+        var result = new List<IndexDefinition>(gsis.Count);
+
+        foreach (var gsi in gsis)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(gsi.IndexName);
+
+            if (!indexNames.Add(gsi.IndexName))
+                throw new AmazonDynamoDBException(
+                    $"One or more parameter values were invalid: Duplicate index name: {gsi.IndexName}");
+
+            ValidateIndexKeySchema(gsi.KeySchema, attributeDefinitions, gsi.IndexName);
+
+            var projectionType = gsi.Projection?.ProjectionType?.Value ?? "ALL";
+            var nonKeyAttrs = gsi.Projection?.NonKeyAttributes;
+
+            result.Add(new IndexDefinition(
+                gsi.IndexName,
+                IsGlobal: true,
+                gsi.KeySchema,
+                projectionType,
+                nonKeyAttrs));
+        }
+
+        return result;
+    }
+
+    private static List<IndexDefinition>? ValidateAndConvertLsiDefinitions(
+        List<LocalSecondaryIndex>? lsis,
+        List<KeySchemaElement> tableKeySchema,
+        List<AttributeDefinition> attributeDefinitions)
+    {
+        if (lsis is not { Count: > 0 })
+            return null;
+
+        if (lsis.Count > 5)
+            throw new AmazonDynamoDBException(
+                "One or more parameter values were invalid: LocalSecondaryIndex count exceeds the per-table limit of 5");
+
+        var tableHashKey = tableKeySchema.First(static k => k.KeyType == KeyType.HASH).AttributeName;
+        var indexNames = new HashSet<string>();
+        var result = new List<IndexDefinition>(lsis.Count);
+
+        foreach (var lsi in lsis)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(lsi.IndexName);
+
+            if (!indexNames.Add(lsi.IndexName))
+                throw new AmazonDynamoDBException(
+                    $"One or more parameter values were invalid: Duplicate index name: {lsi.IndexName}");
+
+            ValidateIndexKeySchema(lsi.KeySchema, attributeDefinitions, lsi.IndexName);
+
+            var lsiHashKey = lsi.KeySchema.First(static k => k.KeyType == KeyType.HASH).AttributeName;
+            if (lsiHashKey != tableHashKey)
+                throw new AmazonDynamoDBException(
+                    $"One or more parameter values were invalid: Table KeySchema: The AttributeValue for a key attribute for the table must match the AttributeValue for the LSI key schema. Key: {tableHashKey}");
+
+            var projectionType = lsi.Projection?.ProjectionType?.Value ?? "ALL";
+            var nonKeyAttrs = lsi.Projection?.NonKeyAttributes;
+
+            result.Add(new IndexDefinition(
+                lsi.IndexName,
+                IsGlobal: false,
+                lsi.KeySchema,
+                projectionType,
+                nonKeyAttrs));
+        }
+
+        return result;
+    }
+
+    private static void ValidateIndexKeySchema(
+        List<KeySchemaElement> keySchema,
+        List<AttributeDefinition> attributeDefinitions,
+        string indexName)
+    {
+        if (keySchema is not { Count: > 0 and <= 2 })
+            throw new AmazonDynamoDBException(
+                $"One or more parameter values were invalid: Index {indexName} requires 1 or 2 key schema elements");
+
+        var hashKeys = keySchema.Where(static k => k.KeyType == KeyType.HASH).ToList();
+        if (hashKeys.Count is not 1)
+            throw new AmazonDynamoDBException(
+                $"One or more parameter values were invalid: Index {indexName} requires exactly one HASH key");
+
+        var definedNames = attributeDefinitions.Select(static a => a.AttributeName).ToHashSet();
+        foreach (var key in keySchema)
+        {
+            if (!definedNames.Contains(key.AttributeName))
+                throw new AmazonDynamoDBException(
+                    $"One or more parameter values were invalid: Index key attribute {key.AttributeName} is not defined in AttributeDefinitions");
+        }
+    }
+
+    private static void ValidateAttributeDefinitionsCoverage(
+        List<KeySchemaElement> tableKeySchema,
+        List<GlobalSecondaryIndex>? gsis,
+        List<LocalSecondaryIndex>? lsis,
+        List<AttributeDefinition> attributeDefinitions)
+    {
+        var referencedAttrs = new HashSet<string>(tableKeySchema.Select(static k => k.AttributeName));
+
+        if (gsis is not null)
+            foreach (var gsi in gsis)
+                foreach (var key in gsi.KeySchema)
+                    _ = referencedAttrs.Add(key.AttributeName);
+
+        if (lsis is not null)
+            foreach (var lsi in lsis)
+                foreach (var key in lsi.KeySchema)
+                    _ = referencedAttrs.Add(key.AttributeName);
+
+        var definedAttrs = attributeDefinitions.Select(static a => a.AttributeName).ToHashSet();
+
+        if (!definedAttrs.SetEquals(referencedAttrs))
+        {
+            var unused = definedAttrs.Except(referencedAttrs);
+            if (unused.Any())
+                throw new AmazonDynamoDBException(
+                    $"One or more parameter values were invalid: Number of attributes in KeySchema does not match the number defined in AttributeDefinitions");
         }
     }
 }
