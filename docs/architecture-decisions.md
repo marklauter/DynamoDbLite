@@ -38,5 +38,5 @@ Full fidelity with DynamoDB semantics:
 
 1. **Phase 1 — Table management (complete):** `CreateTableAsync`, `DeleteTableAsync`, `DescribeTableAsync`, `ListTablesAsync`
 2. **Phase 2 — Item CRUD (complete):** `PutItemAsync`, `GetItemAsync`, `DeleteItemAsync`, `UpdateItemAsync`
-3. **Phase 3 — Querying:** `QueryAsync`, `ScanAsync`
+3. **Phase 3 — Querying (complete):** `QueryAsync`, `ScanAsync`
 4. **Phase 4 — Secondary Indexes:** GSI/LSI creation and querying
