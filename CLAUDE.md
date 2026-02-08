@@ -8,7 +8,12 @@ DynamoDbLite is a local, in-process implementation of `IAmazonDynamoDB` backed b
 
 ## Tech Stack
 
-<!-- List the main technologies, frameworks, and languages used -->
+- **Runtime:** .NET 10 / C# 14
+- **AWS SDK:** AWSSDK.DynamoDBv2 4.0.14
+- **Database:** Microsoft.Data.Sqlite 10.0.2
+- **ORM:** Dapper 2.1.66
+- **Analyzers:** IDisposableAnalyzers 4.0.8
+- **Testing:** xUnit v3 (3.2.2), Microsoft.NET.Test.Sdk 18.0.1, coverlet.collector 6.0.4
 
 ## Development
 
@@ -26,10 +31,21 @@ C# 14 / .NET 10 — high-performance, functional, zero-allocation.
 
 ### Type Design
 - prefer `record` over `class` for all data types
+- use positional records (primary-constructor syntax) — not property-bodied records
+  ```csharp
+  // correct
+  public sealed record DynamoDbLiteOptions(string ConnectionString);
+
+  // wrong — do not use property-based record definitions
+  public sealed record DynamoDbLiteOptions
+  {
+      public string ConnectionString { get; init; } = "";
+  }
+  ```
 - use `readonly record struct` for small value types (≤16 bytes)
 - seal all records and classes by default (enables devirtualization)
 - use primary constructors for dependency injection and simple initialization
-- use `required init` properties for mandatory immutable fields
+- use `required init` properties only on classes/structs that cannot be positional records
 - prefer `field` keyword in property accessors over backing fields
 - mark all fields `readonly`
 - avoid mutable classes; if state changes, return a new instance
@@ -51,7 +67,7 @@ C# 14 / .NET 10 — high-performance, functional, zero-allocation.
 - use expression bodies for all single-expression members
 - use switch expressions over switch statements
 - use pattern matching: `is`, `is not`, `and`, `or`, property patterns, list patterns
-- use `var` everywhere
+- always prefer `var` over explicit type — never use explicit types for local variables, even when the type isn't apparent from the right-hand side
 - use `??`, `??=`, `?.`, `?[]` for null handling
 - use `is null` / `is not null` (not `== null`)
 - use index `[^1]` and range `[1..^1]` operators
@@ -91,6 +107,7 @@ No `_` prefix. No `this.` qualifier. No Hungarian notation.
 ### Formatting
 - 4-space indentation, spaces only, CRLF line endings, final newline at end of files
 - Allman braces (open brace on new line)
+- file-scoped namespace declarations (not block-scoped)
 - usings outside namespace, not grouped or sorted specially
 - modifier order: `public` `private` `protected` `internal` `file` `static` `extern` `new` `virtual` `abstract` `sealed` `override` `readonly` `unsafe` `required` `volatile` `async`
 

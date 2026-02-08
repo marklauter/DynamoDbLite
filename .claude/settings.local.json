@@ -23,7 +23,9 @@
       "Bash(dotnet remove:*)",
       "Bash(dotnet list:*)",
       "Bash(dotnet format:*)",
-      "Bash(dir:*)"
+      "Bash(dir:*)",
+      "Bash(findstr:*)",
+      "Bash(del \"D:\\\\DynamoDbLite\\\\src\\\\DynamoDbLite.Tests\\\\UnitTest1.cs\")"
     ],
     "deny": [
       "Bash(cd:*)"
