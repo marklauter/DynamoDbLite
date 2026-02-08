@@ -3,10 +3,18 @@ using Amazon.DynamoDBv2.Model;
 
 namespace DynamoDbLite.Tests;
 
-public sealed class TableManagementTests : IDisposable
+public sealed class TableManagementTests : IAsyncLifetime
 {
     private readonly DynamoDbClient client = new(new DynamoDbLiteOptions(
         $"Data Source=Test_{Guid.NewGuid():N};Mode=Memory;Cache=Shared"));
+
+    public ValueTask InitializeAsync() => ValueTask.CompletedTask;
+
+    public ValueTask DisposeAsync()
+    {
+        client.Dispose();
+        return ValueTask.CompletedTask;
+    }
 
     // ── CreateTableAsync ───────────────────────────────────────────────
 
@@ -19,7 +27,7 @@ public sealed class TableManagementTests : IDisposable
             KeySchema = [new KeySchemaElement { AttributeName = "PK", KeyType = KeyType.HASH }],
             AttributeDefinitions = [new AttributeDefinition { AttributeName = "PK", AttributeType = ScalarAttributeType.S }],
             ProvisionedThroughput = new ProvisionedThroughput { ReadCapacityUnits = 5, WriteCapacityUnits = 5 }
-        });
+        }, TestContext.Current.CancellationToken);
 
         Assert.Equal("Users", response.TableDescription.TableName);
         Assert.Equal(TableStatus.ACTIVE, response.TableDescription.TableStatus);
@@ -43,7 +51,7 @@ public sealed class TableManagementTests : IDisposable
                 new AttributeDefinition { AttributeName = "SK", AttributeType = ScalarAttributeType.S }
             ],
             ProvisionedThroughput = new ProvisionedThroughput { ReadCapacityUnits = 5, WriteCapacityUnits = 5 }
-        });
+        }, TestContext.Current.CancellationToken);
 
         Assert.Equal(2, response.TableDescription.KeySchema.Count);
         Assert.Contains(response.TableDescription.KeySchema, k => k.AttributeName == "PK" && k.KeyType == KeyType.HASH);
@@ -57,7 +65,8 @@ public sealed class TableManagementTests : IDisposable
             "Products",
             [new KeySchemaElement { AttributeName = "Id", KeyType = KeyType.HASH }],
             [new AttributeDefinition { AttributeName = "Id", AttributeType = ScalarAttributeType.S }],
-            new ProvisionedThroughput { ReadCapacityUnits = 1, WriteCapacityUnits = 1 });
+            new ProvisionedThroughput { ReadCapacityUnits = 1, WriteCapacityUnits = 1 },
+            TestContext.Current.CancellationToken);
 
         Assert.Equal("Products", response.TableDescription.TableName);
         Assert.Equal(TableStatus.ACTIVE, response.TableDescription.TableStatus);
@@ -74,28 +83,28 @@ public sealed class TableManagementTests : IDisposable
                 TableName = "Dupes",
                 KeySchema = [new KeySchemaElement { AttributeName = "PK", KeyType = KeyType.HASH }],
                 AttributeDefinitions = [new AttributeDefinition { AttributeName = "PK", AttributeType = ScalarAttributeType.S }]
-            }));
+            }, TestContext.Current.CancellationToken));
     }
 
     [Fact]
-    public async Task CreateTableAsync_NoHashKey_ThrowsAmazonDynamoDBException() 
-        => _ = await Assert.ThrowsAsync<AmazonDynamoDBException>(() 
-            => client.CreateTableAsync(new CreateTableRequest
+    public async Task CreateTableAsync_NoHashKey_ThrowsAmazonDynamoDBException()
+        => _ = await Assert.ThrowsAsync<AmazonDynamoDBException>(() =>
+            client.CreateTableAsync(new CreateTableRequest
             {
                 TableName = "Bad",
                 KeySchema = [new KeySchemaElement { AttributeName = "SK", KeyType = KeyType.RANGE }],
                 AttributeDefinitions = [new AttributeDefinition { AttributeName = "SK", AttributeType = ScalarAttributeType.S }]
-            }));
+            }, TestContext.Current.CancellationToken));
 
     [Fact]
-    public async Task CreateTableAsync_KeyNotInAttributeDefinitions_ThrowsAmazonDynamoDBException() 
-        => _ = await Assert.ThrowsAsync<AmazonDynamoDBException>(() 
-            =>  client.CreateTableAsync(new CreateTableRequest
+    public async Task CreateTableAsync_KeyNotInAttributeDefinitions_ThrowsAmazonDynamoDBException()
+        => _ = await Assert.ThrowsAsync<AmazonDynamoDBException>(() =>
+            client.CreateTableAsync(new CreateTableRequest
             {
                 TableName = "Bad",
                 KeySchema = [new KeySchemaElement { AttributeName = "PK", KeyType = KeyType.HASH }],
                 AttributeDefinitions = [new AttributeDefinition { AttributeName = "Other", AttributeType = ScalarAttributeType.S }]
-            }));
+            }, TestContext.Current.CancellationToken));
 
     [Fact]
     public async Task CreateTableAsync_SetsProvisionedThroughput()
@@ -106,7 +115,7 @@ public sealed class TableManagementTests : IDisposable
             KeySchema = [new KeySchemaElement { AttributeName = "PK", KeyType = KeyType.HASH }],
             AttributeDefinitions = [new AttributeDefinition { AttributeName = "PK", AttributeType = ScalarAttributeType.S }],
             ProvisionedThroughput = new ProvisionedThroughput { ReadCapacityUnits = 10, WriteCapacityUnits = 20 }
-        });
+        }, TestContext.Current.CancellationToken);
 
         Assert.Equal(10, response.TableDescription.ProvisionedThroughput.ReadCapacityUnits);
         Assert.Equal(20, response.TableDescription.ProvisionedThroughput.WriteCapacityUnits);
@@ -120,7 +129,7 @@ public sealed class TableManagementTests : IDisposable
             TableName = "ArnTest",
             KeySchema = [new KeySchemaElement { AttributeName = "PK", KeyType = KeyType.HASH }],
             AttributeDefinitions = [new AttributeDefinition { AttributeName = "PK", AttributeType = ScalarAttributeType.S }]
-        });
+        }, TestContext.Current.CancellationToken);
 
         Assert.Equal("arn:aws:dynamodb:local:000000000000:table/ArnTest", response.TableDescription.TableArn);
     }
@@ -132,7 +141,7 @@ public sealed class TableManagementTests : IDisposable
     {
         _ = await CreateSimpleTableAsync("ToDelete");
 
-        var response = await client.DeleteTableAsync("ToDelete");
+        var response = await client.DeleteTableAsync("ToDelete", TestContext.Current.CancellationToken);
 
         Assert.Equal("ToDelete", response.TableDescription.TableName);
         Assert.Equal(TableStatus.DELETING, response.TableDescription.TableStatus);
@@ -143,15 +152,16 @@ public sealed class TableManagementTests : IDisposable
     {
         _ = await CreateSimpleTableAsync("ToRemove");
 
-        _ = await client.DeleteTableAsync("ToRemove");
+        _ = await client.DeleteTableAsync("ToRemove", TestContext.Current.CancellationToken);
 
         _ = await Assert.ThrowsAsync<ResourceNotFoundException>(() =>
-            client.DescribeTableAsync("ToRemove"));
+            client.DescribeTableAsync("ToRemove", TestContext.Current.CancellationToken));
     }
 
     [Fact]
-    public async Task DeleteTableAsync_NonExistentTable_ThrowsResourceNotFoundException() => _ = await Assert.ThrowsAsync<ResourceNotFoundException>(() =>
-                                                                                                      client.DeleteTableAsync("DoesNotExist"));
+    public async Task DeleteTableAsync_NonExistentTable_ThrowsResourceNotFoundException()
+        => _ = await Assert.ThrowsAsync<ResourceNotFoundException>(() =>
+            client.DeleteTableAsync("DoesNotExist", TestContext.Current.CancellationToken));
 
     // ── DescribeTableAsync ─────────────────────────────────────────────
 
@@ -160,7 +170,7 @@ public sealed class TableManagementTests : IDisposable
     {
         _ = await CreateSimpleTableAsync("Described");
 
-        var response = await client.DescribeTableAsync("Described");
+        var response = await client.DescribeTableAsync("Described", TestContext.Current.CancellationToken);
 
         Assert.Equal("Described", response.Table.TableName);
         Assert.Equal(TableStatus.ACTIVE, response.Table.TableStatus);
@@ -170,15 +180,16 @@ public sealed class TableManagementTests : IDisposable
     }
 
     [Fact]
-    public async Task DescribeTableAsync_NonExistentTable_ThrowsResourceNotFoundException() => _ = await Assert.ThrowsAsync<ResourceNotFoundException>(() =>
-                                                                                                        client.DescribeTableAsync("Ghost"));
+    public async Task DescribeTableAsync_NonExistentTable_ThrowsResourceNotFoundException()
+        => _ = await Assert.ThrowsAsync<ResourceNotFoundException>(() =>
+            client.DescribeTableAsync("Ghost", TestContext.Current.CancellationToken));
 
     // ── ListTablesAsync ────────────────────────────────────────────────
 
     [Fact]
     public async Task ListTablesAsync_NoTables_ReturnsEmptyList()
     {
-        var response = await client.ListTablesAsync();
+        var response = await client.ListTablesAsync(TestContext.Current.CancellationToken);
 
         Assert.Empty(response.TableNames);
     }
@@ -190,7 +201,7 @@ public sealed class TableManagementTests : IDisposable
         _ = await CreateSimpleTableAsync("Alpha");
         _ = await CreateSimpleTableAsync("Bravo");
 
-        var response = await client.ListTablesAsync();
+        var response = await client.ListTablesAsync(TestContext.Current.CancellationToken);
 
         Assert.Equal(["Alpha", "Bravo", "Charlie"], response.TableNames);
     }
@@ -202,7 +213,7 @@ public sealed class TableManagementTests : IDisposable
         _ = await CreateSimpleTableAsync("B");
         _ = await CreateSimpleTableAsync("C");
 
-        var response = await client.ListTablesAsync(2);
+        var response = await client.ListTablesAsync(2, TestContext.Current.CancellationToken);
 
         Assert.Equal(2, response.TableNames.Count);
         Assert.Equal(["A", "B"], response.TableNames);
@@ -216,8 +227,8 @@ public sealed class TableManagementTests : IDisposable
         _ = await CreateSimpleTableAsync("B");
         _ = await CreateSimpleTableAsync("C");
 
-        var firstPage = await client.ListTablesAsync(2);
-        var secondPage = await client.ListTablesAsync(firstPage.LastEvaluatedTableName!, 2);
+        var firstPage = await client.ListTablesAsync(2, TestContext.Current.CancellationToken);
+        var secondPage = await client.ListTablesAsync(firstPage.LastEvaluatedTableName!, 2, TestContext.Current.CancellationToken);
 
         Assert.Equal(["C"], secondPage.TableNames);
         Assert.Null(secondPage.LastEvaluatedTableName);
@@ -228,7 +239,7 @@ public sealed class TableManagementTests : IDisposable
     {
         _ = await CreateSimpleTableAsync("Only");
 
-        var response = await client.ListTablesAsync();
+        var response = await client.ListTablesAsync(TestContext.Current.CancellationToken);
 
         _ = Assert.Single(response.TableNames);
         Assert.Null(response.LastEvaluatedTableName);
@@ -242,16 +253,16 @@ public sealed class TableManagementTests : IDisposable
         client.Dispose();
 
         _ = await Assert.ThrowsAsync<ObjectDisposedException>(() =>
-            client.CreateTableAsync(new CreateTableRequest { TableName = "X" }));
+            client.CreateTableAsync(new CreateTableRequest { TableName = "X" }, TestContext.Current.CancellationToken));
 
         _ = await Assert.ThrowsAsync<ObjectDisposedException>(() =>
-            client.DeleteTableAsync("X"));
+            client.DeleteTableAsync("X", TestContext.Current.CancellationToken));
 
         _ = await Assert.ThrowsAsync<ObjectDisposedException>(() =>
-            client.DescribeTableAsync("X"));
+            client.DescribeTableAsync("X", TestContext.Current.CancellationToken));
 
         _ = await Assert.ThrowsAsync<ObjectDisposedException>(() =>
-            client.ListTablesAsync());
+            client.ListTablesAsync(TestContext.Current.CancellationToken));
     }
 
     // ── Helpers ─────────────────────────────────────────────────────────
@@ -262,7 +273,5 @@ public sealed class TableManagementTests : IDisposable
             TableName = tableName,
             KeySchema = [new KeySchemaElement { AttributeName = "PK", KeyType = KeyType.HASH }],
             AttributeDefinitions = [new AttributeDefinition { AttributeName = "PK", AttributeType = ScalarAttributeType.S }]
-        });
-
-    public void Dispose() => client.Dispose();
+        }, TestContext.Current.CancellationToken);
 }
