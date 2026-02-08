@@ -12,7 +12,7 @@
 
 ## Development
 
-<!-- Include commands for building, testing, and running the project -->
+All C# projects, including tests, live under the `src/` directory. The solution file is at the root of `src/`, and each project gets its own folder under `src/`. When creating new projects, always place them under `src/` and add them to the solution.
 
 ## Code Style
 
