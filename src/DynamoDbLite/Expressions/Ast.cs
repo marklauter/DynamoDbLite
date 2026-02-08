@@ -50,3 +50,12 @@ internal sealed record ValueRefUpdateValue(string ValueRef) : UpdateValue;
 internal sealed record ArithmeticUpdateValue(UpdateValue Left, string Operator, UpdateValue Right) : UpdateValue;
 internal sealed record IfNotExistsUpdateValue(AttributePath Path, UpdateValue Default) : UpdateValue;
 internal sealed record ListAppendUpdateValue(UpdateValue First, UpdateValue Second) : UpdateValue;
+
+// ── Key Condition AST ─────────────────────────────────────────────────
+
+internal sealed record KeyCondition(PartitionKeyCondition PartitionKey, SortKeyCondition? SortKey);
+internal sealed record PartitionKeyCondition(Operand KeyPath, Operand Value);
+internal abstract record SortKeyCondition;
+internal sealed record SortKeyComparisonCondition(Operand KeyPath, string Operator, Operand Value) : SortKeyCondition;
+internal sealed record SortKeyBetweenCondition(Operand KeyPath, Operand Lower, Operand Upper) : SortKeyCondition;
+internal sealed record SortKeyBeginsWithCondition(Operand KeyPath, Operand Prefix) : SortKeyCondition;
