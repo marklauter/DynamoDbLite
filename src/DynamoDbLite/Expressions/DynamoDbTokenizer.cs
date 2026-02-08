@@ -1,166 +1,83 @@
 using Superpower;
 using Superpower.Model;
-using System.Collections.Frozen;
+using Superpower.Parsers;
+using Superpower.Tokenizers;
 
 namespace DynamoDbLite.Expressions;
 
-internal sealed class DynamoDbTokenizer : Tokenizer<DynamoDbToken>
+internal static class DynamoDbTokenizer
 {
-    private static readonly FrozenDictionary<string, DynamoDbToken> Keywords =
-        new Dictionary<string, DynamoDbToken>(StringComparer.OrdinalIgnoreCase)
-        {
-            ["AND"] = DynamoDbToken.And,
-            ["OR"] = DynamoDbToken.Or,
-            ["NOT"] = DynamoDbToken.Not,
-            ["BETWEEN"] = DynamoDbToken.Between,
-            ["IN"] = DynamoDbToken.In,
-            ["SET"] = DynamoDbToken.Set,
-            ["REMOVE"] = DynamoDbToken.Remove,
-            ["ADD"] = DynamoDbToken.Add,
-            ["DELETE"] = DynamoDbToken.Delete,
-            ["attribute_exists"] = DynamoDbToken.AttributeExists,
-            ["attribute_not_exists"] = DynamoDbToken.AttributeNotExists,
-            ["attribute_type"] = DynamoDbToken.AttributeType,
-            ["begins_with"] = DynamoDbToken.BeginsWith,
-            ["contains"] = DynamoDbToken.Contains,
-            ["size"] = DynamoDbToken.Size,
-            ["if_not_exists"] = DynamoDbToken.IfNotExists,
-            ["list_append"] = DynamoDbToken.ListAppend,
-        }.ToFrozenDictionary(StringComparer.OrdinalIgnoreCase);
+    private static readonly TextParser<TextSpan> IdentifierChars =
+        Span.MatchedBy(
+            Character.Letter.Or(Character.EqualTo('_'))
+                .IgnoreThen(Character.LetterOrDigit.Or(Character.EqualTo('_')).Many()));
 
-    protected override IEnumerable<Result<DynamoDbToken>> Tokenize(TextSpan span)
-    {
-        var next = SkipWhiteSpace(span);
+    private static readonly TextParser<TextSpan> ExpressionAttrNameSpan =
+        Span.MatchedBy(
+            Character.EqualTo('#')
+                .IgnoreThen(Character.LetterOrDigit.Or(Character.EqualTo('_')).AtLeastOnce()));
 
-        while (next.HasValue)
-        {
-            var ch = next.Value;
+    private static readonly TextParser<TextSpan> ExpressionAttrValueSpan =
+        Span.MatchedBy(
+            Character.EqualTo(':')
+                .IgnoreThen(Character.LetterOrDigit.Or(Character.EqualTo('_')).AtLeastOnce()));
 
-            if (ch == '#')
-            {
-                var start = next.Location;
-                next = next.Remainder.ConsumeChar();
-                while (next.HasValue && (char.IsLetterOrDigit(next.Value) || next.Value == '_'))
-                    next = next.Remainder.ConsumeChar();
-                yield return Result.Value(DynamoDbToken.ExpressionAttrName, start, next.Location);
-            }
-            else if (ch == ':')
-            {
-                var start = next.Location;
-                next = next.Remainder.ConsumeChar();
-                while (next.HasValue && (char.IsLetterOrDigit(next.Value) || next.Value == '_'))
-                    next = next.Remainder.ConsumeChar();
-                yield return Result.Value(DynamoDbToken.ExpressionAttrValue, start, next.Location);
-            }
-            else if (char.IsLetter(ch) || ch == '_')
-            {
-                var start = next.Location;
-                while (next.HasValue && (char.IsLetterOrDigit(next.Value) || next.Value == '_'))
-                    next = next.Remainder.ConsumeChar();
-                var text = start.Until(next.Location);
-                var token = Keywords.TryGetValue(text.ToStringValue(), out var kw) ? kw : DynamoDbToken.Identifier;
-                yield return Result.Value(token, start, next.Location);
-            }
-            else if (char.IsDigit(ch))
-            {
-                var start = next.Location;
-                while (next.HasValue && char.IsDigit(next.Value))
-                    next = next.Remainder.ConsumeChar();
-                yield return Result.Value(DynamoDbToken.Number, start, next.Location);
-            }
-            else if (ch == '=')
-            {
-                yield return Result.Value(DynamoDbToken.Equal, next.Location, next.Remainder);
-                next = next.Remainder.ConsumeChar();
-            }
-            else if (ch == '<')
-            {
-                var start = next.Location;
-                next = next.Remainder.ConsumeChar();
-                if (next.HasValue && next.Value == '>')
-                {
-                    next = next.Remainder.ConsumeChar();
-                    yield return Result.Value(DynamoDbToken.NotEqual, start, next.Location);
-                }
-                else if (next.HasValue && next.Value == '=')
-                {
-                    next = next.Remainder.ConsumeChar();
-                    yield return Result.Value(DynamoDbToken.LessThanOrEqual, start, next.Location);
-                }
-                else
-                {
-                    yield return Result.Value(DynamoDbToken.LessThan, start, next.Location);
-                }
-            }
-            else if (ch == '>')
-            {
-                var start = next.Location;
-                next = next.Remainder.ConsumeChar();
-                if (next.HasValue && next.Value == '=')
-                {
-                    next = next.Remainder.ConsumeChar();
-                    yield return Result.Value(DynamoDbToken.GreaterThanOrEqual, start, next.Location);
-                }
-                else
-                {
-                    yield return Result.Value(DynamoDbToken.GreaterThan, start, next.Location);
-                }
-            }
-            else if (ch == ',')
-            {
-                yield return Result.Value(DynamoDbToken.Comma, next.Location, next.Remainder);
-                next = next.Remainder.ConsumeChar();
-            }
-            else if (ch == '.')
-            {
-                yield return Result.Value(DynamoDbToken.Dot, next.Location, next.Remainder);
-                next = next.Remainder.ConsumeChar();
-            }
-            else if (ch == '(')
-            {
-                yield return Result.Value(DynamoDbToken.OpenParen, next.Location, next.Remainder);
-                next = next.Remainder.ConsumeChar();
-            }
-            else if (ch == ')')
-            {
-                yield return Result.Value(DynamoDbToken.CloseParen, next.Location, next.Remainder);
-                next = next.Remainder.ConsumeChar();
-            }
-            else if (ch == '[')
-            {
-                yield return Result.Value(DynamoDbToken.OpenBracket, next.Location, next.Remainder);
-                next = next.Remainder.ConsumeChar();
-            }
-            else if (ch == ']')
-            {
-                yield return Result.Value(DynamoDbToken.CloseBracket, next.Location, next.Remainder);
-                next = next.Remainder.ConsumeChar();
-            }
-            else if (ch == '+')
-            {
-                yield return Result.Value(DynamoDbToken.Plus, next.Location, next.Remainder);
-                next = next.Remainder.ConsumeChar();
-            }
-            else if (ch == '-')
-            {
-                yield return Result.Value(DynamoDbToken.Minus, next.Location, next.Remainder);
-                next = next.Remainder.ConsumeChar();
-            }
-            else
-            {
-                yield return Result.Empty<DynamoDbToken>(next.Location, $"Unexpected character '{ch}'");
-                next = next.Remainder.ConsumeChar();
-            }
+    internal static readonly Tokenizer<DynamoDbToken> Instance =
+        new TokenizerBuilder<DynamoDbToken>()
 
-            next = SkipWhiteSpace(next.Location);
-        }
-    }
+            // Whitespace
+            .Ignore(Span.WhiteSpace)
 
-    private static new Result<char> SkipWhiteSpace(TextSpan span)
-    {
-        var next = span.ConsumeChar();
-        while (next.HasValue && char.IsWhiteSpace(next.Value))
-            next = next.Remainder.ConsumeChar();
-        return next;
-    }
+            // Prefix tokens (# and : are natural delimiters)
+            .Match(ExpressionAttrNameSpan, DynamoDbToken.ExpressionAttrName)
+            .Match(ExpressionAttrValueSpan, DynamoDbToken.ExpressionAttrValue)
+
+            // Multi-character operators (before single-character ones)
+            .Match(Span.EqualTo("<>"), DynamoDbToken.NotEqual)
+            .Match(Span.EqualTo("<="), DynamoDbToken.LessThanOrEqual)
+            .Match(Span.EqualTo(">="), DynamoDbToken.GreaterThanOrEqual)
+
+            // Single-character operators
+            .Match(Character.EqualTo('='), DynamoDbToken.Equal)
+            .Match(Character.EqualTo('<'), DynamoDbToken.LessThan)
+            .Match(Character.EqualTo('>'), DynamoDbToken.GreaterThan)
+
+            // Punctuation
+            .Match(Character.EqualTo(','), DynamoDbToken.Comma)
+            .Match(Character.EqualTo('.'), DynamoDbToken.Dot)
+            .Match(Character.EqualTo('('), DynamoDbToken.OpenParen)
+            .Match(Character.EqualTo(')'), DynamoDbToken.CloseParen)
+            .Match(Character.EqualTo('['), DynamoDbToken.OpenBracket)
+            .Match(Character.EqualTo(']'), DynamoDbToken.CloseBracket)
+            .Match(Character.EqualTo('+'), DynamoDbToken.Plus)
+            .Match(Character.EqualTo('-'), DynamoDbToken.Minus)
+
+            // Keywords (case-insensitive, require delimiters)
+            .Match(Span.EqualToIgnoreCase("AND"), DynamoDbToken.And, requireDelimiters: true)
+            .Match(Span.EqualToIgnoreCase("OR"), DynamoDbToken.Or, requireDelimiters: true)
+            .Match(Span.EqualToIgnoreCase("NOT"), DynamoDbToken.Not, requireDelimiters: true)
+            .Match(Span.EqualToIgnoreCase("BETWEEN"), DynamoDbToken.Between, requireDelimiters: true)
+            .Match(Span.EqualToIgnoreCase("IN"), DynamoDbToken.In, requireDelimiters: true)
+            .Match(Span.EqualToIgnoreCase("SET"), DynamoDbToken.Set, requireDelimiters: true)
+            .Match(Span.EqualToIgnoreCase("REMOVE"), DynamoDbToken.Remove, requireDelimiters: true)
+            .Match(Span.EqualToIgnoreCase("ADD"), DynamoDbToken.Add, requireDelimiters: true)
+            .Match(Span.EqualToIgnoreCase("DELETE"), DynamoDbToken.Delete, requireDelimiters: true)
+
+            // Functions (case-insensitive, require delimiters)
+            .Match(Span.EqualToIgnoreCase("attribute_exists"), DynamoDbToken.AttributeExists, requireDelimiters: true)
+            .Match(Span.EqualToIgnoreCase("attribute_not_exists"), DynamoDbToken.AttributeNotExists, requireDelimiters: true)
+            .Match(Span.EqualToIgnoreCase("attribute_type"), DynamoDbToken.AttributeType, requireDelimiters: true)
+            .Match(Span.EqualToIgnoreCase("begins_with"), DynamoDbToken.BeginsWith, requireDelimiters: true)
+            .Match(Span.EqualToIgnoreCase("contains"), DynamoDbToken.Contains, requireDelimiters: true)
+            .Match(Span.EqualToIgnoreCase("size"), DynamoDbToken.Size, requireDelimiters: true)
+            .Match(Span.EqualToIgnoreCase("if_not_exists"), DynamoDbToken.IfNotExists, requireDelimiters: true)
+            .Match(Span.EqualToIgnoreCase("list_append"), DynamoDbToken.ListAppend, requireDelimiters: true)
+
+            // Generic identifier (after keywords so they take priority)
+            .Match(IdentifierChars, DynamoDbToken.Identifier, requireDelimiters: true)
+
+            // Number literals
+            .Match(Numerics.Natural, DynamoDbToken.Number)
+
+            .Build();
 }

@@ -5,7 +5,7 @@ namespace DynamoDbLite.Expressions;
 
 internal static class ProjectionExpressionParser
 {
-    private static readonly DynamoDbTokenizer Tokenizer = new();
+    private static readonly Tokenizer<DynamoDbToken> Tokenizer = DynamoDbTokenizer.Instance;
 
     private static readonly TokenListParser<DynamoDbToken, PathElement> IdentifierElement =
         Token.EqualTo(DynamoDbToken.Identifier).Select(static t => (PathElement)new AttributeNameElement(t.ToStringValue()))

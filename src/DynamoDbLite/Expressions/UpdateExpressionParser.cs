@@ -5,7 +5,7 @@ namespace DynamoDbLite.Expressions;
 
 internal static class UpdateExpressionParser
 {
-    private static readonly DynamoDbTokenizer Tokenizer = new();
+    private static readonly Tokenizer<DynamoDbToken> Tokenizer = DynamoDbTokenizer.Instance;
 
     // ── Path parsing ───────────────────────────────────────────────────
 
