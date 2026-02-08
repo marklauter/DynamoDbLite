@@ -3,7 +3,6 @@ using Amazon.DynamoDBv2.Model;
 
 namespace DynamoDbLite;
 
-// ── Table Management ───────────────────────────────────────────────
 public sealed partial class DynamoDbClient
 {
     public Task<CreateTableResponse> CreateTableAsync(

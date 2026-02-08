@@ -2,7 +2,6 @@ using Amazon.DynamoDBv2.Model;
 
 namespace DynamoDbLite;
 
-// ── Query & Scan ──────────────────────────────────────────────────
 public sealed partial class DynamoDbClient
 {
     public Task<QueryResponse> QueryAsync(QueryRequest request, CancellationToken cancellationToken = default) => throw new NotImplementedException();

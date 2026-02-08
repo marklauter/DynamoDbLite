@@ -3,7 +3,6 @@ using Amazon.DynamoDBv2.Model;
 
 namespace DynamoDbLite;
 
-// ── Item CRUD ──────────────────────────────────────────────────────
 public sealed partial class DynamoDbClient
 {
     public Task<PutItemResponse> PutItemAsync(
