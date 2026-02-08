@@ -8,7 +8,7 @@ public sealed class ScanTests : IAsyncLifetime
     private readonly DynamoDbClient client = new(new DynamoDbLiteOptions(
         $"Data Source=Test_{Guid.NewGuid():N};Mode=Memory;Cache=Shared"));
 
-    public async ValueTask InitializeAsync() 
+    public async ValueTask InitializeAsync()
         => _ = await client.CreateTableAsync(
             new CreateTableRequest
             {
@@ -23,7 +23,7 @@ public sealed class ScanTests : IAsyncLifetime
                         new AttributeDefinition { AttributeName = "PK", AttributeType = ScalarAttributeType.S },
                         new AttributeDefinition { AttributeName = "SK", AttributeType = ScalarAttributeType.S }
                     ]
-            }, 
+            },
             TestContext.Current.CancellationToken);
 
     public ValueTask DisposeAsync()

@@ -451,24 +451,19 @@ internal sealed class SqliteStore : IDisposable
 
         foreach (var op in operations)
         {
-            if (op.ItemJson is not null)
-            {
-                _ = await connection.ExecuteAsync(
+            _ = op.ItemJson is not null
+                ? await connection.ExecuteAsync(
                     """
                     INSERT INTO items (table_name, pk, sk, sk_num, item_json)
                     VALUES (@TableName, @Pk, @Sk, @SkNum, @ItemJson)
                     ON CONFLICT (table_name, pk, sk) DO UPDATE SET item_json = @ItemJson, sk_num = @SkNum
                     """,
                     op,
-                    transaction);
-            }
-            else
-            {
-                _ = await connection.ExecuteAsync(
+                    transaction)
+                : await connection.ExecuteAsync(
                     "DELETE FROM items WHERE table_name = @TableName AND pk = @Pk AND sk = @Sk",
                     op,
                     transaction);
-            }
         }
 
         var affectedTables = operations.Select(static o => o.TableName).Distinct();

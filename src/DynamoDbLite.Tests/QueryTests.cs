@@ -362,7 +362,7 @@ public sealed class QueryTests : IAsyncLifetime
     // ── Non-existent table ──────────────────────────────────────────
 
     [Fact]
-    public async Task QueryAsync_NonExistentTable_ThrowsResourceNotFoundException() 
+    public async Task QueryAsync_NonExistentTable_ThrowsResourceNotFoundException()
         => _ = await Assert.ThrowsAsync<ResourceNotFoundException>(()
             => client.QueryAsync(new QueryRequest
             {

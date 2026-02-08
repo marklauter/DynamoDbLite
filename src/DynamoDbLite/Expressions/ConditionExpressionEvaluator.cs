@@ -145,10 +145,11 @@ internal static class ConditionExpressionEvaluator
         var lower = ResolveOperand(node.Lower, item, expressionAttributeNames, expressionAttributeValues);
         var upper = ResolveOperand(node.Upper, item, expressionAttributeNames, expressionAttributeValues);
 
-        if (value is null || lower is null || upper is null)
-            return false;
-
-        return CompareValues(value, lower) >= 0 && CompareValues(value, upper) <= 0;
+        return value is not null
+            && lower is not null
+            && upper is not null
+            && CompareValues(value, lower) >= 0
+            && CompareValues(value, upper) <= 0;
     }
 
     private static bool EvaluateIn(
