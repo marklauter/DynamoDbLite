@@ -63,6 +63,7 @@ internal sealed class SqliteStore : IDisposable
                 table_name  TEXT NOT NULL,
                 pk          TEXT NOT NULL,
                 sk          TEXT NOT NULL DEFAULT '',
+                sk_num      REAL,
                 item_json   TEXT NOT NULL,
                 PRIMARY KEY (table_name, pk, sk)
             );
@@ -179,7 +180,7 @@ internal sealed class SqliteStore : IDisposable
             : new KeySchemaInfo(DeserializeKeySchema(row.KeySchemaJson), DeserializeAttributeDefinitions(row.AttributeDefinitionsJson));
     }
 
-    internal async Task<string?> PutItemAsync(string tableName, string pk, string sk, string itemJson, CancellationToken cancellationToken = default)
+    internal async Task<string?> PutItemAsync(string tableName, string pk, string sk, string itemJson, double? skNum = null, CancellationToken cancellationToken = default)
     {
         using var connection = await OpenConnectionAsync(cancellationToken);
         using var transaction = await connection.BeginTransactionAsync(cancellationToken);
@@ -191,11 +192,11 @@ internal sealed class SqliteStore : IDisposable
 
         _ = await connection.ExecuteAsync(
             """
-            INSERT INTO items (table_name, pk, sk, item_json)
-            VALUES (@tableName, @pk, @sk, @itemJson)
-            ON CONFLICT (table_name, pk, sk) DO UPDATE SET item_json = @itemJson
+            INSERT INTO items (table_name, pk, sk, sk_num, item_json)
+            VALUES (@tableName, @pk, @sk, @skNum, @itemJson)
+            ON CONFLICT (table_name, pk, sk) DO UPDATE SET item_json = @itemJson, sk_num = @skNum
             """,
-            new { tableName, pk, sk, itemJson },
+            new { tableName, pk, sk, skNum, itemJson },
             transaction);
 
         _ = await connection.ExecuteAsync(
@@ -250,6 +251,80 @@ internal sealed class SqliteStore : IDisposable
 
         await transaction.CommitAsync(cancellationToken);
         return oldJson;
+    }
+
+    internal async Task<List<ItemRow>> QueryItemsAsync(
+        string tableName,
+        string pkValue,
+        string? skWhereSql,
+        DynamicParameters? skParams,
+        string orderByColumn,
+        bool ascending,
+        int? limit,
+        string? exclusiveStartSk,
+        CancellationToken cancellationToken = default)
+    {
+        using var connection = await OpenConnectionAsync(cancellationToken);
+        var parameters = new DynamicParameters();
+        parameters.Add("@tableName", tableName);
+        parameters.Add("@pk", pkValue);
+
+        if (skParams is not null)
+            parameters.AddDynamicParams(skParams);
+
+        var sql = "SELECT pk AS Pk, sk AS Sk, item_json AS ItemJson FROM items WHERE table_name = @tableName AND pk = @pk";
+
+        if (skWhereSql is not null)
+            sql += $" AND {skWhereSql}";
+
+        if (exclusiveStartSk is not null)
+        {
+            var skOp = ascending ? ">" : "<";
+            parameters.Add("@esSk", exclusiveStartSk);
+            sql += $" AND {orderByColumn} {skOp} @esSk";
+        }
+
+        var direction = ascending ? "ASC" : "DESC";
+        sql += $" ORDER BY {orderByColumn} {direction}";
+
+        if (limit is not null)
+        {
+            parameters.Add("@limit", limit.Value);
+            sql += " LIMIT @limit";
+        }
+
+        return (await connection.QueryAsync<ItemRow>(sql, parameters)).AsList();
+    }
+
+    internal async Task<List<ItemRow>> ScanItemsAsync(
+        string tableName,
+        int? limit,
+        string? exclusiveStartPk,
+        string? exclusiveStartSk,
+        CancellationToken cancellationToken = default)
+    {
+        using var connection = await OpenConnectionAsync(cancellationToken);
+        var parameters = new DynamicParameters();
+        parameters.Add("@tableName", tableName);
+
+        var sql = "SELECT pk AS Pk, sk AS Sk, item_json AS ItemJson FROM items WHERE table_name = @tableName";
+
+        if (exclusiveStartPk is not null)
+        {
+            parameters.Add("@esPk", exclusiveStartPk);
+            parameters.Add("@esSk", exclusiveStartSk ?? string.Empty);
+            sql += " AND (pk > @esPk OR (pk = @esPk AND sk > @esSk))";
+        }
+
+        sql += " ORDER BY pk, sk";
+
+        if (limit is not null)
+        {
+            parameters.Add("@limit", limit.Value);
+            sql += " LIMIT @limit";
+        }
+
+        return (await connection.QueryAsync<ItemRow>(sql, parameters)).AsList();
     }
 
     internal async Task<List<string>> ListTableNamesAsync(string? exclusiveStartTableName, int limit, CancellationToken cancellationToken = default)
@@ -374,3 +449,5 @@ internal sealed record KeySchemaRow(
 internal sealed record KeySchemaInfo(
     List<KeySchemaElement> KeySchema,
     List<AttributeDefinition> AttributeDefinitions);
+
+internal sealed record ItemRow(string Pk, string Sk, string ItemJson);

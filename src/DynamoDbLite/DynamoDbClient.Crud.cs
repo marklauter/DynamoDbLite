@@ -1,5 +1,6 @@
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
+using System.Globalization;
 
 namespace DynamoDbLite;
 
@@ -50,7 +51,8 @@ public sealed partial class DynamoDbClient
                 throw new ConditionalCheckFailedException("The conditional request failed");
         }
 
-        var oldJson = await store.PutItemAsync(request.TableName, pk, sk, itemJson, cancellationToken);
+        var skNum = ComputeSkNum(sk, keyInfo);
+        var oldJson = await store.PutItemAsync(request.TableName, pk, sk, itemJson, skNum, cancellationToken);
 
         var response = new PutItemResponse { HttpStatusCode = System.Net.HttpStatusCode.OK };
 
@@ -234,7 +236,8 @@ public sealed partial class DynamoDbClient
         }
 
         var itemJson = AttributeValueSerializer.Serialize(existingItem);
-        _ = await store.PutItemAsync(request.TableName, pk, sk, itemJson, cancellationToken);
+        var skNum = ComputeSkNum(sk, keyInfo);
+        _ = await store.PutItemAsync(request.TableName, pk, sk, itemJson, skNum, cancellationToken);
 
         var response = new UpdateItemResponse { HttpStatusCode = System.Net.HttpStatusCode.OK };
 
@@ -264,4 +267,16 @@ public sealed partial class DynamoDbClient
         ReturnValue returnValues,
         CancellationToken cancellationToken = default) =>
         throw new NotImplementedException("Legacy AttributeValueUpdate API is not supported. Use UpdateExpression instead.");
+
+    private static double? ComputeSkNum(string sk, KeySchemaInfo keyInfo)
+    {
+        var rangeKey = keyInfo.KeySchema.FirstOrDefault(static k => k.KeyType == KeyType.RANGE);
+        if (rangeKey is null)
+            return null;
+
+        var attrDef = keyInfo.AttributeDefinitions.First(a => a.AttributeName == rangeKey.AttributeName);
+        return attrDef.AttributeType == ScalarAttributeType.N
+            ? double.Parse(sk, CultureInfo.InvariantCulture)
+            : null;
+    }
 }
