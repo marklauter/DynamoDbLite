@@ -14,7 +14,15 @@
       "Bash(git fetch:*)",
       "Bash(git pull)",
       "Bash(dotnet new:*)",
-      "Bash(dotnet restore:*)"
+      "Bash(dotnet restore:*)",
+      "Bash(dotnet build:*)",
+      "Bash(dotnet test:*)",
+      "Bash(dotnet clean:*)",
+      "Bash(dotnet sln:*)",
+      "Bash(dotnet add:*)",
+      "Bash(dotnet remove:*)",
+      "Bash(dotnet list:*)",
+      "Bash(dotnet format:*)"
     ],
     "deny": [
       "Bash(cd:*)"

@@ -23,11 +23,11 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<Using Include="Xunit" />
+	  <ProjectReference Include="..\DynamoDbLite\DynamoDbLite.csproj" />
 	</ItemGroup>
 
 	<ItemGroup>
-		<ProjectReference Include="..\..\src\DynamoDbLite\DynamoDbLite.csproj" />
+		<Using Include="Xunit" />
 	</ItemGroup>
 
 </Project>
