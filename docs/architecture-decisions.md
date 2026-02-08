@@ -39,7 +39,7 @@ Or tackle everything at once?
 
 **Decision:** Incremental, in three phases:
 
-1. **Phase 1 — Table management:** `CreateTableAsync`, `DeleteTableAsync`, `DescribeTableAsync`, `ListTablesAsync`
+1. **Phase 1 — Table management (complete):** `CreateTableAsync`, `DeleteTableAsync`, `DescribeTableAsync`, `ListTablesAsync`
 2. **Phase 2 — Item CRUD:** `PutItemAsync`, `GetItemAsync`, `DeleteItemAsync`, `UpdateItemAsync`
 3. **Phase 3 — Querying:** `QueryAsync`, `ScanAsync`
 
