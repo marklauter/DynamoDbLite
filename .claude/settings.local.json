@@ -22,7 +22,8 @@
       "Bash(dotnet add:*)",
       "Bash(dotnet remove:*)",
       "Bash(dotnet list:*)",
-      "Bash(dotnet format:*)"
+      "Bash(dotnet format:*)",
+      "Bash(dir:*)"
     ],
     "deny": [
       "Bash(cd:*)"

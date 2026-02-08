@@ -4,7 +4,7 @@
 
 ## Project Overview
 
-<!-- Describe what this project does and its main purpose -->
+DynamoDbLite is a local, in-process implementation of `IAmazonDynamoDB` backed by SQLite (via Microsoft.Data.Sqlite and Dapper). It replicates the behavior of `AmazonDynamoDBClient` so that applications and tests can run against a lightweight, embedded database instead of a real AWS DynamoDB instance. This enables fast local development, unit/integration testing without network dependencies, and offline workflows.
 
 ## Tech Stack
 
