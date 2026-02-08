@@ -1,13 +1,8 @@
 # Architecture Decisions
 
-## 1. Storage Model
+## Storage Model
 
-**Question:** Should each DynamoDB table map to its own SQLite table, or should there be a single SQLite table that stores all items as serialized blobs (e.g., JSON)?
-
-- **Single-table-with-JSON** — simpler, more faithful to DynamoDB's schemaless nature
-- **Per-table DDL** — more relational, but harder to reconcile with DynamoDB's flexible attributes
-
-**Decision:** Single SQLite table with dedicated columns for hash key, sort key, and JSON payload.
+Single SQLite table with dedicated columns for hash key, sort key, and JSON payload — keeps DynamoDB's schemaless nature while allowing efficient key lookups.
 
 ```sql
 CREATE TABLE items (
@@ -19,52 +14,33 @@ CREATE TABLE items (
 );
 ```
 
-This keeps the schemaless nature of DynamoDB while allowing efficient lookups on the key columns.
+## SQLite Lifetime
 
-## 2. SQLite Lifetime
+Configurable via connection string; defaults to in-memory.
 
-**Question:** Should the database be purely in-memory (`:memory:`), file-backed, or configurable? Should the constructor accept a connection string or path?
+## Concurrency
 
-**Decision:** Configurable. Accept a connection string or path; default to in-memory (`:memory:`).
+Connection pooling with thread-safe access across concurrent async calls.
 
-## 3. Scope of Operations
+## Secondary Indexes
 
-**Question:** Which operations should be implemented first?
+Out of scope for now.
 
-- **Table management:** `CreateTableAsync`, `DeleteTableAsync`, `DescribeTableAsync`, `ListTablesAsync`
-- **Item CRUD:** `PutItemAsync`, `GetItemAsync`, `DeleteItemAsync`, `UpdateItemAsync`
-- **Querying:** `QueryAsync`, `ScanAsync`
+## Behavioral Fidelity
 
-Or tackle everything at once?
-
-**Decision:** Incremental, in three phases:
-
-1. **Phase 1 — Table management (complete):** `CreateTableAsync`, `DeleteTableAsync`, `DescribeTableAsync`, `ListTablesAsync`
-2. **Phase 2 — Item CRUD:** `PutItemAsync`, `GetItemAsync`, `DeleteItemAsync`, `UpdateItemAsync`
-3. **Phase 3 — Querying:** `QueryAsync`, `ScanAsync`
-
-## 4. Behavioral Fidelity
-
-**Question:** How closely should we match DynamoDB semantics?
-
-- Should `ConditionExpression` / `FilterExpression` / `ProjectionExpression` be parsed and evaluated?
-- Should `UpdateExpression` (`SET`, `REMOVE`, `ADD`, `DELETE`) be supported?
-- Should we enforce key schema validation (rejecting puts with missing partition/sort keys)?
-
-**Decision:** Full fidelity.
+Full fidelity with DynamoDB semantics:
 
 - Parse and evaluate `ConditionExpression`, `FilterExpression`, `ProjectionExpression`
 - Support `UpdateExpression` (`SET`, `REMOVE`, `ADD`, `DELETE`)
-- Enforce key schema validation (reject puts with missing partition/sort keys)
+- Enforce key schema validation
 
-## 5. Secondary Indexes
+## Implementation Phases
 
-**Question:** Should GSI/LSI creation and querying be supported, or out of scope for now?
-
-**Decision:** Out of scope for now. GSI/LSI support will be added later.
-
-## 6. Concurrency
-
-**Question:** Single connection or connection pooling? Should we worry about thread safety across concurrent async calls?
-
-**Decision:** Connection pooling with thread-safe access across concurrent async calls.
+1. **Phase 1 — Table management (complete):** `CreateTableAsync`, `DeleteTableAsync`, `DescribeTableAsync`, `ListTablesAsync`
+2. **Phase 2 — Item CRUD** (sequential, each builds on the last):
+   1. `PutItemAsync` — adds AttributeValue serializer, key extraction helper, store upsert
+   2. `GetItemAsync` — adds AttributeValue deserializer, `ProjectionExpression`
+   3. `DeleteItemAsync` — reuses key extraction, adds `ConditionExpression`
+   4. `UpdateItemAsync` — adds `UpdateExpression` parser (`SET`, `REMOVE`, `ADD`, `DELETE`)
+3. **Phase 3 — Querying:** `QueryAsync`, `ScanAsync`
+4. **Phase 4 — Secondary Indexes:** GSI/LSI creation and querying
