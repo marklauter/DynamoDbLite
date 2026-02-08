@@ -12,6 +12,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
+		<PackageReference Include="AWSSDK.DynamoDBv2" Version="4.0.14" />
 		<PackageReference Include="Dapper" Version="2.1.66" />
 		<PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.2" />
 		<PackageReference Include="IDisposableAnalyzers" Version="4.0.8">
