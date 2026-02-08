@@ -19,7 +19,7 @@
 C# 14 / .NET 10 — high-performance, functional, zero-allocation.
 
 ### Design Philosophy
-1. **Zero-allocation over readability** — avoid heap allocations in hot paths; accept less readable code for performance
+1. **Performance-aware always, zero-allocation when it matters** — design for performance by default (prefer spans, avoid allocations, think about memory); sacrifice readability only in hot paths
 2. **Functional style** — expression bodies, pure functions, immutability, no side effects
 3. **Immutable by default** — records over classes, `readonly` everything, no mutable state
 4. **Span-first** — pass `Span<T>`/`ReadOnlySpan<T>` instead of arrays or strings
@@ -27,6 +27,7 @@ C# 14 / .NET 10 — high-performance, functional, zero-allocation.
 ### Type Design
 - prefer `record` over `class` for all data types
 - use `readonly record struct` for small value types (≤16 bytes)
+- seal all records and classes by default (enables devirtualization)
 - use primary constructors for dependency injection and simple initialization
 - use `required init` properties for mandatory immutable fields
 - prefer `field` keyword in property accessors over backing fields
