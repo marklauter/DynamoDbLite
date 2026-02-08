@@ -302,6 +302,7 @@ public sealed partial class DynamoDbClient
                 exclusiveStartPk = indexKeys.Value.Pk;
                 exclusiveStartSk = indexKeys.Value.Sk;
             }
+
             var tableKeys = KeyHelper.TryExtractIndexKeys(request.ExclusiveStartKey, tableKeyInfo.KeySchema, tableKeyInfo.AttributeDefinitions);
             if (tableKeys is not null)
             {

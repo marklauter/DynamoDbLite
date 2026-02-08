@@ -17,8 +17,7 @@ public sealed class SecondaryIndexTests : IAsyncLifetime
     }
 
     private async Task CreateTableWithGsiAsync(string tableName = "TestTable")
-    {
-        _ = await client.CreateTableAsync(new CreateTableRequest
+        => _ = await client.CreateTableAsync(new CreateTableRequest
         {
             TableName = tableName,
             KeySchema =
@@ -47,25 +46,22 @@ public sealed class SecondaryIndexTests : IAsyncLifetime
                 }
             ]
         }, TestContext.Current.CancellationToken);
-    }
 
-    private async Task CreateTableWithLsiAsync(string tableName = "TestTable")
+    private async Task CreateTableWithLsiAsync(string tableName = "TestTable") => _ = await client.CreateTableAsync(new CreateTableRequest
     {
-        _ = await client.CreateTableAsync(new CreateTableRequest
-        {
-            TableName = tableName,
-            KeySchema =
+        TableName = tableName,
+        KeySchema =
             [
                 new KeySchemaElement { AttributeName = "PK", KeyType = KeyType.HASH },
                 new KeySchemaElement { AttributeName = "SK", KeyType = KeyType.RANGE }
             ],
-            AttributeDefinitions =
+        AttributeDefinitions =
             [
                 new AttributeDefinition { AttributeName = "PK", AttributeType = ScalarAttributeType.S },
                 new AttributeDefinition { AttributeName = "SK", AttributeType = ScalarAttributeType.S },
                 new AttributeDefinition { AttributeName = "LSI_SK", AttributeType = ScalarAttributeType.S }
             ],
-            LocalSecondaryIndexes =
+        LocalSecondaryIndexes =
             [
                 new LocalSecondaryIndex
                 {
@@ -78,8 +74,7 @@ public sealed class SecondaryIndexTests : IAsyncLifetime
                     Projection = new Projection { ProjectionType = ProjectionType.ALL }
                 }
             ]
-        }, TestContext.Current.CancellationToken);
-    }
+    }, TestContext.Current.CancellationToken);
 
     // ── GSI Creation ────────────────────────────────────────────────
 
