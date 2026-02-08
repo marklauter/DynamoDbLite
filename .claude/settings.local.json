@@ -30,7 +30,8 @@
       "WebFetch(domain:raw.githubusercontent.com)",
       "WebFetch(domain:github.com)",
       "WebFetch(domain:api.github.com)",
-      "Bash(Select-String -Pattern \"passed|failed|total|Tests run\")"
+      "Bash(Select-String -Pattern \"passed|failed|total|Tests run\")",
+      "Bash(dotnet nuget:*)"
     ],
     "deny": [
       "Bash(cd:*)"

@@ -422,6 +422,72 @@ internal sealed class SqliteStore : IDisposable
             : null;
     }
 
+    internal async Task<List<(string TableName, string ItemJson)>> BatchGetItemsAsync(
+        List<(string TableName, string Pk, string Sk)> keys,
+        CancellationToken cancellationToken = default)
+    {
+        using var connection = await OpenConnectionAsync(cancellationToken);
+        var results = new List<(string TableName, string ItemJson)>(keys.Count);
+
+        foreach (var (tableName, pk, sk) in keys)
+        {
+            var itemJson = await connection.QuerySingleOrDefaultAsync<string>(
+                "SELECT item_json FROM items WHERE table_name = @tableName AND pk = @pk AND sk = @sk",
+                new { tableName, pk, sk });
+
+            if (itemJson is not null)
+                results.Add((tableName, itemJson));
+        }
+
+        return results;
+    }
+
+    internal async Task BatchWriteItemsAsync(
+        List<BatchWriteOperation> operations,
+        CancellationToken cancellationToken = default)
+    {
+        using var connection = await OpenConnectionAsync(cancellationToken);
+        using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+
+        foreach (var op in operations)
+        {
+            if (op.ItemJson is not null)
+            {
+                _ = await connection.ExecuteAsync(
+                    """
+                    INSERT INTO items (table_name, pk, sk, sk_num, item_json)
+                    VALUES (@TableName, @Pk, @Sk, @SkNum, @ItemJson)
+                    ON CONFLICT (table_name, pk, sk) DO UPDATE SET item_json = @ItemJson, sk_num = @SkNum
+                    """,
+                    op,
+                    transaction);
+            }
+            else
+            {
+                _ = await connection.ExecuteAsync(
+                    "DELETE FROM items WHERE table_name = @TableName AND pk = @Pk AND sk = @Sk",
+                    op,
+                    transaction);
+            }
+        }
+
+        var affectedTables = operations.Select(static o => o.TableName).Distinct();
+        foreach (var tableName in affectedTables)
+        {
+            _ = await connection.ExecuteAsync(
+                """
+                UPDATE tables SET
+                    item_count = (SELECT COUNT(1) FROM items WHERE table_name = @tableName),
+                    table_size_bytes = (SELECT COALESCE(SUM(LENGTH(item_json)), 0) FROM items WHERE table_name = @tableName)
+                WHERE table_name = @tableName
+                """,
+                new { tableName },
+                transaction);
+        }
+
+        await transaction.CommitAsync(cancellationToken);
+    }
+
     public void Dispose()
     {
         if (disposed)
@@ -431,6 +497,13 @@ internal sealed class SqliteStore : IDisposable
         disposed = true;
     }
 }
+
+internal sealed record BatchWriteOperation(
+    string TableName,
+    string Pk,
+    string Sk,
+    double? SkNum,
+    string? ItemJson);
 
 internal sealed record TableRow(
     string TableName,
