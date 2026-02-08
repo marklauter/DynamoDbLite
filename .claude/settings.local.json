@@ -25,7 +25,11 @@
       "Bash(dotnet format:*)",
       "Bash(dir:*)",
       "Bash(findstr:*)",
-      "Bash(del \"D:\\\\DynamoDbLite\\\\src\\\\DynamoDbLite.Tests\\\\UnitTest1.cs\")"
+      "Bash(del \"D:\\\\DynamoDbLite\\\\src\\\\DynamoDbLite.Tests\\\\UnitTest1.cs\")",
+      "WebSearch",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:api.github.com)"
     ],
     "deny": [
       "Bash(cd:*)"

@@ -1,0 +1,271 @@
+using Amazon.DynamoDBv2.Model;
+using System.Globalization;
+
+namespace DynamoDbLite.Expressions;
+
+internal static class ConditionExpressionEvaluator
+{
+    internal static bool Evaluate(
+        ConditionNode node,
+        Dictionary<string, AttributeValue>? item,
+        Dictionary<string, string>? expressionAttributeNames,
+        Dictionary<string, AttributeValue>? expressionAttributeValues) =>
+        node switch
+        {
+            ComparisonNode comp => EvaluateComparison(comp, item, expressionAttributeNames, expressionAttributeValues),
+            BetweenNode between => EvaluateBetween(between, item, expressionAttributeNames, expressionAttributeValues),
+            InNode inNode => EvaluateIn(inNode, item, expressionAttributeNames, expressionAttributeValues),
+            LogicalNode logical => EvaluateLogical(logical, item, expressionAttributeNames, expressionAttributeValues),
+            NotNode not => !Evaluate(not.Inner, item, expressionAttributeNames, expressionAttributeValues),
+            FunctionConditionNode func => EvaluateFunction(func, item, expressionAttributeNames, expressionAttributeValues),
+            _ => throw new ArgumentException($"Unknown condition node type: {node.GetType().Name}")
+        };
+
+    private static AttributeValue? ResolveOperand(
+        Operand operand,
+        Dictionary<string, AttributeValue>? item,
+        Dictionary<string, string>? expressionAttributeNames,
+        Dictionary<string, AttributeValue>? expressionAttributeValues) =>
+        operand switch
+        {
+            PathOperand path => ExpressionHelper.ResolvePath(item, path.Path, expressionAttributeNames),
+            ValueRefOperand valueRef => expressionAttributeValues?.TryGetValue(valueRef.ValueRef, out var v) is true
+                ? v
+                : throw new ArgumentException($"Expression attribute value {valueRef.ValueRef} is not defined"),
+            SizeFunctionOperand sizeOp => EvaluateSize(sizeOp, item, expressionAttributeNames),
+            LiteralOperand lit => lit.Value,
+            _ => throw new ArgumentException($"Unknown operand type: {operand.GetType().Name}")
+        };
+
+    private static AttributeValue EvaluateSize(
+        SizeFunctionOperand sizeOp,
+        Dictionary<string, AttributeValue>? item,
+        Dictionary<string, string>? expressionAttributeNames)
+    {
+        var value = ExpressionHelper.ResolvePath(item, sizeOp.Path, expressionAttributeNames);
+        if (value is null)
+            return new AttributeValue { N = "0" };
+
+        var size = value switch
+        {
+            { S: not null } => value.S.Length,
+            { N: not null } => value.N.Length,
+            { B: not null } => (int)value.B.Length,
+            { SS: not null } => value.SS.Count,
+            { NS: not null } => value.NS.Count,
+            { BS: not null } => value.BS.Count,
+            { L: not null } => value.L.Count,
+            { M: not null } => value.M.Count,
+            _ => 0
+        };
+
+        return new AttributeValue { N = size.ToString(CultureInfo.InvariantCulture) };
+    }
+
+    private static int CompareValues(AttributeValue? left, AttributeValue? right)
+    {
+        if (left is null || right is null)
+            throw new ArgumentException("Cannot compare null attribute values");
+
+        if (left.S is not null && right.S is not null)
+            return string.Compare(left.S, right.S, StringComparison.Ordinal);
+
+        if (left.N is not null && right.N is not null)
+            return decimal.Parse(left.N, CultureInfo.InvariantCulture)
+                .CompareTo(decimal.Parse(right.N, CultureInfo.InvariantCulture));
+
+        if (left.B is not null && right.B is not null)
+            return CompareBytes(left.B.ToArray(), right.B.ToArray());
+
+        throw new ArgumentException("Cannot compare values of different or unsupported types");
+    }
+
+    private static int CompareBytes(byte[] left, byte[] right)
+    {
+        var minLength = Math.Min(left.Length, right.Length);
+        for (var i = 0; i < minLength; i++)
+        {
+            var cmp = left[i].CompareTo(right[i]);
+            if (cmp != 0)
+                return cmp;
+        }
+        return left.Length.CompareTo(right.Length);
+    }
+
+    private static bool ValuesEqual(AttributeValue? left, AttributeValue? right)
+    {
+        if (left is null && right is null)
+            return true;
+        if (left is null || right is null)
+            return false;
+
+        if (left.S is not null && right.S is not null)
+            return left.S == right.S;
+        if (left.N is not null && right.N is not null)
+            return decimal.Parse(left.N, CultureInfo.InvariantCulture)
+                == decimal.Parse(right.N, CultureInfo.InvariantCulture);
+        if (left.B is not null && right.B is not null)
+            return left.B.ToArray().AsSpan().SequenceEqual(right.B.ToArray());
+        if (left.BOOL is not null && right.BOOL is not null)
+            return left.BOOL == right.BOOL;
+        if (left.NULL is true && right.NULL is true)
+            return true;
+
+        return false;
+    }
+
+    private static bool EvaluateComparison(
+        ComparisonNode node,
+        Dictionary<string, AttributeValue>? item,
+        Dictionary<string, string>? expressionAttributeNames,
+        Dictionary<string, AttributeValue>? expressionAttributeValues)
+    {
+        var left = ResolveOperand(node.Left, item, expressionAttributeNames, expressionAttributeValues);
+        var right = ResolveOperand(node.Right, item, expressionAttributeNames, expressionAttributeValues);
+
+        if (node.Operator == "=" || node.Operator == "<>")
+        {
+            var eq = ValuesEqual(left, right);
+            return node.Operator == "=" ? eq : !eq;
+        }
+
+        var cmp = CompareValues(left, right);
+        return node.Operator switch
+        {
+            "<" => cmp < 0,
+            "<=" => cmp <= 0,
+            ">" => cmp > 0,
+            ">=" => cmp >= 0,
+            _ => throw new ArgumentException($"Unknown comparison operator: {node.Operator}")
+        };
+    }
+
+    private static bool EvaluateBetween(
+        BetweenNode node,
+        Dictionary<string, AttributeValue>? item,
+        Dictionary<string, string>? expressionAttributeNames,
+        Dictionary<string, AttributeValue>? expressionAttributeValues)
+    {
+        var value = ResolveOperand(node.Value, item, expressionAttributeNames, expressionAttributeValues);
+        var lower = ResolveOperand(node.Lower, item, expressionAttributeNames, expressionAttributeValues);
+        var upper = ResolveOperand(node.Upper, item, expressionAttributeNames, expressionAttributeValues);
+
+        return CompareValues(value, lower) >= 0 && CompareValues(value, upper) <= 0;
+    }
+
+    private static bool EvaluateIn(
+        InNode node,
+        Dictionary<string, AttributeValue>? item,
+        Dictionary<string, string>? expressionAttributeNames,
+        Dictionary<string, AttributeValue>? expressionAttributeValues)
+    {
+        var value = ResolveOperand(node.Value, item, expressionAttributeNames, expressionAttributeValues);
+        return node.List.Any(listItem =>
+            ValuesEqual(value, ResolveOperand(listItem, item, expressionAttributeNames, expressionAttributeValues)));
+    }
+
+    private static bool EvaluateLogical(
+        LogicalNode node,
+        Dictionary<string, AttributeValue>? item,
+        Dictionary<string, string>? expressionAttributeNames,
+        Dictionary<string, AttributeValue>? expressionAttributeValues) =>
+        node.Operator switch
+        {
+            "AND" => Evaluate(node.Left, item, expressionAttributeNames, expressionAttributeValues)
+                  && Evaluate(node.Right, item, expressionAttributeNames, expressionAttributeValues),
+            "OR" => Evaluate(node.Left, item, expressionAttributeNames, expressionAttributeValues)
+                 || Evaluate(node.Right, item, expressionAttributeNames, expressionAttributeValues),
+            _ => throw new ArgumentException($"Unknown logical operator: {node.Operator}")
+        };
+
+    private static bool EvaluateFunction(
+        FunctionConditionNode node,
+        Dictionary<string, AttributeValue>? item,
+        Dictionary<string, string>? expressionAttributeNames,
+        Dictionary<string, AttributeValue>? expressionAttributeValues) =>
+        node.FunctionName switch
+        {
+            "attribute_exists" => ResolveOperand(node.Arguments[0], item, expressionAttributeNames, expressionAttributeValues) is not null,
+            "attribute_not_exists" => ResolveOperand(node.Arguments[0], item, expressionAttributeNames, expressionAttributeValues) is null,
+            "attribute_type" => EvaluateAttributeType(node, item, expressionAttributeNames, expressionAttributeValues),
+            "begins_with" => EvaluateBeginsWith(node, item, expressionAttributeNames, expressionAttributeValues),
+            "contains" => EvaluateContains(node, item, expressionAttributeNames, expressionAttributeValues),
+            _ => throw new ArgumentException($"Unknown function: {node.FunctionName}")
+        };
+
+    private static bool EvaluateAttributeType(
+        FunctionConditionNode node,
+        Dictionary<string, AttributeValue>? item,
+        Dictionary<string, string>? expressionAttributeNames,
+        Dictionary<string, AttributeValue>? expressionAttributeValues)
+    {
+        var value = ResolveOperand(node.Arguments[0], item, expressionAttributeNames, expressionAttributeValues);
+        var typeVal = ResolveOperand(node.Arguments[1], item, expressionAttributeNames, expressionAttributeValues);
+
+        if (value is null || typeVal?.S is null)
+            return false;
+
+        var actualType = value switch
+        {
+            { S: not null } => "S",
+            { N: not null } => "N",
+            { B: not null } => "B",
+            { BOOL: not null } => "BOOL",
+            { NULL: true } => "NULL",
+            { SS: { Count: > 0 } } => "SS",
+            { NS: { Count: > 0 } } => "NS",
+            { BS: { Count: > 0 } } => "BS",
+            { L: not null } => "L",
+            { M: not null } => "M",
+            _ => ""
+        };
+
+        return actualType == typeVal.S;
+    }
+
+    private static bool EvaluateBeginsWith(
+        FunctionConditionNode node,
+        Dictionary<string, AttributeValue>? item,
+        Dictionary<string, string>? expressionAttributeNames,
+        Dictionary<string, AttributeValue>? expressionAttributeValues)
+    {
+        var value = ResolveOperand(node.Arguments[0], item, expressionAttributeNames, expressionAttributeValues);
+        var prefix = ResolveOperand(node.Arguments[1], item, expressionAttributeNames, expressionAttributeValues);
+
+        if (value?.S is null || prefix?.S is null)
+            return false;
+
+        return value.S.StartsWith(prefix.S, StringComparison.Ordinal);
+    }
+
+    private static bool EvaluateContains(
+        FunctionConditionNode node,
+        Dictionary<string, AttributeValue>? item,
+        Dictionary<string, string>? expressionAttributeNames,
+        Dictionary<string, AttributeValue>? expressionAttributeValues)
+    {
+        var value = ResolveOperand(node.Arguments[0], item, expressionAttributeNames, expressionAttributeValues);
+        var operand = ResolveOperand(node.Arguments[1], item, expressionAttributeNames, expressionAttributeValues);
+
+        if (value is null || operand is null)
+            return false;
+
+        // String contains
+        if (value.S is not null && operand.S is not null)
+            return value.S.Contains(operand.S, StringComparison.Ordinal);
+
+        // Set contains
+        if (value.SS is not null && operand.S is not null)
+            return value.SS.Contains(operand.S);
+        if (value.NS is not null && operand.N is not null)
+            return value.NS.Contains(operand.N);
+        if (value.BS is not null && operand.B is not null)
+            return value.BS.Any(b => b.ToArray().AsSpan().SequenceEqual(operand.B.ToArray()));
+
+        // List contains
+        if (value.L is not null)
+            return value.L.Any(item2 => ValuesEqual(item2, operand));
+
+        return false;
+    }
+}

@@ -161,6 +161,97 @@ internal sealed class SqliteStore : IDisposable
         return row is null ? null : ToTableDescription(row);
     }
 
+    internal async Task<KeySchemaInfo?> GetKeySchemaAsync(string tableName, CancellationToken cancellationToken = default)
+    {
+        using var connection = await OpenConnectionAsync(cancellationToken);
+        var row = await connection.QuerySingleOrDefaultAsync<KeySchemaRow>(
+            """
+            SELECT
+                key_schema_json             AS KeySchemaJson,
+                attribute_definitions_json   AS AttributeDefinitionsJson
+            FROM tables
+            WHERE table_name = @tableName
+            """,
+            new { tableName });
+
+        return row is null
+            ? null
+            : new KeySchemaInfo(DeserializeKeySchema(row.KeySchemaJson), DeserializeAttributeDefinitions(row.AttributeDefinitionsJson));
+    }
+
+    internal async Task<string?> PutItemAsync(string tableName, string pk, string sk, string itemJson, CancellationToken cancellationToken = default)
+    {
+        using var connection = await OpenConnectionAsync(cancellationToken);
+        using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+
+        var oldJson = await connection.QuerySingleOrDefaultAsync<string>(
+            "SELECT item_json FROM items WHERE table_name = @tableName AND pk = @pk AND sk = @sk",
+            new { tableName, pk, sk },
+            transaction);
+
+        _ = await connection.ExecuteAsync(
+            """
+            INSERT INTO items (table_name, pk, sk, item_json)
+            VALUES (@tableName, @pk, @sk, @itemJson)
+            ON CONFLICT (table_name, pk, sk) DO UPDATE SET item_json = @itemJson
+            """,
+            new { tableName, pk, sk, itemJson },
+            transaction);
+
+        _ = await connection.ExecuteAsync(
+            """
+            UPDATE tables SET
+                item_count = (SELECT COUNT(1) FROM items WHERE table_name = @tableName),
+                table_size_bytes = (SELECT COALESCE(SUM(LENGTH(item_json)), 0) FROM items WHERE table_name = @tableName)
+            WHERE table_name = @tableName
+            """,
+            new { tableName },
+            transaction);
+
+        await transaction.CommitAsync(cancellationToken);
+        return oldJson;
+    }
+
+    internal async Task<string?> GetItemAsync(string tableName, string pk, string sk, CancellationToken cancellationToken = default)
+    {
+        using var connection = await OpenConnectionAsync(cancellationToken);
+        return await connection.QuerySingleOrDefaultAsync<string>(
+            "SELECT item_json FROM items WHERE table_name = @tableName AND pk = @pk AND sk = @sk",
+            new { tableName, pk, sk });
+    }
+
+    internal async Task<string?> DeleteItemAsync(string tableName, string pk, string sk, CancellationToken cancellationToken = default)
+    {
+        using var connection = await OpenConnectionAsync(cancellationToken);
+        using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+
+        var oldJson = await connection.QuerySingleOrDefaultAsync<string>(
+            "SELECT item_json FROM items WHERE table_name = @tableName AND pk = @pk AND sk = @sk",
+            new { tableName, pk, sk },
+            transaction);
+
+        if (oldJson is not null)
+        {
+            _ = await connection.ExecuteAsync(
+                "DELETE FROM items WHERE table_name = @tableName AND pk = @pk AND sk = @sk",
+                new { tableName, pk, sk },
+                transaction);
+
+            _ = await connection.ExecuteAsync(
+                """
+                UPDATE tables SET
+                    item_count = (SELECT COUNT(1) FROM items WHERE table_name = @tableName),
+                    table_size_bytes = (SELECT COALESCE(SUM(LENGTH(item_json)), 0) FROM items WHERE table_name = @tableName)
+                WHERE table_name = @tableName
+                """,
+                new { tableName },
+                transaction);
+        }
+
+        await transaction.CommitAsync(cancellationToken);
+        return oldJson;
+    }
+
     internal async Task<List<string>> ListTableNamesAsync(string? exclusiveStartTableName, int limit, CancellationToken cancellationToken = default)
     {
         using var connection = await OpenConnectionAsync(cancellationToken);
@@ -275,3 +366,11 @@ internal sealed record TableRow(
     string Status,
     long ItemCount,
     long TableSizeBytes);
+
+internal sealed record KeySchemaRow(
+    string KeySchemaJson,
+    string AttributeDefinitionsJson);
+
+internal sealed record KeySchemaInfo(
+    List<KeySchemaElement> KeySchema,
+    List<AttributeDefinition> AttributeDefinitions);
