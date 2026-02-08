@@ -1,7 +1,5 @@
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
-using System.Globalization;
-using System.Text;
 
 namespace DynamoDbLite;
 

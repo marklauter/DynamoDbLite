@@ -86,22 +86,14 @@ internal static class ConditionExpressionEvaluator
         return left.Length.CompareTo(right.Length);
     }
 
-    private static bool ValuesEqual(AttributeValue? left, AttributeValue? right)
-    {
-        if (left is null && right is null)
-            return true;
-        if (left is null || right is null)
-            return false;
-
-        if (left.S is not null && right.S is not null)
-            return left.S == right.S;
-        return left.N is not null && right.N is not null
+    private static bool ValuesEqual(AttributeValue? left, AttributeValue? right) => left is null && right is null || left is not null && right is not null && (left.S is not null && right.S is not null
+            ? left.S == right.S
+            : left.N is not null && right.N is not null
             ? decimal.Parse(left.N, CultureInfo.InvariantCulture)
                 == decimal.Parse(right.N, CultureInfo.InvariantCulture)
             : left.B is not null && right.B is not null
             ? left.B.ToArray().AsSpan().SequenceEqual(right.B.ToArray())
-            : left.BOOL is not null && right.BOOL is not null ? left.BOOL == right.BOOL : left.NULL is true && right.NULL is true;
-    }
+            : left.BOOL is not null && right.BOOL is not null ? left.BOOL == right.BOOL : left.NULL is true && right.NULL is true);
 
     private static bool EvaluateComparison(
         ComparisonNode node,

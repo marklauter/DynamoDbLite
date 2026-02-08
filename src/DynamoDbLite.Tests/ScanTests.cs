@@ -8,23 +8,23 @@ public sealed class ScanTests : IAsyncLifetime
     private readonly DynamoDbClient client = new(new DynamoDbLiteOptions(
         $"Data Source=Test_{Guid.NewGuid():N};Mode=Memory;Cache=Shared"));
 
-    public async ValueTask InitializeAsync()
-    {
-        _ = await client.CreateTableAsync(new CreateTableRequest
-        {
-            TableName = "TestTable",
-            KeySchema =
-            [
-                new KeySchemaElement { AttributeName = "PK", KeyType = KeyType.HASH },
-                new KeySchemaElement { AttributeName = "SK", KeyType = KeyType.RANGE }
-            ],
-            AttributeDefinitions =
-            [
-                new AttributeDefinition { AttributeName = "PK", AttributeType = ScalarAttributeType.S },
-                new AttributeDefinition { AttributeName = "SK", AttributeType = ScalarAttributeType.S }
-            ]
-        }, TestContext.Current.CancellationToken);
-    }
+    public async ValueTask InitializeAsync() 
+        => _ = await client.CreateTableAsync(
+            new CreateTableRequest
+            {
+                TableName = "TestTable",
+                KeySchema =
+                    [
+                        new KeySchemaElement { AttributeName = "PK", KeyType = KeyType.HASH },
+                        new KeySchemaElement { AttributeName = "SK", KeyType = KeyType.RANGE }
+                    ],
+                AttributeDefinitions =
+                    [
+                        new AttributeDefinition { AttributeName = "PK", AttributeType = ScalarAttributeType.S },
+                        new AttributeDefinition { AttributeName = "SK", AttributeType = ScalarAttributeType.S }
+                    ]
+            }, 
+            TestContext.Current.CancellationToken);
 
     public ValueTask DisposeAsync()
     {
@@ -188,12 +188,9 @@ public sealed class ScanTests : IAsyncLifetime
     // ── Non-existent table ──────────────────────────────────────────
 
     [Fact]
-    public async Task ScanAsync_NonExistentTable_ThrowsResourceNotFoundException()
-    {
-        _ = await Assert.ThrowsAsync<ResourceNotFoundException>(() =>
-            client.ScanAsync(new ScanRequest
-            {
-                TableName = "NonExistent"
-            }, TestContext.Current.CancellationToken));
-    }
+    public async Task ScanAsync_NonExistentTable_ThrowsResourceNotFoundException() => _ = await Assert.ThrowsAsync<ResourceNotFoundException>(() =>
+                                                                                               client.ScanAsync(new ScanRequest
+                                                                                               {
+                                                                                                   TableName = "NonExistent"
+                                                                                               }, TestContext.Current.CancellationToken));
 }

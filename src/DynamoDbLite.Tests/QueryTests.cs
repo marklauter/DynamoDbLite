@@ -362,10 +362,9 @@ public sealed class QueryTests : IAsyncLifetime
     // ── Non-existent table ──────────────────────────────────────────
 
     [Fact]
-    public async Task QueryAsync_NonExistentTable_ThrowsResourceNotFoundException()
-    {
-        _ = await Assert.ThrowsAsync<ResourceNotFoundException>(() =>
-            client.QueryAsync(new QueryRequest
+    public async Task QueryAsync_NonExistentTable_ThrowsResourceNotFoundException() 
+        => _ = await Assert.ThrowsAsync<ResourceNotFoundException>(()
+            => client.QueryAsync(new QueryRequest
             {
                 TableName = "NonExistent",
                 KeyConditionExpression = "PK = :pk",
@@ -374,7 +373,6 @@ public sealed class QueryTests : IAsyncLifetime
                     [":pk"] = new() { S = "X" }
                 }
             }, TestContext.Current.CancellationToken));
-    }
 
     // ── Empty results ───────────────────────────────────────────────
 
