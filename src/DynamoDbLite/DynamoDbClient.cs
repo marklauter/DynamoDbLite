@@ -4,7 +4,6 @@ using Amazon.Runtime;
 
 namespace DynamoDbLite;
 
-// ── Lifecycle ──────────────────────────────────────────────────────
 public sealed partial class DynamoDbClient(DynamoDbLiteOptions? options = null)
     : DynamoDbService
     , IAmazonDynamoDB
