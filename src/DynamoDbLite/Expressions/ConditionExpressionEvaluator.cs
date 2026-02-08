@@ -62,23 +62,16 @@ internal static class ConditionExpressionEvaluator
         return new AttributeValue { N = size.ToString(CultureInfo.InvariantCulture) };
     }
 
-    private static int CompareValues(AttributeValue? left, AttributeValue? right)
-    {
-        if (left is null || right is null)
-            throw new ArgumentException("Cannot compare null attribute values");
-
-        if (left.S is not null && right.S is not null)
-            return string.Compare(left.S, right.S, StringComparison.Ordinal);
-
-        if (left.N is not null && right.N is not null)
-            return decimal.Parse(left.N, CultureInfo.InvariantCulture)
-                .CompareTo(decimal.Parse(right.N, CultureInfo.InvariantCulture));
-
-        if (left.B is not null && right.B is not null)
-            return CompareBytes(left.B.ToArray(), right.B.ToArray());
-
-        throw new ArgumentException("Cannot compare values of different or unsupported types");
-    }
+    private static int CompareValues(AttributeValue? left, AttributeValue? right) => left is null || right is null
+            ? throw new ArgumentException("Cannot compare null attribute values")
+            : left.S is not null && right.S is not null
+            ? string.Compare(left.S, right.S, StringComparison.Ordinal)
+            : left.N is not null && right.N is not null
+            ? decimal.Parse(left.N, CultureInfo.InvariantCulture)
+                .CompareTo(decimal.Parse(right.N, CultureInfo.InvariantCulture))
+            : left.B is not null && right.B is not null
+            ? CompareBytes(left.B.ToArray(), right.B.ToArray())
+            : throw new ArgumentException("Cannot compare values of different or unsupported types");
 
     private static int CompareBytes(byte[] left, byte[] right)
     {
@@ -89,6 +82,7 @@ internal static class ConditionExpressionEvaluator
             if (cmp != 0)
                 return cmp;
         }
+
         return left.Length.CompareTo(right.Length);
     }
 
@@ -101,17 +95,12 @@ internal static class ConditionExpressionEvaluator
 
         if (left.S is not null && right.S is not null)
             return left.S == right.S;
-        if (left.N is not null && right.N is not null)
-            return decimal.Parse(left.N, CultureInfo.InvariantCulture)
-                == decimal.Parse(right.N, CultureInfo.InvariantCulture);
-        if (left.B is not null && right.B is not null)
-            return left.B.ToArray().AsSpan().SequenceEqual(right.B.ToArray());
-        if (left.BOOL is not null && right.BOOL is not null)
-            return left.BOOL == right.BOOL;
-        if (left.NULL is true && right.NULL is true)
-            return true;
-
-        return false;
+        return left.N is not null && right.N is not null
+            ? decimal.Parse(left.N, CultureInfo.InvariantCulture)
+                == decimal.Parse(right.N, CultureInfo.InvariantCulture)
+            : left.B is not null && right.B is not null
+            ? left.B.ToArray().AsSpan().SequenceEqual(right.B.ToArray())
+            : left.BOOL is not null && right.BOOL is not null ? left.BOOL == right.BOOL : left.NULL is true && right.NULL is true;
     }
 
     private static bool EvaluateComparison(
@@ -123,7 +112,7 @@ internal static class ConditionExpressionEvaluator
         var left = ResolveOperand(node.Left, item, expressionAttributeNames, expressionAttributeValues);
         var right = ResolveOperand(node.Right, item, expressionAttributeNames, expressionAttributeValues);
 
-        if (node.Operator == "=" || node.Operator == "<>")
+        if (node.Operator is "=" or "<>")
         {
             var eq = ValuesEqual(left, right);
             return node.Operator == "=" ? eq : !eq;
@@ -212,9 +201,9 @@ internal static class ConditionExpressionEvaluator
             { B: not null } => "B",
             { BOOL: not null } => "BOOL",
             { NULL: true } => "NULL",
-            { SS: { Count: > 0 } } => "SS",
-            { NS: { Count: > 0 } } => "NS",
-            { BS: { Count: > 0 } } => "BS",
+            { SS.Count: > 0 } => "SS",
+            { NS.Count: > 0 } => "NS",
+            { BS.Count: > 0 } => "BS",
             { L: not null } => "L",
             { M: not null } => "M",
             _ => ""
@@ -232,10 +221,7 @@ internal static class ConditionExpressionEvaluator
         var value = ResolveOperand(node.Arguments[0], item, expressionAttributeNames, expressionAttributeValues);
         var prefix = ResolveOperand(node.Arguments[1], item, expressionAttributeNames, expressionAttributeValues);
 
-        if (value?.S is null || prefix?.S is null)
-            return false;
-
-        return value.S.StartsWith(prefix.S, StringComparison.Ordinal);
+        return value?.S is not null && prefix?.S is not null && value.S.StartsWith(prefix.S, StringComparison.Ordinal);
     }
 
     private static bool EvaluateContains(
@@ -263,9 +249,6 @@ internal static class ConditionExpressionEvaluator
             return value.BS.Any(b => b.ToArray().AsSpan().SequenceEqual(operand.B.ToArray()));
 
         // List contains
-        if (value.L is not null)
-            return value.L.Any(item2 => ValuesEqual(item2, operand));
-
-        return false;
+        return value.L is not null && value.L.Any(item2 => ValuesEqual(item2, operand));
     }
 }

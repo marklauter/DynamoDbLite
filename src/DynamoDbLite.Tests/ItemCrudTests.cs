@@ -8,23 +8,20 @@ public sealed class ItemCrudTests : IAsyncLifetime
     private readonly DynamoDbClient client = new(new DynamoDbLiteOptions(
         $"Data Source=Test_{Guid.NewGuid():N};Mode=Memory;Cache=Shared"));
 
-    public async ValueTask InitializeAsync()
+    public async ValueTask InitializeAsync() => _ = await client.CreateTableAsync(new CreateTableRequest
     {
-        _ = await client.CreateTableAsync(new CreateTableRequest
-        {
-            TableName = "TestTable",
-            KeySchema =
+        TableName = "TestTable",
+        KeySchema =
             [
                 new KeySchemaElement { AttributeName = "PK", KeyType = KeyType.HASH },
                 new KeySchemaElement { AttributeName = "SK", KeyType = KeyType.RANGE }
             ],
-            AttributeDefinitions =
+        AttributeDefinitions =
             [
                 new AttributeDefinition { AttributeName = "PK", AttributeType = ScalarAttributeType.S },
                 new AttributeDefinition { AttributeName = "SK", AttributeType = ScalarAttributeType.S }
             ]
-        }, TestContext.Current.CancellationToken);
-    }
+    }, TestContext.Current.CancellationToken);
 
     public ValueTask DisposeAsync()
     {

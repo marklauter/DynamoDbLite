@@ -121,7 +121,7 @@ internal static class UpdateExpressionEvaluator
         var firstList = first.L ?? [];
         var secondList = second.L ?? [];
 
-        return new AttributeValue { L = [..firstList, ..secondList] };
+        return new AttributeValue { L = [.. firstList, .. secondList] };
     }
 
     private static void ApplyAdd(

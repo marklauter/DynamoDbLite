@@ -30,7 +30,7 @@ internal static class ConditionExpressionParser
     private static readonly TokenListParser<DynamoDbToken, AttributePath> Path =
         from first in IdentifierPathElement
         from rest in PathSuffix.Many()
-        select new AttributePath([first, ..rest]);
+        select new AttributePath([first, .. rest]);
 
     // ── Operands ───────────────────────────────────────────────────────
 

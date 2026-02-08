@@ -37,10 +37,6 @@ Full fidelity with DynamoDB semantics:
 ## Implementation Phases
 
 1. **Phase 1 — Table management (complete):** `CreateTableAsync`, `DeleteTableAsync`, `DescribeTableAsync`, `ListTablesAsync`
-2. **Phase 2 — Item CRUD** (sequential, each builds on the last):
-   1. `PutItemAsync` — adds AttributeValue serializer, key extraction helper, store upsert
-   2. `GetItemAsync` — adds AttributeValue deserializer, `ProjectionExpression`
-   3. `DeleteItemAsync` — reuses key extraction, adds `ConditionExpression`
-   4. `UpdateItemAsync` — adds `UpdateExpression` parser (`SET`, `REMOVE`, `ADD`, `DELETE`)
+2. **Phase 2 — Item CRUD (complete):** `PutItemAsync`, `GetItemAsync`, `DeleteItemAsync`, `UpdateItemAsync`
 3. **Phase 3 — Querying:** `QueryAsync`, `ScanAsync`
 4. **Phase 4 — Secondary Indexes:** GSI/LSI creation and querying

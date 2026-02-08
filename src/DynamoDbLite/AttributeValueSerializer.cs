@@ -1,7 +1,6 @@
 using Amazon.DynamoDBv2.Model;
 using System.Buffers;
 using System.Diagnostics.CodeAnalysis;
-using System.Globalization;
 using System.Text.Json;
 
 namespace DynamoDbLite;
@@ -32,6 +31,7 @@ internal static class AttributeValueSerializer
             writer.WritePropertyName(name);
             WriteAttributeValue(writer, value);
         }
+
         writer.WriteEndObject();
     }
 
@@ -88,6 +88,7 @@ internal static class AttributeValueSerializer
             {
                 WriteAttributeValue(writer, item);
             }
+
             writer.WriteEndArray();
         }
         else if (value.M is { Count: > 0 })

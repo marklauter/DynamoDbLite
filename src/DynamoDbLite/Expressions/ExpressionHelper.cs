@@ -22,7 +22,7 @@ internal static class ExpressionHelper
             return null;
 
         AttributeValue? current = null;
-        Dictionary<string, AttributeValue>? currentMap = item;
+        var currentMap = item;
         List<AttributeValue>? currentList = null;
 
         foreach (var element in path.Elements)
@@ -68,9 +68,10 @@ internal static class ExpressionHelper
                     var resolvedName = ResolveAttributeName(nameEl.Name, expressionAttributeNames);
                     if (!currentMap!.TryGetValue(resolvedName, out current))
                     {
-                        current = new AttributeValue { M = new Dictionary<string, AttributeValue>() };
+                        current = new AttributeValue { M = [] };
                         currentMap[resolvedName] = current;
                     }
+
                     currentMap = current.M;
                     break;
 

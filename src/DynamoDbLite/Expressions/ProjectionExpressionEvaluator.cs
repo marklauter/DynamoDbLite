@@ -44,9 +44,10 @@ internal static class ProjectionExpressionEvaluator
                 case AttributeNameElement nameEl:
                     if (!currentMap.TryGetValue(nameEl.Name, out current))
                     {
-                        current = new AttributeValue { M = new Dictionary<string, AttributeValue>() };
+                        current = new AttributeValue { M = [] };
                         currentMap[nameEl.Name] = current;
                     }
+
                     currentMap = current.M!;
                     break;
 
@@ -55,8 +56,7 @@ internal static class ProjectionExpressionEvaluator
                     while (list.Count <= indexEl.Index)
                         list.Add(new AttributeValue { NULL = true });
                     current = list[indexEl.Index];
-                    if (current.M is null)
-                        current.M = new Dictionary<string, AttributeValue>();
+                    current.M ??= [];
                     currentMap = current.M;
                     break;
             }

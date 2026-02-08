@@ -29,7 +29,7 @@ internal static class ProjectionExpressionParser
     private static readonly TokenListParser<DynamoDbToken, AttributePath> Path =
         from first in IdentifierElement
         from rest in Suffix.Many()
-        select new AttributePath([first, ..rest]);
+        select new AttributePath([first, .. rest]);
 
     private static readonly TokenListParser<DynamoDbToken, IReadOnlyList<AttributePath>> Projection =
         Path.ManyDelimitedBy(Token.EqualTo(DynamoDbToken.Comma))
@@ -42,10 +42,7 @@ internal static class ProjectionExpressionParser
         var tokens = Tokenizer.Tokenize(expression);
         var paths = Projection.Parse(tokens);
 
-        if (expressionAttributeNames is null)
-            return paths;
-
-        return paths.Select(p => ResolvePath(p, expressionAttributeNames)).ToList();
+        return expressionAttributeNames is null ? paths : paths.Select(p => ResolvePath(p, expressionAttributeNames)).ToList();
     }
 
     private static AttributePath ResolvePath(AttributePath path, Dictionary<string, string> names) =>
