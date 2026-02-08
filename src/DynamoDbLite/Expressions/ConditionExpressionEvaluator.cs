@@ -62,16 +62,16 @@ internal static class ConditionExpressionEvaluator
         return new AttributeValue { N = size.ToString(CultureInfo.InvariantCulture) };
     }
 
-    private static int CompareValues(AttributeValue? left, AttributeValue? right) => left is null || right is null
-            ? throw new ArgumentException("Cannot compare null attribute values")
-            : left.S is not null && right.S is not null
-            ? string.Compare(left.S, right.S, StringComparison.Ordinal)
-            : left.N is not null && right.N is not null
-            ? decimal.Parse(left.N, CultureInfo.InvariantCulture)
-                .CompareTo(decimal.Parse(right.N, CultureInfo.InvariantCulture))
-            : left.B is not null && right.B is not null
-            ? CompareBytes(left.B.ToArray(), right.B.ToArray())
-            : throw new ArgumentException("Cannot compare values of different or unsupported types");
+    private static int CompareValues(AttributeValue? left, AttributeValue? right) =>
+        (left, right) switch
+        {
+            (null, _) or (_, null) => throw new ArgumentException("Cannot compare null attribute values"),
+            ({ S: not null }, { S: not null }) => string.Compare(left.S, right.S, StringComparison.Ordinal),
+            ({ N: not null }, { N: not null }) => decimal.Parse(left.N, CultureInfo.InvariantCulture)
+                .CompareTo(decimal.Parse(right.N, CultureInfo.InvariantCulture)),
+            ({ B: not null }, { B: not null }) => CompareBytes(left.B.ToArray(), right.B.ToArray()),
+            _ => throw new ArgumentException("Cannot compare values of different or unsupported types")
+        };
 
     private static int CompareBytes(byte[] left, byte[] right)
     {
@@ -86,14 +86,25 @@ internal static class ConditionExpressionEvaluator
         return left.Length.CompareTo(right.Length);
     }
 
-    private static bool ValuesEqual(AttributeValue? left, AttributeValue? right) => left is null && right is null || left is not null && right is not null && (left.S is not null && right.S is not null
-            ? left.S == right.S
-            : left.N is not null && right.N is not null
-            ? decimal.Parse(left.N, CultureInfo.InvariantCulture)
-                == decimal.Parse(right.N, CultureInfo.InvariantCulture)
-            : left.B is not null && right.B is not null
-            ? left.B.ToArray().AsSpan().SequenceEqual(right.B.ToArray())
-            : left.BOOL is not null && right.BOOL is not null ? left.BOOL == right.BOOL : left.NULL is true && right.NULL is true);
+    private static bool ValuesEqual(AttributeValue? left, AttributeValue? right) =>
+        (left, right) switch
+        {
+            (null, null) => true,
+            (null, _) or (_, null) => false,
+            _ => ScalarEqual(left, right)
+        };
+
+    private static bool ScalarEqual(AttributeValue left, AttributeValue right) =>
+        (left, right) switch
+        {
+            ({ S: not null }, { S: not null }) => left.S == right.S,
+            ({ N: not null }, { N: not null }) => decimal.Parse(left.N, CultureInfo.InvariantCulture)
+                == decimal.Parse(right.N, CultureInfo.InvariantCulture),
+            ({ B: not null }, { B: not null }) => left.B.ToArray().AsSpan().SequenceEqual(right.B.ToArray()),
+            ({ BOOL: not null }, { BOOL: not null }) => left.BOOL == right.BOOL,
+            ({ NULL: true }, { NULL: true }) => true,
+            _ => false
+        };
 
     private static bool EvaluateComparison(
         ComparisonNode node,
@@ -109,6 +120,9 @@ internal static class ConditionExpressionEvaluator
             var eq = ValuesEqual(left, right);
             return node.Operator == "=" ? eq : !eq;
         }
+
+        if (left is null || right is null)
+            return false;
 
         var cmp = CompareValues(left, right);
         return node.Operator switch
@@ -130,6 +144,9 @@ internal static class ConditionExpressionEvaluator
         var value = ResolveOperand(node.Value, item, expressionAttributeNames, expressionAttributeValues);
         var lower = ResolveOperand(node.Lower, item, expressionAttributeNames, expressionAttributeValues);
         var upper = ResolveOperand(node.Upper, item, expressionAttributeNames, expressionAttributeValues);
+
+        if (value is null || lower is null || upper is null)
+            return false;
 
         return CompareValues(value, lower) >= 0 && CompareValues(value, upper) <= 0;
     }
