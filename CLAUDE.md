@@ -71,6 +71,8 @@ C# 14 / .NET 10 — high-performance, functional, zero-allocation.
 - use `??`, `??=`, `?.`, `?[]` for null handling
 - use `is null` / `is not null` (not `== null`)
 - use index `[^1]` and range `[1..^1]` operators
+- prefer ternary expressions over multi-branch `if`/`else` for simple conditional returns
+- when ternary/conditional logic becomes deeply nested, decompose into small focused methods rather than writing one long expression
 - chain expressions; minimize intermediate variables
 - prefer pure functions with no side effects
 - prefer deconstructed variable declarations
