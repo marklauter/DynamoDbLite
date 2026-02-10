@@ -15,7 +15,7 @@ In-process `IAmazonDynamoDB` backed by `SQLite` for local dev/testing, or mobile
 - All projects live under `src/`; add new ones to the solution
 
 ## Code Style
-Read `.claude/style.md` before writing any code. The `.editorconfig` is enforced by `dotnet format` — run `dotnet format "src/DynamoDbLite.slnx" --verbosity normal` after writing code and fix any violations before committing.
+Read `.claude/code-style.md` before writing any code. The `.editorconfig` is enforced by `dotnet format` — run `dotnet format "src/DynamoDbLite.slnx" --verbosity normal` after writing code and fix any violations before committing.
 
 ## Testing
 Read `.claude/testing.md` before creating test projects and before writing tests.
@@ -24,7 +24,9 @@ Read `.claude/testing.md` before creating test projects and before writing tests
 - `DynamoDbClient.cs` — partial class, core + disposal; split by feature into:
   - `DynamoDbClient.TableManagement.cs`, `.Crud.cs`, `.Query.cs`, `.Batch.cs`, `.Transactions.cs`
   - `.Admin.cs`, `.Backup.cs`, `.GlobalTables.cs`, `.Streams.cs`, `.DataPipeline.cs` (stubs)
-- `SqliteStore.cs` — internal SQLite layer, all DB access; sentinel connection keeps in-memory DB alive
+- `SqliteStore.cs` — abstract `SqliteStoreBase`, all DB access; two sealed implementations:
+  - `InMemorySqliteStore.cs` — shared-cache + `AsyncReaderWriterLock` for concurrency
+  - `FileSqliteStore.cs` — WAL mode, no additional locking needed
 - `Expressions/` — Superpower-based parsers and evaluators for DynamoDB expressions
   - `DynamoDbTokenizer.cs` → `Ast.cs` → `*Parser.cs` → `*Evaluator.cs`
 - `KeyHelper.cs` — PK/SK extraction and key type validation
