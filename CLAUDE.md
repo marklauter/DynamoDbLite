@@ -3,8 +3,9 @@
 In-process IAmazonDynamoDB backed by SQLite for local dev/testing.
 
 ## Quick Reference
-- Build: `dotnet build "src/DynamoDbLite.sln"`
-- Test: `dotnet test "src/DynamoDbLite.sln"`
+- Solution file: src/DynamoDbLite.slnx
+- Build: `dotnet build "src/DynamoDbLite.slnx"`
+- Test: `dotnet test "src/DynamoDbLite.slnx"`
 - All projects live under `src/`; add new ones to the solution
 
 ## Code Style
