@@ -85,6 +85,43 @@ internal sealed class SqliteStore : IDisposable
                 tag_value   TEXT NOT NULL DEFAULT '',
                 PRIMARY KEY (table_name, tag_key)
             );
+
+            CREATE TABLE IF NOT EXISTS exports (
+                export_arn      TEXT PRIMARY KEY,
+                table_name      TEXT NOT NULL,
+                status          TEXT NOT NULL DEFAULT 'IN_PROGRESS',
+                export_format   TEXT NOT NULL DEFAULT 'DYNAMODB_JSON',
+                s3_bucket       TEXT NOT NULL,
+                s3_prefix       TEXT NOT NULL DEFAULT '',
+                export_manifest TEXT,
+                item_count      INTEGER,
+                billed_size     INTEGER,
+                start_time      TEXT NOT NULL,
+                end_time        TEXT,
+                failure_code    TEXT,
+                failure_message TEXT,
+                client_token    TEXT
+            );
+
+            CREATE TABLE IF NOT EXISTS imports (
+                import_arn          TEXT PRIMARY KEY,
+                table_name          TEXT NOT NULL,
+                status              TEXT NOT NULL DEFAULT 'IN_PROGRESS',
+                input_format        TEXT NOT NULL DEFAULT 'DYNAMODB_JSON',
+                input_compression   TEXT NOT NULL DEFAULT 'NONE',
+                s3_bucket           TEXT NOT NULL,
+                s3_key_prefix       TEXT NOT NULL DEFAULT '',
+                table_creation_json TEXT NOT NULL,
+                imported_count      INTEGER,
+                processed_count     INTEGER,
+                processed_bytes     INTEGER,
+                error_count         INTEGER DEFAULT 0,
+                start_time          TEXT NOT NULL,
+                end_time            TEXT,
+                failure_code        TEXT,
+                failure_message     TEXT,
+                client_token        TEXT
+            );
             """);
 
         // Migration for existing file-based DBs that lack ttl_epoch
@@ -1272,6 +1309,202 @@ internal sealed class SqliteStore : IDisposable
         await transaction.CommitAsync(cancellationToken);
     }
 
+    // ── Export CRUD ─────────────────────────────────────────────────
+
+    internal async Task CreateExportRecordAsync(
+        string exportArn, string tableName, string format,
+        string bucket, string prefix, string startTime, string? clientToken,
+        CancellationToken cancellationToken = default)
+    {
+        using var connection = await OpenConnectionAsync(cancellationToken);
+        _ = await connection.ExecuteAsync(
+            """
+            INSERT INTO exports (export_arn, table_name, export_format, s3_bucket, s3_prefix, start_time, client_token)
+            VALUES (@exportArn, @tableName, @format, @bucket, @prefix, @startTime, @clientToken)
+            """,
+            new { exportArn, tableName, format, bucket, prefix, startTime, clientToken });
+    }
+
+    internal async Task UpdateExportStatusAsync(
+        string exportArn, string status, string? endTime,
+        string? manifest, long? itemCount, long? billedSize,
+        string? failureCode, string? failureMessage,
+        CancellationToken cancellationToken = default)
+    {
+        using var connection = await OpenConnectionAsync(cancellationToken);
+        _ = await connection.ExecuteAsync(
+            """
+            UPDATE exports SET
+                status = @status, end_time = @endTime,
+                export_manifest = @manifest, item_count = @itemCount, billed_size = @billedSize,
+                failure_code = @failureCode, failure_message = @failureMessage
+            WHERE export_arn = @exportArn
+            """,
+            new { exportArn, status, endTime, manifest, itemCount, billedSize, failureCode, failureMessage });
+    }
+
+    internal async Task<ExportRow?> GetExportRecordAsync(string exportArn, CancellationToken cancellationToken = default)
+    {
+        using var connection = await OpenConnectionAsync(cancellationToken);
+        return await connection.QuerySingleOrDefaultAsync<ExportRow>(
+            """
+            SELECT
+                export_arn      AS ExportArn,
+                table_name      AS TableName,
+                status          AS Status,
+                export_format   AS ExportFormat,
+                s3_bucket       AS S3Bucket,
+                s3_prefix       AS S3Prefix,
+                export_manifest AS ExportManifest,
+                item_count      AS ItemCount,
+                billed_size     AS BilledSize,
+                start_time      AS StartTime,
+                end_time        AS EndTime,
+                failure_code    AS FailureCode,
+                failure_message AS FailureMessage,
+                client_token    AS ClientToken
+            FROM exports
+            WHERE export_arn = @exportArn
+            """,
+            new { exportArn });
+    }
+
+    internal async Task<List<ExportSummaryRow>> ListExportRecordsAsync(
+        string? tableArn, int? maxResults, string? nextToken,
+        CancellationToken cancellationToken = default)
+    {
+        using var connection = await OpenConnectionAsync(cancellationToken);
+        var parameters = new DynamicParameters();
+        var sql = "SELECT export_arn AS ExportArn, status AS Status FROM exports";
+        var conditions = new List<string>();
+
+        if (tableArn is not null)
+        {
+            var tableName = ExtractTableNameFromArn(tableArn);
+            parameters.Add("@tableName", tableName);
+            conditions.Add("table_name = @tableName");
+        }
+
+        if (nextToken is not null)
+        {
+            parameters.Add("@nextToken", nextToken);
+            conditions.Add("ROWID > (SELECT ROWID FROM exports WHERE export_arn = @nextToken)");
+        }
+
+        if (conditions.Count > 0)
+            sql += " WHERE " + string.Join(" AND ", conditions);
+
+        sql += " ORDER BY start_time DESC";
+
+        if (maxResults is not null)
+        {
+            parameters.Add("@maxResults", maxResults.Value);
+            sql += " LIMIT @maxResults";
+        }
+
+        return (await connection.QueryAsync<ExportSummaryRow>(sql, parameters)).AsList();
+    }
+
+    // ── Import CRUD ─────────────────────────────────────────────────
+
+    internal async Task CreateImportRecordAsync(
+        string importArn, string tableName, string format, string compression,
+        string bucket, string prefix, string tableCreationJson, string startTime, string? clientToken,
+        CancellationToken cancellationToken = default)
+    {
+        using var connection = await OpenConnectionAsync(cancellationToken);
+        _ = await connection.ExecuteAsync(
+            """
+            INSERT INTO imports (import_arn, table_name, input_format, input_compression, s3_bucket, s3_key_prefix, table_creation_json, start_time, client_token)
+            VALUES (@importArn, @tableName, @format, @compression, @bucket, @prefix, @tableCreationJson, @startTime, @clientToken)
+            """,
+            new { importArn, tableName, format, compression, bucket, prefix, tableCreationJson, startTime, clientToken });
+    }
+
+    internal async Task UpdateImportStatusAsync(
+        string importArn, string status, string? endTime,
+        long? importedCount, long? processedCount, long? processedBytes, long? errorCount,
+        string? failureCode, string? failureMessage,
+        CancellationToken cancellationToken = default)
+    {
+        using var connection = await OpenConnectionAsync(cancellationToken);
+        _ = await connection.ExecuteAsync(
+            """
+            UPDATE imports SET
+                status = @status, end_time = @endTime,
+                imported_count = @importedCount, processed_count = @processedCount,
+                processed_bytes = @processedBytes, error_count = @errorCount,
+                failure_code = @failureCode, failure_message = @failureMessage
+            WHERE import_arn = @importArn
+            """,
+            new { importArn, status, endTime, importedCount, processedCount, processedBytes, errorCount, failureCode, failureMessage });
+    }
+
+    internal async Task<ImportRow?> GetImportRecordAsync(string importArn, CancellationToken cancellationToken = default)
+    {
+        using var connection = await OpenConnectionAsync(cancellationToken);
+        return await connection.QuerySingleOrDefaultAsync<ImportRow>(
+            """
+            SELECT
+                import_arn          AS ImportArn,
+                table_name          AS TableName,
+                status              AS Status,
+                input_format        AS InputFormat,
+                input_compression   AS InputCompression,
+                s3_bucket           AS S3Bucket,
+                s3_key_prefix       AS S3KeyPrefix,
+                table_creation_json AS TableCreationJson,
+                imported_count      AS ImportedCount,
+                processed_count     AS ProcessedCount,
+                processed_bytes     AS ProcessedBytes,
+                error_count         AS ErrorCount,
+                start_time          AS StartTime,
+                end_time            AS EndTime,
+                failure_code        AS FailureCode,
+                failure_message     AS FailureMessage,
+                client_token        AS ClientToken
+            FROM imports
+            WHERE import_arn = @importArn
+            """,
+            new { importArn });
+    }
+
+    internal async Task<List<ImportSummaryRow>> ListImportRecordsAsync(
+        string? tableArn, int? pageSize, string? nextToken,
+        CancellationToken cancellationToken = default)
+    {
+        using var connection = await OpenConnectionAsync(cancellationToken);
+        var parameters = new DynamicParameters();
+        var sql = "SELECT import_arn AS ImportArn, table_name AS TableName, status AS Status, s3_bucket AS S3Bucket, s3_key_prefix AS S3KeyPrefix, input_format AS InputFormat, start_time AS StartTime, end_time AS EndTime FROM imports";
+        var conditions = new List<string>();
+
+        if (tableArn is not null)
+        {
+            var tableName = ExtractTableNameFromArn(tableArn);
+            parameters.Add("@tableName", tableName);
+            conditions.Add("table_name = @tableName");
+        }
+
+        if (nextToken is not null)
+        {
+            parameters.Add("@nextToken", nextToken);
+            conditions.Add("ROWID > (SELECT ROWID FROM imports WHERE import_arn = @nextToken)");
+        }
+
+        if (conditions.Count > 0)
+            sql += " WHERE " + string.Join(" AND ", conditions);
+
+        sql += " ORDER BY start_time DESC";
+
+        if (pageSize is not null)
+        {
+            parameters.Add("@pageSize", pageSize.Value);
+            sql += " LIMIT @pageSize";
+        }
+
+        return (await connection.QueryAsync<ImportSummaryRow>(sql, parameters)).AsList();
+    }
+
     public void Dispose()
     {
         if (disposed)
@@ -1333,3 +1566,23 @@ internal sealed record IndexDefinition(
     List<KeySchemaElement> KeySchema,
     string ProjectionType,
     List<string>? NonKeyAttributes);
+
+internal sealed record ExportRow(
+    string ExportArn, string TableName, string Status, string ExportFormat,
+    string S3Bucket, string S3Prefix, string? ExportManifest,
+    long? ItemCount, long? BilledSize, string StartTime, string? EndTime,
+    string? FailureCode, string? FailureMessage, string? ClientToken);
+
+internal sealed record ExportSummaryRow(string ExportArn, string Status);
+
+internal sealed record ImportRow(
+    string ImportArn, string TableName, string Status, string InputFormat,
+    string InputCompression, string S3Bucket, string S3KeyPrefix,
+    string TableCreationJson, long? ImportedCount, long? ProcessedCount,
+    long? ProcessedBytes, long? ErrorCount, string StartTime, string? EndTime,
+    string? FailureCode, string? FailureMessage, string? ClientToken);
+
+internal sealed record ImportSummaryRow(
+    string ImportArn, string TableName, string Status,
+    string S3Bucket, string S3KeyPrefix, string InputFormat,
+    string StartTime, string? EndTime);
