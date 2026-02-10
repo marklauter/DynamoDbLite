@@ -599,6 +599,45 @@ internal sealed class SqliteStore : IDisposable
         await transaction.CommitAsync(cancellationToken);
     }
 
+    internal async Task TransactWriteItemsAsync(
+        List<TransactWriteOperation> operations,
+        Dictionary<string, (List<IndexDefinition> Indexes, List<AttributeDefinition> AttrDefs)>? indexInfoByTable,
+        CancellationToken cancellationToken = default)
+    {
+        using var connection = await OpenConnectionAsync(cancellationToken);
+        using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+
+        foreach (var op in operations)
+        {
+            string? oldJson;
+
+            if (op.IsDelete)
+            {
+                oldJson = await DeleteItemCoreAsync(connection, transaction, op.TableName, op.Pk, op.Sk);
+            }
+            else
+            {
+                oldJson = await PutItemCoreAsync(connection, transaction, op.TableName, op.Pk, op.Sk, op.ItemJson!, op.SkNum);
+            }
+
+            if (indexInfoByTable is not null
+                && indexInfoByTable.TryGetValue(op.TableName, out var info)
+                && info.Indexes.Count > 0)
+            {
+                var newItem = op.IsDelete ? null
+                    : AttributeValueSerializer.Deserialize(op.ItemJson!);
+
+                await MaintainIndexesAsync(
+                    connection, transaction, op.TableName, op.Pk, op.Sk,
+                    info.Indexes, info.AttrDefs, newItem, oldJson);
+            }
+        }
+
+        // PutItemCoreAsync/DeleteItemCoreAsync already update table stats per operation,
+        // so no additional stats update is needed here.
+        await transaction.CommitAsync(cancellationToken);
+    }
+
     // ── Index table management ────────────────────────────────────
 
     internal static string IndexTableName(string tableName, string indexName) =>
@@ -1015,6 +1054,14 @@ internal sealed record BatchWriteOperation(
     string Sk,
     double? SkNum,
     string? ItemJson);
+
+internal sealed record TransactWriteOperation(
+    string TableName,
+    string Pk,
+    string Sk,
+    double? SkNum,
+    string? ItemJson,
+    bool IsDelete);
 
 internal sealed record TableRow(
     string TableName,
