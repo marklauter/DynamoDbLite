@@ -1,16 +1,19 @@
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
+using DynamoDbLite.Tests.Fixtures;
 
 namespace DynamoDbLite.Tests;
 
-public sealed class QueryNumericSortKeyTests
+public abstract class QueryNumericSortKeyTestsBase
     : IAsyncLifetime
 {
-    private readonly DynamoDbClient client = new(new DynamoDbLiteOptions(
-        $"Data Source=Test_{Guid.NewGuid():N};Mode=Memory;Cache=Shared"));
+    protected DynamoDbClient client = null!;
+
+    protected abstract DynamoDbClient CreateClient();
 
     public async ValueTask InitializeAsync()
     {
+        client = CreateClient();
         _ = await client.CreateTableAsync(new CreateTableRequest
         {
             TableName = "NumericTable",
@@ -45,7 +48,7 @@ public sealed class QueryNumericSortKeyTests
         }
     }
 
-    public ValueTask DisposeAsync()
+    public virtual ValueTask DisposeAsync()
     {
         client.Dispose();
         return ValueTask.CompletedTask;
@@ -190,5 +193,30 @@ public sealed class QueryNumericSortKeyTests
         Assert.NotNull(response.LastEvaluatedKey);
         Assert.Equal("ITEM#1", response.LastEvaluatedKey["PK"].S);
         Assert.Equal("2", response.LastEvaluatedKey["SK"].N);
+    }
+}
+
+public sealed class InMemoryQueryNumericSortKeyTests : QueryNumericSortKeyTestsBase
+{
+    protected override DynamoDbClient CreateClient() =>
+        new(new DynamoDbLiteOptions($"Data Source=Test_{Guid.NewGuid():N};Mode=Memory;Cache=Shared"));
+}
+
+public sealed class FileBasedQueryNumericSortKeyTests : QueryNumericSortKeyTestsBase
+{
+    private string? dbPath;
+
+    protected override DynamoDbClient CreateClient()
+    {
+        var (c, path) = FileBasedTestHelper.CreateFileBasedClient();
+        dbPath = path;
+        return c;
+    }
+
+    public override ValueTask DisposeAsync()
+    {
+        var result = base.DisposeAsync();
+        FileBasedTestHelper.Cleanup(dbPath);
+        return result;
     }
 }

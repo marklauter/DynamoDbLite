@@ -1,6 +1,7 @@
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
 using Amazon.Runtime;
+using DynamoDbLite.SqlteStores;
 
 namespace DynamoDbLite;
 
@@ -18,7 +19,7 @@ public sealed partial class DynamoDbClient
         ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(request);
 
-        var tableName = SqliteStore.ExtractTableNameFromArn(request.ResourceArn);
+        var tableName = SqliteStoreBase.ExtractTableNameFromArn(request.ResourceArn);
 
         if (!await store.TableExistsAsync(tableName, cancellationToken))
             throw new ResourceNotFoundException($"Requested resource not found: Table: {tableName} not found");
@@ -50,7 +51,7 @@ public sealed partial class DynamoDbClient
         ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(request);
 
-        var tableName = SqliteStore.ExtractTableNameFromArn(request.ResourceArn);
+        var tableName = SqliteStoreBase.ExtractTableNameFromArn(request.ResourceArn);
 
         if (!await store.TableExistsAsync(tableName, cancellationToken))
             throw new ResourceNotFoundException($"Requested resource not found: Table: {tableName} not found");
@@ -65,7 +66,7 @@ public sealed partial class DynamoDbClient
         ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(request);
 
-        var tableName = SqliteStore.ExtractTableNameFromArn(request.ResourceArn);
+        var tableName = SqliteStoreBase.ExtractTableNameFromArn(request.ResourceArn);
 
         if (!await store.TableExistsAsync(tableName, cancellationToken))
             throw new ResourceNotFoundException($"Requested resource not found: Table: {tableName} not found");
@@ -295,36 +296,15 @@ public sealed partial class DynamoDbClient
                         update.Create.IndexName, true, update.Create.KeySchema, projectionType, nonKeyAttrs);
                     gsiDefs.Add(newIdx);
 
-                    // Read existing items and TTL config before starting transaction to avoid schema lock
                     var existingItems = await store.GetAllItemsAsync(request.TableName, cancellationToken);
                     var ttlAttrForBackfill = await store.GetTtlAttributeNameAsync(request.TableName, cancellationToken);
-
-                    // Create index table and backfill
-                    using var connection = await store.OpenConnectionAsync(cancellationToken);
-                    using var transaction = await connection.BeginTransactionAsync(cancellationToken);
-
-                    await SqliteStore.CreateIndexTableAsync(connection, request.TableName, newIdx.IndexName, transaction);
-                    foreach (var existingRow in existingItems)
-                    {
-                        var item = AttributeValueSerializer.Deserialize(existingRow.ItemJson);
-                        var keys = KeyHelper.TryExtractIndexKeys(item, newIdx.KeySchema, attrDefs);
-                        if (keys is not null)
-                        {
-                            var skNum = SqliteStore.ComputeIndexSkNum(keys.Value.Sk, newIdx.KeySchema, attrDefs);
-                            var ttlEpoch = ttlAttrForBackfill is not null ? TtlHelper.ExtractTtlEpoch(item, ttlAttrForBackfill) : null;
-                            await SqliteStore.UpsertIndexEntryAsync(
-                                connection, transaction, request.TableName, newIdx.IndexName,
-                                keys.Value.Pk, keys.Value.Sk, skNum,
-                                existingRow.Pk, existingRow.Sk, existingRow.ItemJson, ttlEpoch);
-                        }
-                    }
-
                     var updatedAttrDefs = request.AttributeDefinitions is { Count: > 0 }
                         ? request.AttributeDefinitions
                         : null;
-                    await store.UpdateIndexMetadataInTransactionAsync(
-                        connection, transaction, request.TableName, gsiDefs, updatedAttrDefs);
-                    await transaction.CommitAsync(cancellationToken);
+
+                    await store.CreateGsiWithBackfillAsync(
+                        request.TableName, newIdx, gsiDefs, attrDefs,
+                        existingItems, ttlAttrForBackfill, updatedAttrDefs, cancellationToken);
                 }
                 else if (update.Delete is not null)
                 {
@@ -334,13 +314,8 @@ public sealed partial class DynamoDbClient
 
                     _ = gsiDefs.Remove(toRemove);
 
-                    using var connection = await store.OpenConnectionAsync(cancellationToken);
-                    using var transaction = await connection.BeginTransactionAsync(cancellationToken);
-
-                    await SqliteStore.DropIndexTableAsync(connection, request.TableName, update.Delete.IndexName, transaction);
-                    await store.UpdateIndexMetadataInTransactionAsync(
-                        connection, transaction, request.TableName, gsiDefs);
-                    await transaction.CommitAsync(cancellationToken);
+                    await store.DeleteGsiAsync(
+                        request.TableName, update.Delete.IndexName, gsiDefs, cancellationToken);
                 }
                 // Update (throughput changes) → no-op for local emulator
             }

@@ -43,7 +43,7 @@ Full fidelity with DynamoDB semantics:
 9. **Phase 9 — Capacity & limits (complete)** · effort: low · value: low — `DescribeLimitsAsync`, `DescribeEndpointsAsync`, `DetermineServiceOperationEndpoint` — return sensible default/mock values
 10. **Phase 10 — Export & import (complete)** · effort: medium · value: medium — Local file-based export/import using directories as S3 bucket analogs; `DYNAMODB_JSON` format only; background `Task.Run` execution; `AWSDynamoDB/{exportId}/` file layout
 
-11. **Phase 11 — Split SqliteStore by mode** · effort: medium · value: medium — Extract interface, implement file-based (WAL) and in-memory (`SemaphoreSlim`) stores so callers get correct concurrency regardless of connection string. See [`docs/tech-debt/003-split-sqlitestore-by-mode.md`](tech-debt/003-split-sqlitestore-by-mode.md).
+11. **Phase 11 — Split SqliteStore by mode (complete)** · effort: medium · value: medium — Extract interface, implement file-based (WAL) and in-memory (`SemaphoreSlim`) stores so callers get correct concurrency regardless of connection string. See [`docs/tech-debt/003-split-sqlitestore-by-mode.md`](tech-debt/003-split-sqlitestore-by-mode.md).
 12. **Phase 12 — Tech debt cleanup** · effort: medium · value: medium — Address accumulated tech debt items tracked in [`docs/tech-debt/`](tech-debt/)
 13. **Phase 13 — Parity tests** · effort: medium · value: high — Integration tests that run against both DynamoDbLite and real DynamoDB (via Testcontainers + Podman on WSL) to confirm behavioral parity. `DynamoDbFixture` spins up `amazon/dynamodb-local:latest` container; requires Podman as the container runtime running under WSL (daemonless, no Docker needed). Tests verify identical responses from both implementations.
 

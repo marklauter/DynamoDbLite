@@ -3,14 +3,17 @@ using Amazon.DynamoDBv2.Model;
 
 namespace DynamoDbLite.Tests;
 
-public sealed class ScanTests
+public abstract class ScanTestsBase
     : IAsyncLifetime
 {
-    private readonly DynamoDbClient client = new(new DynamoDbLiteOptions(
-        $"Data Source=Test_{Guid.NewGuid():N};Mode=Memory;Cache=Shared"));
+    protected DynamoDbClient client = null!;
+
+    protected abstract DynamoDbClient CreateClient();
 
     public async ValueTask InitializeAsync()
-        => _ = await client.CreateTableAsync(
+    {
+        client = CreateClient();
+        _ = await client.CreateTableAsync(
             new CreateTableRequest
             {
                 TableName = "TestTable",
@@ -26,8 +29,9 @@ public sealed class ScanTests
                     ]
             },
             TestContext.Current.CancellationToken);
+    }
 
-    public ValueTask DisposeAsync()
+    public virtual ValueTask DisposeAsync()
     {
         client.Dispose();
         return ValueTask.CompletedTask;
@@ -195,4 +199,29 @@ public sealed class ScanTests
             {
                 TableName = "NonExistent"
             }, TestContext.Current.CancellationToken));
+}
+
+public sealed class InMemoryScanTests : ScanTestsBase
+{
+    protected override DynamoDbClient CreateClient() =>
+        new(new DynamoDbLiteOptions($"Data Source=Test_{Guid.NewGuid():N};Mode=Memory;Cache=Shared"));
+}
+
+public sealed class FileBasedScanTests : ScanTestsBase
+{
+    private string? dbPath;
+
+    protected override DynamoDbClient CreateClient()
+    {
+        var (c, path) = Fixtures.FileBasedTestHelper.CreateFileBasedClient();
+        dbPath = path;
+        return c;
+    }
+
+    public override ValueTask DisposeAsync()
+    {
+        var result = base.DisposeAsync();
+        Fixtures.FileBasedTestHelper.Cleanup(dbPath);
+        return result;
+    }
 }

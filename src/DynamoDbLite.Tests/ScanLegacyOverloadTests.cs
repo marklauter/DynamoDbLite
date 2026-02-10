@@ -4,14 +4,16 @@ using System.Globalization;
 
 namespace DynamoDbLite.Tests;
 
-public sealed class ScanLegacyOverloadTests
+public abstract class ScanLegacyOverloadTestsBase
     : IAsyncLifetime
 {
-    private readonly DynamoDbClient client = new(new DynamoDbLiteOptions(
-        $"Data Source=Test_{Guid.NewGuid():N};Mode=Memory;Cache=Shared"));
+    protected DynamoDbClient client = null!;
+
+    protected abstract DynamoDbClient CreateClient();
 
     public async ValueTask InitializeAsync()
     {
+        client = CreateClient();
         _ = await client.CreateTableAsync(new CreateTableRequest
         {
             TableName = "TestTable",
@@ -51,7 +53,7 @@ public sealed class ScanLegacyOverloadTests
         }
     }
 
-    public ValueTask DisposeAsync()
+    public virtual ValueTask DisposeAsync()
     {
         client.Dispose();
         return ValueTask.CompletedTask;
@@ -196,5 +198,30 @@ public sealed class ScanLegacyOverloadTests
             _ = Assert.Single(item);
             Assert.Contains("name", item.Keys);
         });
+    }
+}
+
+public sealed class InMemoryScanLegacyOverloadTests : ScanLegacyOverloadTestsBase
+{
+    protected override DynamoDbClient CreateClient() =>
+        new(new DynamoDbLiteOptions($"Data Source=Test_{Guid.NewGuid():N};Mode=Memory;Cache=Shared"));
+}
+
+public sealed class FileBasedScanLegacyOverloadTests : ScanLegacyOverloadTestsBase
+{
+    private string? dbPath;
+
+    protected override DynamoDbClient CreateClient()
+    {
+        var (c, path) = Fixtures.FileBasedTestHelper.CreateFileBasedClient();
+        dbPath = path;
+        return c;
+    }
+
+    public override ValueTask DisposeAsync()
+    {
+        var result = base.DisposeAsync();
+        Fixtures.FileBasedTestHelper.Cleanup(dbPath);
+        return result;
     }
 }

@@ -2,6 +2,7 @@ using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
 using Dapper;
 using DynamoDbLite.Expressions;
+using DynamoDbLite.SqlteStores;
 using System.Globalization;
 
 namespace DynamoDbLite;

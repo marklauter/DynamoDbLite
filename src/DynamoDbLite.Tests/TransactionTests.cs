@@ -1,30 +1,36 @@
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
+using DynamoDbLite.Tests.Fixtures;
 
 namespace DynamoDbLite.Tests;
 
-public sealed class TransactionTests
+public abstract class TransactionTestsBase
     : IAsyncLifetime
 {
-    private readonly DynamoDbClient client = new(new DynamoDbLiteOptions(
-        $"Data Source=Test_{Guid.NewGuid():N};Mode=Memory;Cache=Shared"));
+    protected DynamoDbClient client = null!;
 
-    public async ValueTask InitializeAsync() => _ = await client.CreateTableAsync(new CreateTableRequest
+    protected abstract DynamoDbClient CreateClient();
+
+    public async ValueTask InitializeAsync()
     {
-        TableName = "TestTable",
-        KeySchema =
-            [
-                new KeySchemaElement { AttributeName = "PK", KeyType = KeyType.HASH },
-                new KeySchemaElement { AttributeName = "SK", KeyType = KeyType.RANGE }
-            ],
-        AttributeDefinitions =
-            [
-                new AttributeDefinition { AttributeName = "PK", AttributeType = ScalarAttributeType.S },
-                new AttributeDefinition { AttributeName = "SK", AttributeType = ScalarAttributeType.S }
-            ]
-    }, TestContext.Current.CancellationToken);
+        client = CreateClient();
+        _ = await client.CreateTableAsync(new CreateTableRequest
+        {
+            TableName = "TestTable",
+            KeySchema =
+                [
+                    new KeySchemaElement { AttributeName = "PK", KeyType = KeyType.HASH },
+                    new KeySchemaElement { AttributeName = "SK", KeyType = KeyType.RANGE }
+                ],
+            AttributeDefinitions =
+                [
+                    new AttributeDefinition { AttributeName = "PK", AttributeType = ScalarAttributeType.S },
+                    new AttributeDefinition { AttributeName = "SK", AttributeType = ScalarAttributeType.S }
+                ]
+        }, TestContext.Current.CancellationToken);
+    }
 
-    public ValueTask DisposeAsync()
+    public virtual ValueTask DisposeAsync()
     {
         client.Dispose();
         return ValueTask.CompletedTask;
@@ -902,4 +908,29 @@ public sealed class TransactionTests
                     }
                 ]
             }, TestContext.Current.CancellationToken));
+}
+
+public sealed class InMemoryTransactionTests : TransactionTestsBase
+{
+    protected override DynamoDbClient CreateClient() =>
+        new(new DynamoDbLiteOptions($"Data Source=Test_{Guid.NewGuid():N};Mode=Memory;Cache=Shared"));
+}
+
+public sealed class FileBasedTransactionTests : TransactionTestsBase
+{
+    private string? dbPath;
+
+    protected override DynamoDbClient CreateClient()
+    {
+        var (c, path) = FileBasedTestHelper.CreateFileBasedClient();
+        dbPath = path;
+        return c;
+    }
+
+    public override ValueTask DisposeAsync()
+    {
+        var result = base.DisposeAsync();
+        FileBasedTestHelper.Cleanup(dbPath);
+        return result;
+    }
 }

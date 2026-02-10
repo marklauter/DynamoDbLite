@@ -1,6 +1,5 @@
 using Amazon.DynamoDBv2.Model;
 using System.Buffers;
-using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 
 namespace DynamoDbLite;
@@ -16,7 +15,6 @@ internal static class AttributeValueSerializer
         return System.Text.Encoding.UTF8.GetString(buffer.WrittenSpan);
     }
 
-    [SuppressMessage("IDisposableAnalyzers.Correctness", "IDISP004:Don't ignore created IDisposable", Justification = "ArrayEnumerator is a struct; foreach disposes it")]
     internal static Dictionary<string, AttributeValue> Deserialize(string json)
     {
         using var doc = JsonDocument.Parse(json);
@@ -100,84 +98,49 @@ internal static class AttributeValueSerializer
         writer.WriteEndObject();
     }
 
-    [SuppressMessage("IDisposableAnalyzers.Correctness", "IDISP004:Don't ignore created IDisposable", Justification = "ArrayEnumerator is a struct; foreach disposes it")]
     private static Dictionary<string, AttributeValue> ReadMap(JsonElement element)
     {
-        var result = new Dictionary<string, AttributeValue>();
-        foreach (var prop in element.EnumerateObject())
-            result[prop.Name] = ReadAttributeValue(prop.Value);
-        return result;
+        using var obj = element.EnumerateObject();
+        return obj.ToDictionary(p => p.Name, p => ReadAttributeValue(p.Value));
     }
 
-    [SuppressMessage("IDisposableAnalyzers.Correctness", "IDISP004:Don't ignore created IDisposable", Justification = "ArrayEnumerator is a struct; foreach disposes it")]
     private static AttributeValue ReadAttributeValue(JsonElement element)
     {
-        var av = new AttributeValue();
-
-        foreach (var prop in element.EnumerateObject())
-        {
-            switch (prop.Name)
-            {
-                case "S":
-                    av.S = prop.Value.GetString();
-                    break;
-                case "N":
-                    av.N = prop.Value.GetString();
-                    break;
-                case "B":
-                    av.B = new MemoryStream(prop.Value.GetBytesFromBase64());
-                    break;
-                case "BOOL":
-                    av.BOOL = prop.Value.GetBoolean();
-                    break;
-                case "NULL":
-                    av.NULL = prop.Value.GetBoolean();
-                    break;
-                case "SS":
-                    av.SS = ReadStringList(prop.Value);
-                    break;
-                case "NS":
-                    av.NS = ReadStringList(prop.Value);
-                    break;
-                case "BS":
-                    av.BS = ReadBinaryList(prop.Value);
-                    break;
-                case "L":
-                    av.L = ReadAttributeValueList(prop.Value);
-                    break;
-                case "M":
-                    av.M = ReadMap(prop.Value);
-                    break;
-            }
-        }
-
-        return av;
+        using var obj = element.EnumerateObject();
+        return obj.Select(ReadProperty).First();
     }
 
-    [SuppressMessage("IDisposableAnalyzers.Correctness", "IDISP004:Don't ignore created IDisposable", Justification = "ArrayEnumerator is a struct; foreach disposes it")]
+    private static AttributeValue ReadProperty(JsonProperty prop) =>
+        prop.Name switch
+        {
+            "S" => new AttributeValue { S = prop.Value.GetString() },
+            "N" => new AttributeValue { N = prop.Value.GetString() },
+            "B" => new AttributeValue { B = new MemoryStream(prop.Value.GetBytesFromBase64()) },
+            "BOOL" => new AttributeValue { BOOL = prop.Value.GetBoolean() },
+            "NULL" => new AttributeValue { NULL = prop.Value.GetBoolean() },
+            "SS" => new AttributeValue { SS = ReadStringList(prop.Value) },
+            "NS" => new AttributeValue { NS = ReadStringList(prop.Value) },
+            "BS" => new AttributeValue { BS = ReadBinaryList(prop.Value) },
+            "L" => new AttributeValue { L = ReadAttributeValueList(prop.Value) },
+            "M" => new AttributeValue { M = ReadMap(prop.Value) },
+            _ => throw new NotSupportedException()
+        };
+
     private static List<string> ReadStringList(JsonElement element)
     {
-        var list = new List<string>();
-        foreach (var item in element.EnumerateArray())
-            list.Add(item.GetString()!);
-        return list;
+        using var arr = element.EnumerateArray();
+        return [.. arr.Select(e => e.GetString()!)];
     }
 
-    [SuppressMessage("IDisposableAnalyzers.Correctness", "IDISP004:Don't ignore created IDisposable", Justification = "ArrayEnumerator is a struct; foreach disposes it")]
     private static List<MemoryStream> ReadBinaryList(JsonElement element)
     {
-        var list = new List<MemoryStream>();
-        foreach (var item in element.EnumerateArray())
-            list.Add(new MemoryStream(item.GetBytesFromBase64()));
-        return list;
+        using var arr = element.EnumerateArray();
+        return [.. arr.Select(e => new MemoryStream(e.GetBytesFromBase64()))];
     }
 
-    [SuppressMessage("IDisposableAnalyzers.Correctness", "IDISP004:Don't ignore created IDisposable", Justification = "ArrayEnumerator is a struct; foreach disposes it")]
     private static List<AttributeValue> ReadAttributeValueList(JsonElement element)
     {
-        var list = new List<AttributeValue>();
-        foreach (var item in element.EnumerateArray())
-            list.Add(ReadAttributeValue(item));
-        return list;
+        using var arr = element.EnumerateArray();
+        return [.. arr.Select(ReadAttributeValue)];
     }
 }

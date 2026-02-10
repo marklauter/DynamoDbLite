@@ -3,28 +3,33 @@ using Amazon.DynamoDBv2.Model;
 
 namespace DynamoDbLite.Tests;
 
-public sealed class ItemCrudTests
+public abstract class ItemCrudTestsBase
     : IAsyncLifetime
 {
-    private readonly DynamoDbClient client = new(new DynamoDbLiteOptions(
-        $"Data Source=Test_{Guid.NewGuid():N};Mode=Memory;Cache=Shared"));
+    protected DynamoDbClient client = null!;
 
-    public async ValueTask InitializeAsync() => _ = await client.CreateTableAsync(new CreateTableRequest
+    protected abstract DynamoDbClient CreateClient();
+
+    public async ValueTask InitializeAsync()
     {
-        TableName = "TestTable",
-        KeySchema =
-            [
-                new KeySchemaElement { AttributeName = "PK", KeyType = KeyType.HASH },
-                new KeySchemaElement { AttributeName = "SK", KeyType = KeyType.RANGE }
-            ],
-        AttributeDefinitions =
-            [
-                new AttributeDefinition { AttributeName = "PK", AttributeType = ScalarAttributeType.S },
-                new AttributeDefinition { AttributeName = "SK", AttributeType = ScalarAttributeType.S }
-            ]
-    }, TestContext.Current.CancellationToken);
+        client = CreateClient();
+        _ = await client.CreateTableAsync(new CreateTableRequest
+        {
+            TableName = "TestTable",
+            KeySchema =
+                [
+                    new KeySchemaElement { AttributeName = "PK", KeyType = KeyType.HASH },
+                    new KeySchemaElement { AttributeName = "SK", KeyType = KeyType.RANGE }
+                ],
+            AttributeDefinitions =
+                [
+                    new AttributeDefinition { AttributeName = "PK", AttributeType = ScalarAttributeType.S },
+                    new AttributeDefinition { AttributeName = "SK", AttributeType = ScalarAttributeType.S }
+                ]
+        }, TestContext.Current.CancellationToken);
+    }
 
-    public ValueTask DisposeAsync()
+    public virtual ValueTask DisposeAsync()
     {
         client.Dispose();
         return ValueTask.CompletedTask;
@@ -804,4 +809,29 @@ public sealed class ItemCrudTests
                 ["name"] = new() { S = name }
             }
         }, TestContext.Current.CancellationToken);
+}
+
+public sealed class InMemoryItemCrudTests : ItemCrudTestsBase
+{
+    protected override DynamoDbClient CreateClient() =>
+        new(new DynamoDbLiteOptions($"Data Source=Test_{Guid.NewGuid():N};Mode=Memory;Cache=Shared"));
+}
+
+public sealed class FileBasedItemCrudTests : ItemCrudTestsBase
+{
+    private string? dbPath;
+
+    protected override DynamoDbClient CreateClient()
+    {
+        var (c, path) = Fixtures.FileBasedTestHelper.CreateFileBasedClient();
+        dbPath = path;
+        return c;
+    }
+
+    public override ValueTask DisposeAsync()
+    {
+        var result = base.DisposeAsync();
+        Fixtures.FileBasedTestHelper.Cleanup(dbPath);
+        return result;
+    }
 }

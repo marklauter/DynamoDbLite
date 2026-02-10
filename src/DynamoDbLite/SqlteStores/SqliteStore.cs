@@ -8,19 +8,16 @@ using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Text.Json;
 
-namespace DynamoDbLite;
+namespace DynamoDbLite.SqlteStores;
 
-internal sealed class SqliteStore
+internal abstract class SqliteStoreBase
     : IDisposable
 {
-    private readonly string connectionString;
-    private readonly SqliteConnection sentinel;
-    private readonly bool isMemory;
+    protected readonly string ConnectionString;
     private readonly ConcurrentDictionary<string, DateTime> lastCleanupByTable = new();
-    private bool walEnabled;
     private bool disposed;
 
-    internal SqliteStore(DynamoDbLiteOptions options)
+    protected SqliteStoreBase(DynamoDbLiteOptions options, bool initialize = true)
     {
         var builder = new SqliteConnectionStringBuilder(options.ConnectionString)
         {
@@ -29,27 +26,15 @@ internal sealed class SqliteStore
             ForeignKeys = true,
         };
 
-        isMemory = builder.Mode is SqliteOpenMode.Memory
-            || builder.DataSource.Contains(":memory:", StringComparison.OrdinalIgnoreCase);
-        connectionString = builder.ToString();
+        ConnectionString = builder.ToString();
 
-        sentinel = new SqliteConnection(connectionString);
-        sentinel.Open();
-
-        if (!isMemory)
-        {
-            using var walCommand = sentinel.CreateCommand();
-            walCommand.CommandText = "PRAGMA journal_mode = 'wal'";
-            _ = walCommand.ExecuteNonQuery();
-            walEnabled = true;
-        }
-
-        InitializeSchema();
+        if (initialize)
+            Initialize();
     }
 
-    private void InitializeSchema()
+    protected void Initialize()
     {
-        using var connection = new SqliteConnection(connectionString);
+        using var connection = new SqliteConnection(ConnectionString);
         connection.Open();
         _ = connection.Execute("""
             CREATE TABLE IF NOT EXISTS tables (
@@ -136,21 +121,15 @@ internal sealed class SqliteStore
         }
     }
 
-    internal async Task<DbConnection> OpenConnectionAsync(CancellationToken cancellationToken = default)
-    {
-        var connection = new SqliteConnection(connectionString);
-        await connection.OpenAsync(cancellationToken);
+    protected abstract Task<DbConnection> OpenConnectionAsync(CancellationToken ct);
 
-        if (!isMemory && !walEnabled)
-        {
-            using var command = connection.CreateCommand();
-            command.CommandText = "PRAGMA journal_mode = 'wal'";
-            _ = await command.ExecuteNonQueryAsync(cancellationToken);
-            walEnabled = true;
-        }
+    protected virtual ValueTask<IDisposable?> AcquireReadLockAsync(CancellationToken ct) =>
+        default;
 
-        return connection;
-    }
+    protected virtual ValueTask<IDisposable?> AcquireWriteLockAsync(CancellationToken ct) =>
+        default;
+
+    protected abstract void DisposeCore();
 
     internal static double NowEpoch() => DateTimeOffset.UtcNow.ToUnixTimeSeconds();
 
@@ -158,6 +137,7 @@ internal sealed class SqliteStore
 
     internal async Task SetTtlConfigAsync(string tableName, string attributeName, CancellationToken cancellationToken = default)
     {
+        using var @lock = await AcquireWriteLockAsync(cancellationToken).ConfigureAwait(false);
         using var connection = await OpenConnectionAsync(cancellationToken);
         _ = await connection.ExecuteAsync(
             """
@@ -169,6 +149,7 @@ internal sealed class SqliteStore
 
     internal async Task RemoveTtlConfigAsync(string tableName, CancellationToken cancellationToken = default)
     {
+        using var @lock = await AcquireWriteLockAsync(cancellationToken).ConfigureAwait(false);
         using var connection = await OpenConnectionAsync(cancellationToken);
         _ = await connection.ExecuteAsync(
             "DELETE FROM ttl_config WHERE table_name = @tableName",
@@ -177,6 +158,7 @@ internal sealed class SqliteStore
 
     internal async Task<string?> GetTtlAttributeNameAsync(string tableName, CancellationToken cancellationToken = default)
     {
+        using var @lock = await AcquireReadLockAsync(cancellationToken).ConfigureAwait(false);
         using var connection = await OpenConnectionAsync(cancellationToken);
         return await connection.QuerySingleOrDefaultAsync<string>(
             "SELECT attribute_name FROM ttl_config WHERE table_name = @tableName",
@@ -198,6 +180,7 @@ internal sealed class SqliteStore
 
     internal async Task SetTagsAsync(string tableName, List<(string Key, string Value)> tags, CancellationToken cancellationToken = default)
     {
+        using var @lock = await AcquireWriteLockAsync(cancellationToken).ConfigureAwait(false);
         using var connection = await OpenConnectionAsync(cancellationToken);
         foreach (var (key, value) in tags)
         {
@@ -212,6 +195,7 @@ internal sealed class SqliteStore
 
     internal async Task RemoveTagsAsync(string tableName, List<string> tagKeys, CancellationToken cancellationToken = default)
     {
+        using var @lock = await AcquireWriteLockAsync(cancellationToken).ConfigureAwait(false);
         using var connection = await OpenConnectionAsync(cancellationToken);
         foreach (var tagKey in tagKeys)
         {
@@ -223,6 +207,7 @@ internal sealed class SqliteStore
 
     internal async Task<List<(string Key, string Value)>> GetTagsAsync(string tableName, CancellationToken cancellationToken = default)
     {
+        using var @lock = await AcquireReadLockAsync(cancellationToken).ConfigureAwait(false);
         using var connection = await OpenConnectionAsync(cancellationToken);
         var rows = await connection.QueryAsync<(string Key, string Value)>(
             "SELECT tag_key AS Key, tag_value AS Value FROM table_tags WHERE table_name = @tableName",
@@ -232,6 +217,7 @@ internal sealed class SqliteStore
 
     internal async Task<bool> TableExistsAsync(string tableName, CancellationToken cancellationToken = default)
     {
+        using var @lock = await AcquireReadLockAsync(cancellationToken).ConfigureAwait(false);
         using var connection = await OpenConnectionAsync(cancellationToken);
         return await connection.ExecuteScalarAsync<int>(
             "SELECT COUNT(1) FROM tables WHERE table_name = @tableName",
@@ -262,6 +248,7 @@ internal sealed class SqliteStore
         var gsiJson = SerializeIndexDefinitions(gsiDefinitions ?? []);
         var lsiJson = SerializeIndexDefinitions(lsiDefinitions ?? []);
 
+        using var @lock = await AcquireWriteLockAsync(cancellationToken).ConfigureAwait(false);
         using var connection = await OpenConnectionAsync(cancellationToken);
         using var transaction = await connection.BeginTransactionAsync(cancellationToken);
 
@@ -283,6 +270,7 @@ internal sealed class SqliteStore
 
     internal async Task DeleteTableAsync(string tableName, CancellationToken cancellationToken = default)
     {
+        using var @lock = await AcquireWriteLockAsync(cancellationToken).ConfigureAwait(false);
         using var connection = await OpenConnectionAsync(cancellationToken);
         using var transaction = await connection.BeginTransactionAsync(cancellationToken);
 
@@ -315,6 +303,7 @@ internal sealed class SqliteStore
 
     internal async Task<TableDescription?> GetTableDescriptionAsync(string tableName, CancellationToken cancellationToken = default)
     {
+        using var @lock = await AcquireReadLockAsync(cancellationToken).ConfigureAwait(false);
         using var connection = await OpenConnectionAsync(cancellationToken);
         var row = await connection.QuerySingleOrDefaultAsync<TableRow>(
             """
@@ -339,6 +328,7 @@ internal sealed class SqliteStore
 
     internal async Task<KeySchemaInfo?> GetKeySchemaAsync(string tableName, CancellationToken cancellationToken = default)
     {
+        using var @lock = await AcquireReadLockAsync(cancellationToken).ConfigureAwait(false);
         using var connection = await OpenConnectionAsync(cancellationToken);
         var row = await connection.QuerySingleOrDefaultAsync<KeySchemaRow>(
             """
@@ -357,6 +347,7 @@ internal sealed class SqliteStore
 
     internal async Task<string?> PutItemAsync(string tableName, string pk, string sk, string itemJson, double? skNum = null, double? ttlEpoch = null, double? nowEpoch = null, CancellationToken cancellationToken = default)
     {
+        using var @lock = await AcquireWriteLockAsync(cancellationToken).ConfigureAwait(false);
         using var connection = await OpenConnectionAsync(cancellationToken);
         using var transaction = await connection.BeginTransactionAsync(cancellationToken);
         var oldJson = await PutItemCoreAsync(connection, transaction, tableName, pk, sk, itemJson, skNum, ttlEpoch, nowEpoch ?? NowEpoch());
@@ -405,6 +396,7 @@ internal sealed class SqliteStore
     internal async Task<string?> GetItemAsync(string tableName, string pk, string sk, double? nowEpoch = null, CancellationToken cancellationToken = default)
     {
         var epoch = nowEpoch ?? NowEpoch();
+        using var @lock = await AcquireReadLockAsync(cancellationToken).ConfigureAwait(false);
         using var connection = await OpenConnectionAsync(cancellationToken);
         return await connection.QuerySingleOrDefaultAsync<string>(
             "SELECT item_json FROM items WHERE table_name = @tableName AND pk = @pk AND sk = @sk AND (ttl_epoch IS NULL OR ttl_epoch >= @nowEpoch)",
@@ -413,6 +405,7 @@ internal sealed class SqliteStore
 
     internal async Task<string?> DeleteItemAsync(string tableName, string pk, string sk, double? nowEpoch = null, CancellationToken cancellationToken = default)
     {
+        using var @lock = await AcquireWriteLockAsync(cancellationToken).ConfigureAwait(false);
         using var connection = await OpenConnectionAsync(cancellationToken);
         using var transaction = await connection.BeginTransactionAsync(cancellationToken);
         var oldJson = await DeleteItemCoreAsync(connection, transaction, tableName, pk, sk, nowEpoch);
@@ -467,6 +460,7 @@ internal sealed class SqliteStore
         double? nowEpoch = null,
         CancellationToken cancellationToken = default)
     {
+        using var @lock = await AcquireReadLockAsync(cancellationToken).ConfigureAwait(false);
         using var connection = await OpenConnectionAsync(cancellationToken);
         var parameters = new DynamicParameters();
         parameters.Add("@tableName", tableName);
@@ -508,6 +502,7 @@ internal sealed class SqliteStore
         double? nowEpoch = null,
         CancellationToken cancellationToken = default)
     {
+        using var @lock = await AcquireReadLockAsync(cancellationToken).ConfigureAwait(false);
         using var connection = await OpenConnectionAsync(cancellationToken);
         var parameters = new DynamicParameters();
         parameters.Add("@tableName", tableName);
@@ -535,6 +530,7 @@ internal sealed class SqliteStore
 
     internal async Task<List<string>> ListTableNamesAsync(string? exclusiveStartTableName, int limit, CancellationToken cancellationToken = default)
     {
+        using var @lock = await AcquireReadLockAsync(cancellationToken).ConfigureAwait(false);
         using var connection = await OpenConnectionAsync(cancellationToken);
 
         if (exclusiveStartTableName is not null)
@@ -617,38 +613,32 @@ internal sealed class SqliteStore
             NonKeyAttributes = idx.NonKeyAttributes is { Count: > 0 } ? idx.NonKeyAttributes : null
         };
 
-    [SuppressMessage("IDisposableAnalyzers.Correctness", "IDISP004:Don't ignore created IDisposable", Justification = "ArrayEnumerator is a struct; foreach disposes it")]
     private static List<KeySchemaElement> DeserializeKeySchema(string json)
     {
         using var doc = JsonDocument.Parse(json);
-        var result = new List<KeySchemaElement>();
-        foreach (var e in doc.RootElement.EnumerateArray())
-        {
-            result.Add(new KeySchemaElement
+        using var arr = doc.RootElement.EnumerateArray();
+        return
+        [
+            .. arr.Select(e => new KeySchemaElement
             {
                 AttributeName = e.GetProperty("AttributeName").GetString()!,
                 KeyType = e.GetProperty("KeyType").GetString()!
-            });
-        }
-
-        return result;
+            })
+        ];
     }
 
-    [SuppressMessage("IDisposableAnalyzers.Correctness", "IDISP004:Don't ignore created IDisposable", Justification = "ArrayEnumerator is a struct; foreach disposes it")]
     private static List<AttributeDefinition> DeserializeAttributeDefinitions(string json)
     {
         using var doc = JsonDocument.Parse(json);
-        var result = new List<AttributeDefinition>();
-        foreach (var e in doc.RootElement.EnumerateArray())
-        {
-            result.Add(new AttributeDefinition
+        using var arr = doc.RootElement.EnumerateArray();
+        return
+        [
+            .. arr.Select(e => new AttributeDefinition
             {
                 AttributeName = e.GetProperty("AttributeName").GetString()!,
                 AttributeType = e.GetProperty("AttributeType").GetString()!
-            });
-        }
-
-        return result;
+            })
+        ];
     }
 
     private static ProvisionedThroughput? DeserializeProvisionedThroughput(string json)
@@ -672,6 +662,7 @@ internal sealed class SqliteStore
         double? nowEpoch = null,
         CancellationToken cancellationToken = default)
     {
+        using var @lock = await AcquireReadLockAsync(cancellationToken).ConfigureAwait(false);
         using var connection = await OpenConnectionAsync(cancellationToken);
         var epoch = nowEpoch ?? NowEpoch();
         var results = new List<(string TableName, string ItemJson)>(keys.Count);
@@ -694,6 +685,7 @@ internal sealed class SqliteStore
         Dictionary<string, (List<IndexDefinition> Indexes, List<AttributeDefinition> AttrDefs)>? indexInfoByTable,
         CancellationToken cancellationToken = default)
     {
+        using var @lock = await AcquireWriteLockAsync(cancellationToken).ConfigureAwait(false);
         using var connection = await OpenConnectionAsync(cancellationToken);
         using var transaction = await connection.BeginTransactionAsync(cancellationToken);
 
@@ -768,6 +760,7 @@ internal sealed class SqliteStore
         CancellationToken cancellationToken = default)
     {
         var epoch = nowEpoch ?? NowEpoch();
+        using var @lock = await AcquireWriteLockAsync(cancellationToken).ConfigureAwait(false);
         using var connection = await OpenConnectionAsync(cancellationToken);
         using var transaction = await connection.BeginTransactionAsync(cancellationToken);
 
@@ -800,7 +793,7 @@ internal sealed class SqliteStore
     internal static string IndexTableName(string tableName, string indexName) =>
         $"idx_{tableName}_{indexName}";
 
-    internal static async Task CreateIndexTableAsync(
+    private static async Task CreateIndexTableAsync(
         DbConnection connection,
         string tableName,
         string indexName,
@@ -823,7 +816,7 @@ internal sealed class SqliteStore
             transaction: transaction);
     }
 
-    internal static async Task DropIndexTableAsync(
+    private static async Task DropIndexTableAsync(
         DbConnection connection,
         string tableName,
         string indexName,
@@ -839,6 +832,7 @@ internal sealed class SqliteStore
         string tableName,
         CancellationToken cancellationToken = default)
     {
+        using var @lock = await AcquireReadLockAsync(cancellationToken).ConfigureAwait(false);
         using var connection = await OpenConnectionAsync(cancellationToken);
         return await GetIndexDefinitionsAsync(connection, tableName, null);
     }
@@ -872,6 +866,7 @@ internal sealed class SqliteStore
         string indexName,
         CancellationToken cancellationToken = default)
     {
+        using var @lock = await AcquireReadLockAsync(cancellationToken).ConfigureAwait(false);
         using var connection = await OpenConnectionAsync(cancellationToken);
         var row = await connection.QuerySingleOrDefaultAsync<KeySchemaRow>(
             """
@@ -894,7 +889,7 @@ internal sealed class SqliteStore
 
     // ── Index data operations ──────────────────────────────────────
 
-    internal static async Task UpsertIndexEntryAsync(
+    private static async Task UpsertIndexEntryAsync(
         DbConnection connection,
         DbTransaction transaction,
         string tableName,
@@ -918,7 +913,7 @@ internal sealed class SqliteStore
             transaction);
     }
 
-    internal static async Task DeleteIndexEntryAsync(
+    private static async Task DeleteIndexEntryAsync(
         DbConnection connection,
         DbTransaction transaction,
         string tableName,
@@ -933,7 +928,7 @@ internal sealed class SqliteStore
             transaction);
     }
 
-    internal static async Task MaintainIndexesAsync(
+    private static async Task MaintainIndexesAsync(
         DbConnection connection,
         DbTransaction transaction,
         string tableName,
@@ -999,6 +994,7 @@ internal sealed class SqliteStore
         double? nowEpoch = null,
         CancellationToken cancellationToken = default)
     {
+        using var @lock = await AcquireReadLockAsync(cancellationToken).ConfigureAwait(false);
         using var connection = await OpenConnectionAsync(cancellationToken);
         var idxTable = IndexTableName(tableName, indexName);
         var parameters = new DynamicParameters();
@@ -1045,6 +1041,7 @@ internal sealed class SqliteStore
         double? nowEpoch = null,
         CancellationToken cancellationToken = default)
     {
+        using var @lock = await AcquireReadLockAsync(cancellationToken).ConfigureAwait(false);
         using var connection = await OpenConnectionAsync(cancellationToken);
         var idxTable = IndexTableName(tableName, indexName);
         var parameters = new DynamicParameters();
@@ -1080,13 +1077,14 @@ internal sealed class SqliteStore
         CancellationToken cancellationToken = default)
     {
         var gsiJson = SerializeIndexDefinitions(gsiDefinitions);
+        using var @lock = await AcquireWriteLockAsync(cancellationToken).ConfigureAwait(false);
         using var connection = await OpenConnectionAsync(cancellationToken);
         _ = await connection.ExecuteAsync(
             "UPDATE tables SET global_secondary_indexes_json = @gsiJson WHERE table_name = @tableName",
             new { tableName, gsiJson });
     }
 
-    internal async Task UpdateIndexMetadataInTransactionAsync(
+    private static async Task UpdateIndexMetadataInTransactionAsync(
         DbConnection connection,
         DbTransaction transaction,
         string tableName,
@@ -1117,82 +1115,138 @@ internal sealed class SqliteStore
         string tableName,
         CancellationToken cancellationToken = default)
     {
+        using var @lock = await AcquireReadLockAsync(cancellationToken).ConfigureAwait(false);
         using var connection = await OpenConnectionAsync(cancellationToken);
         return (await connection.QueryAsync<ItemRow>(
             "SELECT pk AS Pk, sk AS Sk, item_json AS ItemJson FROM items WHERE table_name = @tableName",
             new { tableName })).AsList();
     }
 
-    // ── Index methods that need connection+transaction (for writes) ─
+    // ── Consolidated write+index methods ─────────────────────────
 
-    internal async Task<(string? OldJson, DbConnection Connection, DbTransaction Transaction)> PutItemWithTransactionAsync(
+    internal async Task<string?> PutItemWithIndexesAsync(
         string tableName,
         string pk,
         string sk,
         string itemJson,
         double? skNum,
-        double? ttlEpoch = null,
-        double? nowEpoch = null,
+        double? ttlEpoch,
+        double nowEpoch,
+        List<IndexDefinition> indexes,
+        List<AttributeDefinition> attrDefs,
+        Dictionary<string, AttributeValue> newItem,
         CancellationToken cancellationToken = default)
     {
-        var connection = await OpenConnectionAsync(cancellationToken);
-        var transaction = await connection.BeginTransactionAsync(cancellationToken);
-        var oldJson = await PutItemCoreAsync(connection, transaction, tableName, pk, sk, itemJson, skNum, ttlEpoch, nowEpoch ?? NowEpoch());
-        return (oldJson, connection, transaction);
+        using var @lock = await AcquireWriteLockAsync(cancellationToken).ConfigureAwait(false);
+        using var connection = await OpenConnectionAsync(cancellationToken);
+        using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        var oldJson = await PutItemCoreAsync(connection, transaction, tableName, pk, sk, itemJson, skNum, ttlEpoch, nowEpoch);
+        await MaintainIndexesAsync(connection, transaction, tableName, pk, sk, indexes, attrDefs, newItem, oldJson, ttlEpoch);
+        await transaction.CommitAsync(cancellationToken);
+        return oldJson;
     }
 
-    internal async Task<(string? OldJson, DbConnection Connection, DbTransaction Transaction)> DeleteItemWithTransactionAsync(
+    internal async Task<string?> DeleteItemWithIndexesAsync(
         string tableName,
         string pk,
         string sk,
-        double? nowEpoch = null,
+        double nowEpoch,
+        List<IndexDefinition> indexes,
+        List<AttributeDefinition> attrDefs,
         CancellationToken cancellationToken = default)
     {
-        var connection = await OpenConnectionAsync(cancellationToken);
-        var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        using var @lock = await AcquireWriteLockAsync(cancellationToken).ConfigureAwait(false);
+        using var connection = await OpenConnectionAsync(cancellationToken);
+        using var transaction = await connection.BeginTransactionAsync(cancellationToken);
         var oldJson = await DeleteItemCoreAsync(connection, transaction, tableName, pk, sk, nowEpoch);
-        return (oldJson, connection, transaction);
+        await MaintainIndexesAsync(connection, transaction, tableName, pk, sk, indexes, attrDefs, null, oldJson);
+        await transaction.CommitAsync(cancellationToken);
+        return oldJson;
+    }
+
+    internal async Task CreateGsiWithBackfillAsync(
+        string tableName,
+        IndexDefinition newIndex,
+        List<IndexDefinition> updatedGsiDefs,
+        List<AttributeDefinition> attrDefs,
+        List<ItemRow> existingItems,
+        string? ttlAttributeName,
+        List<AttributeDefinition>? updatedAttrDefs,
+        CancellationToken cancellationToken = default)
+    {
+        using var @lock = await AcquireWriteLockAsync(cancellationToken).ConfigureAwait(false);
+        using var connection = await OpenConnectionAsync(cancellationToken);
+        using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+
+        await CreateIndexTableAsync(connection, tableName, newIndex.IndexName, transaction);
+        foreach (var existingRow in existingItems)
+        {
+            var item = AttributeValueSerializer.Deserialize(existingRow.ItemJson);
+            var keys = KeyHelper.TryExtractIndexKeys(item, newIndex.KeySchema, attrDefs);
+            if (keys is not null)
+            {
+                var skNum = ComputeIndexSkNum(keys.Value.Sk, newIndex.KeySchema, attrDefs);
+                var ttlEpoch = ttlAttributeName is not null ? TtlHelper.ExtractTtlEpoch(item, ttlAttributeName) : null;
+                await UpsertIndexEntryAsync(
+                    connection, transaction, tableName, newIndex.IndexName,
+                    keys.Value.Pk, keys.Value.Sk, skNum,
+                    existingRow.Pk, existingRow.Sk, existingRow.ItemJson, ttlEpoch);
+            }
+        }
+
+        await UpdateIndexMetadataInTransactionAsync(
+            connection, transaction, tableName, updatedGsiDefs, updatedAttrDefs);
+        await transaction.CommitAsync(cancellationToken);
+    }
+
+    internal async Task DeleteGsiAsync(
+        string tableName,
+        string indexName,
+        List<IndexDefinition> updatedGsiDefs,
+        CancellationToken cancellationToken = default)
+    {
+        using var @lock = await AcquireWriteLockAsync(cancellationToken).ConfigureAwait(false);
+        using var connection = await OpenConnectionAsync(cancellationToken);
+        using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+
+        await DropIndexTableAsync(connection, tableName, indexName, transaction);
+        await UpdateIndexMetadataInTransactionAsync(
+            connection, transaction, tableName, updatedGsiDefs);
+        await transaction.CommitAsync(cancellationToken);
     }
 
     // ── Index serialization helpers ────────────────────────────────
 
-    [SuppressMessage("IDisposableAnalyzers.Correctness", "IDISP004:Don't ignore created IDisposable", Justification = "ArrayEnumerator is a struct; foreach disposes it")]
     private static List<IndexDefinition> DeserializeIndexDefinitions(string json)
     {
         using var doc = JsonDocument.Parse(json);
-        var result = new List<IndexDefinition>();
-
-        foreach (var e in doc.RootElement.EnumerateArray())
-        {
-            var keySchema = new List<KeySchemaElement>();
-            foreach (var k in e.GetProperty("KeySchema").EnumerateArray())
+        using var arr = doc.RootElement.EnumerateArray();
+        return
+        [
+            .. arr.Select(e =>
             {
-                keySchema.Add(new KeySchemaElement
+                using var ks = e.GetProperty("KeySchema").EnumerateArray();
+                var keySchema = ks.Select(k => new KeySchemaElement
                 {
                     AttributeName = k.GetProperty("AttributeName").GetString()!,
                     KeyType = k.GetProperty("KeyType").GetString()!
-                });
-            }
+                }).ToList();
 
-            var projectionType = e.GetProperty("ProjectionType").GetString()!;
-            List<string>? nonKeyAttrs = null;
+                List<string>? nonKeyAttrs = null;
+                if (e.TryGetProperty("NonKeyAttributes", out var nka) && nka.ValueKind == JsonValueKind.Array)
+                {
+                    using var nkaArr = nka.EnumerateArray();
+                    nonKeyAttrs = [.. nkaArr.Select(a => a.GetString()!)];
+                }
 
-            if (e.TryGetProperty("NonKeyAttributes", out var nka) && nka.ValueKind == JsonValueKind.Array)
-            {
-                nonKeyAttrs = [];
-                foreach (var attr in nka.EnumerateArray())
-                    nonKeyAttrs.Add(attr.GetString()!);
-            }
-
-            result.Add(new IndexDefinition(
-                e.GetProperty("IndexName").GetString()!,
-                e.TryGetProperty("IsGlobal", out var ig) && ig.GetBoolean(),
-                keySchema,
-                projectionType,
-                nonKeyAttrs));
-        }
-
-        return result;
+                return new IndexDefinition(
+                    e.GetProperty("IndexName").GetString()!,
+                    e.TryGetProperty("IsGlobal", out var ig) && ig.GetBoolean(),
+                    keySchema,
+                    e.GetProperty("ProjectionType").GetString()!,
+                    nonKeyAttrs);
+            })
+        ];
     }
 
     private static string SerializeIndexDefinitions(List<IndexDefinition> indexes) =>
@@ -1217,6 +1271,7 @@ internal sealed class SqliteStore
         lastCleanupByTable[tableName] = now;
 
         var nowEpoch = NowEpoch();
+        using var @lock = await AcquireWriteLockAsync(cancellationToken).ConfigureAwait(false);
         using var connection = await OpenConnectionAsync(cancellationToken);
         using var transaction = await connection.BeginTransactionAsync(cancellationToken);
 
@@ -1250,6 +1305,7 @@ internal sealed class SqliteStore
 
     internal async Task BatchUpdateTtlEpochAsync(string tableName, List<(string Pk, string Sk, double? TtlEpoch)> updates, CancellationToken cancellationToken = default)
     {
+        using var @lock = await AcquireWriteLockAsync(cancellationToken).ConfigureAwait(false);
         using var connection = await OpenConnectionAsync(cancellationToken);
         using var transaction = await connection.BeginTransactionAsync(cancellationToken);
 
@@ -1266,6 +1322,7 @@ internal sealed class SqliteStore
 
     internal async Task ClearTtlEpochAsync(string tableName, CancellationToken cancellationToken = default)
     {
+        using var @lock = await AcquireWriteLockAsync(cancellationToken).ConfigureAwait(false);
         using var connection = await OpenConnectionAsync(cancellationToken);
         using var transaction = await connection.BeginTransactionAsync(cancellationToken);
 
@@ -1289,6 +1346,7 @@ internal sealed class SqliteStore
     internal async Task BackfillIndexTtlEpochAsync(string tableName, string indexName, string ttlAttributeName, CancellationToken cancellationToken = default)
     {
         var idxTable = IndexTableName(tableName, indexName);
+        using var @lock = await AcquireWriteLockAsync(cancellationToken).ConfigureAwait(false);
         using var connection = await OpenConnectionAsync(cancellationToken);
 
         var rows = (await connection.QueryAsync<IndexItemRow>(
@@ -1316,6 +1374,7 @@ internal sealed class SqliteStore
         string bucket, string prefix, string startTime, string? clientToken,
         CancellationToken cancellationToken = default)
     {
+        using var @lock = await AcquireWriteLockAsync(cancellationToken).ConfigureAwait(false);
         using var connection = await OpenConnectionAsync(cancellationToken);
         _ = await connection.ExecuteAsync(
             """
@@ -1331,6 +1390,7 @@ internal sealed class SqliteStore
         string? failureCode, string? failureMessage,
         CancellationToken cancellationToken = default)
     {
+        using var @lock = await AcquireWriteLockAsync(cancellationToken).ConfigureAwait(false);
         using var connection = await OpenConnectionAsync(cancellationToken);
         _ = await connection.ExecuteAsync(
             """
@@ -1345,6 +1405,7 @@ internal sealed class SqliteStore
 
     internal async Task<ExportRow?> GetExportRecordAsync(string exportArn, CancellationToken cancellationToken = default)
     {
+        using var @lock = await AcquireReadLockAsync(cancellationToken).ConfigureAwait(false);
         using var connection = await OpenConnectionAsync(cancellationToken);
         return await connection.QuerySingleOrDefaultAsync<ExportRow>(
             """
@@ -1373,6 +1434,7 @@ internal sealed class SqliteStore
         string? tableArn, int? maxResults, string? nextToken,
         CancellationToken cancellationToken = default)
     {
+        using var @lock = await AcquireReadLockAsync(cancellationToken).ConfigureAwait(false);
         using var connection = await OpenConnectionAsync(cancellationToken);
         var parameters = new DynamicParameters();
         var sql = "SELECT export_arn AS ExportArn, status AS Status FROM exports";
@@ -1412,6 +1474,7 @@ internal sealed class SqliteStore
         string bucket, string prefix, string tableCreationJson, string startTime, string? clientToken,
         CancellationToken cancellationToken = default)
     {
+        using var @lock = await AcquireWriteLockAsync(cancellationToken).ConfigureAwait(false);
         using var connection = await OpenConnectionAsync(cancellationToken);
         _ = await connection.ExecuteAsync(
             """
@@ -1427,6 +1490,7 @@ internal sealed class SqliteStore
         string? failureCode, string? failureMessage,
         CancellationToken cancellationToken = default)
     {
+        using var @lock = await AcquireWriteLockAsync(cancellationToken).ConfigureAwait(false);
         using var connection = await OpenConnectionAsync(cancellationToken);
         _ = await connection.ExecuteAsync(
             """
@@ -1442,6 +1506,7 @@ internal sealed class SqliteStore
 
     internal async Task<ImportRow?> GetImportRecordAsync(string importArn, CancellationToken cancellationToken = default)
     {
+        using var @lock = await AcquireReadLockAsync(cancellationToken).ConfigureAwait(false);
         using var connection = await OpenConnectionAsync(cancellationToken);
         return await connection.QuerySingleOrDefaultAsync<ImportRow>(
             """
@@ -1473,6 +1538,7 @@ internal sealed class SqliteStore
         string? tableArn, int? pageSize, string? nextToken,
         CancellationToken cancellationToken = default)
     {
+        using var @lock = await AcquireReadLockAsync(cancellationToken).ConfigureAwait(false);
         using var connection = await OpenConnectionAsync(cancellationToken);
         var parameters = new DynamicParameters();
         var sql = "SELECT import_arn AS ImportArn, table_name AS TableName, status AS Status, s3_bucket AS S3Bucket, s3_key_prefix AS S3KeyPrefix, input_format AS InputFormat, start_time AS StartTime, end_time AS EndTime FROM imports";
@@ -1505,12 +1571,12 @@ internal sealed class SqliteStore
         return (await connection.QueryAsync<ImportSummaryRow>(sql, parameters)).AsList();
     }
 
-    public void Dispose()
+    public virtual void Dispose()
     {
         if (disposed)
             return;
 
-        sentinel.Dispose();
+        DisposeCore();
         disposed = true;
     }
 }

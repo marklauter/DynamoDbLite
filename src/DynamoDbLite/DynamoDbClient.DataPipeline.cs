@@ -1,5 +1,6 @@
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
+using DynamoDbLite.SqlteStores;
 using System.Globalization;
 using System.Text.Json;
 
@@ -16,7 +17,7 @@ public sealed partial class DynamoDbClient
         ArgumentNullException.ThrowIfNull(request);
         ArgumentException.ThrowIfNullOrWhiteSpace(request.TableArn);
 
-        var tableName = SqliteStore.ExtractTableNameFromArn(request.TableArn);
+        var tableName = SqliteStoreBase.ExtractTableNameFromArn(request.TableArn);
 
         if (!await store.TableExistsAsync(tableName, cancellationToken))
             throw new ResourceNotFoundException($"Requested resource not found: Table: {tableName} not found");
@@ -358,31 +359,30 @@ public sealed partial class DynamoDbClient
             }).ToList()
         });
 
-    [System.Diagnostics.CodeAnalysis.SuppressMessage("IDisposableAnalyzers.Correctness", "IDISP004:Don't ignore created IDisposable", Justification = "ArrayEnumerator is a struct; foreach disposes it")]
     private static TableCreationParameters DeserializeTableCreationParameters(string json)
     {
         using var doc = JsonDocument.Parse(json);
         var root = doc.RootElement;
 
-        var keySchema = new List<KeySchemaElement>();
-        foreach (var k in root.GetProperty("KeySchema").EnumerateArray())
-        {
-            keySchema.Add(new KeySchemaElement
+        using var ksArr = root.GetProperty("KeySchema").EnumerateArray();
+        List<KeySchemaElement> keySchema =
+        [
+            .. ksArr.Select(k => new KeySchemaElement
             {
                 AttributeName = k.GetProperty("AttributeName").GetString()!,
                 KeyType = k.GetProperty("KeyType").GetString()!
-            });
-        }
+            })
+        ];
 
-        var attrDefs = new List<AttributeDefinition>();
-        foreach (var a in root.GetProperty("AttributeDefinitions").EnumerateArray())
-        {
-            attrDefs.Add(new AttributeDefinition
+        using var adArr = root.GetProperty("AttributeDefinitions").EnumerateArray();
+        List<AttributeDefinition> attrDefs =
+        [
+            .. adArr.Select(a => new AttributeDefinition
             {
                 AttributeName = a.GetProperty("AttributeName").GetString()!,
                 AttributeType = a.GetProperty("AttributeType").GetString()!
-            });
-        }
+            })
+        ];
 
         var throughput = root.TryGetProperty("ProvisionedThroughput", out var pt) && pt.ValueKind != JsonValueKind.Null
             ? DeserializeProvisionedThroughput(pt)

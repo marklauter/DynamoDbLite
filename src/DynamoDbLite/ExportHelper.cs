@@ -1,3 +1,4 @@
+using DynamoDbLite.SqlteStores;
 using System.Text.Json;
 
 namespace DynamoDbLite;

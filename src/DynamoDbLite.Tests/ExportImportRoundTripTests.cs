@@ -1,13 +1,15 @@
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
+using DynamoDbLite.Tests.Fixtures;
 
 namespace DynamoDbLite.Tests;
 
-public sealed class ExportImportRoundTripTests
+public abstract class ExportImportRoundTripTestsBase
     : IAsyncLifetime
 {
-    private readonly DynamoDbClient client = new(new DynamoDbLiteOptions(
-        $"Data Source=Test_{Guid.NewGuid():N};Mode=Memory;Cache=Shared"));
+    protected DynamoDbClient client = null!;
+
+    protected abstract DynamoDbClient CreateClient();
 
     private readonly string tempDir = Path.Combine(Path.GetTempPath(), $"dynamo_roundtrip_test_{Guid.NewGuid():N}");
 
@@ -15,9 +17,13 @@ public sealed class ExportImportRoundTripTests
     private const string SourceTableArn = "arn:aws:dynamodb:local:000000000000:table/RoundTripSource";
     private const string TargetTable = "RoundTripTarget";
 
-    public ValueTask InitializeAsync() => ValueTask.CompletedTask;
+    public ValueTask InitializeAsync()
+    {
+        client = CreateClient();
+        return ValueTask.CompletedTask;
+    }
 
-    public ValueTask DisposeAsync()
+    public virtual ValueTask DisposeAsync()
     {
         client.Dispose();
         if (Directory.Exists(tempDir))
@@ -168,5 +174,30 @@ public sealed class ExportImportRoundTripTests
         var user3 = scanResponse.Items.First(i => i["PK"].S == "user#3");
         Assert.True(user3["NullField"].NULL);
         Assert.Equal("nested-value", user3["Nested"].M["Key"].S);
+    }
+}
+
+public sealed class InMemoryExportImportRoundTripTests : ExportImportRoundTripTestsBase
+{
+    protected override DynamoDbClient CreateClient() =>
+        new(new DynamoDbLiteOptions($"Data Source=Test_{Guid.NewGuid():N};Mode=Memory;Cache=Shared"));
+}
+
+public sealed class FileBasedExportImportRoundTripTests : ExportImportRoundTripTestsBase
+{
+    private string? dbPath;
+
+    protected override DynamoDbClient CreateClient()
+    {
+        var (c, path) = FileBasedTestHelper.CreateFileBasedClient();
+        dbPath = path;
+        return c;
+    }
+
+    public override ValueTask DisposeAsync()
+    {
+        var result = base.DisposeAsync();
+        FileBasedTestHelper.Cleanup(dbPath);
+        return result;
     }
 }

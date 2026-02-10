@@ -1,13 +1,15 @@
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
+using DynamoDbLite.Tests.Fixtures;
 
 namespace DynamoDbLite.Tests;
 
-public sealed class ExportTests
+public abstract class ExportTestsBase
     : IAsyncLifetime
 {
-    private readonly DynamoDbClient client = new(new DynamoDbLiteOptions(
-        $"Data Source=Test_{Guid.NewGuid():N};Mode=Memory;Cache=Shared"));
+    protected DynamoDbClient client = null!;
+
+    protected abstract DynamoDbClient CreateClient();
 
     private readonly string tempDir = Path.Combine(Path.GetTempPath(), $"dynamo_export_test_{Guid.NewGuid():N}");
 
@@ -16,6 +18,7 @@ public sealed class ExportTests
 
     public async ValueTask InitializeAsync()
     {
+        client = CreateClient();
         _ = await client.CreateTableAsync(new CreateTableRequest
         {
             TableName = TableName,
@@ -46,7 +49,7 @@ public sealed class ExportTests
         }
     }
 
-    public ValueTask DisposeAsync()
+    public virtual ValueTask DisposeAsync()
     {
         client.Dispose();
         if (Directory.Exists(tempDir))
@@ -147,4 +150,29 @@ public sealed class ExportTests
             {
                 ExportArn = "arn:aws:dynamodb:local:000000000000:table/X/export/fake"
             }, TestContext.Current.CancellationToken));
+}
+
+public sealed class InMemoryExportTests : ExportTestsBase
+{
+    protected override DynamoDbClient CreateClient() =>
+        new(new DynamoDbLiteOptions($"Data Source=Test_{Guid.NewGuid():N};Mode=Memory;Cache=Shared"));
+}
+
+public sealed class FileBasedExportTests : ExportTestsBase
+{
+    private string? dbPath;
+
+    protected override DynamoDbClient CreateClient()
+    {
+        var (c, path) = FileBasedTestHelper.CreateFileBasedClient();
+        dbPath = path;
+        return c;
+    }
+
+    public override ValueTask DisposeAsync()
+    {
+        var result = base.DisposeAsync();
+        FileBasedTestHelper.Cleanup(dbPath);
+        return result;
+    }
 }

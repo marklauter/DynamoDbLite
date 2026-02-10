@@ -1,17 +1,23 @@
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
+using DynamoDbLite.Tests.Fixtures;
 
 namespace DynamoDbLite.Tests;
 
-public sealed class SecondaryIndexTests
+public abstract class SecondaryIndexTestsBase
     : IAsyncLifetime
 {
-    private readonly DynamoDbClient client = new(new DynamoDbLiteOptions(
-        $"Data Source=Test_{Guid.NewGuid():N};Mode=Memory;Cache=Shared"));
+    protected DynamoDbClient client = null!;
 
-    public ValueTask InitializeAsync() => ValueTask.CompletedTask;
+    protected abstract DynamoDbClient CreateClient();
 
-    public ValueTask DisposeAsync()
+    public ValueTask InitializeAsync()
+    {
+        client = CreateClient();
+        return ValueTask.CompletedTask;
+    }
+
+    public virtual ValueTask DisposeAsync()
     {
         client.Dispose();
         return ValueTask.CompletedTask;
@@ -1364,5 +1370,30 @@ public sealed class SecondaryIndexTests
             }
         }, TestContext.Current.CancellationToken);
         Assert.Equal(1, newResp.Count);
+    }
+}
+
+public sealed class InMemorySecondaryIndexTests : SecondaryIndexTestsBase
+{
+    protected override DynamoDbClient CreateClient() =>
+        new(new DynamoDbLiteOptions($"Data Source=Test_{Guid.NewGuid():N};Mode=Memory;Cache=Shared"));
+}
+
+public sealed class FileBasedSecondaryIndexTests : SecondaryIndexTestsBase
+{
+    private string? dbPath;
+
+    protected override DynamoDbClient CreateClient()
+    {
+        var (c, path) = FileBasedTestHelper.CreateFileBasedClient();
+        dbPath = path;
+        return c;
+    }
+
+    public override ValueTask DisposeAsync()
+    {
+        var result = base.DisposeAsync();
+        FileBasedTestHelper.Cleanup(dbPath);
+        return result;
     }
 }

@@ -3,15 +3,20 @@ using Amazon.DynamoDBv2.Model;
 
 namespace DynamoDbLite.Tests;
 
-public sealed class TableManagementTests
+public abstract class TableManagementTestsBase
     : IAsyncLifetime
 {
-    private readonly DynamoDbClient client = new(new DynamoDbLiteOptions(
-        $"Data Source=Test_{Guid.NewGuid():N};Mode=Memory;Cache=Shared"));
+    protected DynamoDbClient client = null!;
 
-    public ValueTask InitializeAsync() => ValueTask.CompletedTask;
+    protected abstract DynamoDbClient CreateClient();
 
-    public ValueTask DisposeAsync()
+    public virtual ValueTask InitializeAsync()
+    {
+        client = CreateClient();
+        return ValueTask.CompletedTask;
+    }
+
+    public virtual ValueTask DisposeAsync()
     {
         client.Dispose();
         return ValueTask.CompletedTask;
@@ -275,4 +280,29 @@ public sealed class TableManagementTests
             KeySchema = [new KeySchemaElement { AttributeName = "PK", KeyType = KeyType.HASH }],
             AttributeDefinitions = [new AttributeDefinition { AttributeName = "PK", AttributeType = ScalarAttributeType.S }]
         }, TestContext.Current.CancellationToken);
+}
+
+public sealed class InMemoryTableManagementTests : TableManagementTestsBase
+{
+    protected override DynamoDbClient CreateClient() =>
+        new(new DynamoDbLiteOptions($"Data Source=Test_{Guid.NewGuid():N};Mode=Memory;Cache=Shared"));
+}
+
+public sealed class FileBasedTableManagementTests : TableManagementTestsBase
+{
+    private string? dbPath;
+
+    protected override DynamoDbClient CreateClient()
+    {
+        var (c, path) = Fixtures.FileBasedTestHelper.CreateFileBasedClient();
+        dbPath = path;
+        return c;
+    }
+
+    public override ValueTask DisposeAsync()
+    {
+        var result = base.DisposeAsync();
+        Fixtures.FileBasedTestHelper.Cleanup(dbPath);
+        return result;
+    }
 }

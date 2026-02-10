@@ -1,5 +1,6 @@
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
+using DynamoDbLite.SqlteStores;
 using System.Net;
 
 namespace DynamoDbLite;
@@ -34,7 +35,7 @@ public sealed partial class DynamoDbClient
         if (totalKeys > 100)
             throw new AmazonDynamoDBException("Too many items requested for the BatchGetItem call");
 
-        var nowEpoch = SqliteStore.NowEpoch();
+        var nowEpoch = SqliteStoreBase.NowEpoch();
 
         var allKeys = new List<(string TableName, string Pk, string Sk)>(totalKeys);
         var keyInfoByTable = new Dictionary<string, KeySchemaInfo>();

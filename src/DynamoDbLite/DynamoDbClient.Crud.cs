@@ -1,5 +1,6 @@
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
+using DynamoDbLite.SqlteStores;
 using System.Globalization;
 
 namespace DynamoDbLite;
@@ -28,7 +29,7 @@ public sealed partial class DynamoDbClient
         ArgumentException.ThrowIfNullOrWhiteSpace(request.TableName);
         ArgumentNullException.ThrowIfNull(request.Item);
 
-        var nowEpoch = SqliteStore.NowEpoch();
+        var nowEpoch = SqliteStoreBase.NowEpoch();
 
         var keyInfo = await store.GetKeySchemaAsync(request.TableName, cancellationToken)
             ?? throw new ResourceNotFoundException($"Requested resource not found: Table: {request.TableName} not found");
@@ -59,32 +60,16 @@ public sealed partial class DynamoDbClient
         var ttlEpoch = ttlAttr is not null ? TtlHelper.ExtractTtlEpoch(request.Item, ttlAttr) : null;
 
         var indexes = await store.GetIndexDefinitionsAsync(request.TableName, cancellationToken);
-        if (indexes.Count > 0)
-        {
-            var (oldJson, connection, transaction) = await store.PutItemWithTransactionAsync(
-                request.TableName, pk, sk, itemJson, skNum, ttlEpoch, nowEpoch, cancellationToken);
-            using (connection)
-            using (transaction)
-            {
-                await SqliteStore.MaintainIndexesAsync(
-                    connection, transaction, request.TableName, pk, sk,
-                    indexes, keyInfo.AttributeDefinitions, request.Item, oldJson, ttlEpoch);
-                await transaction.CommitAsync(cancellationToken);
+        var oldJson = indexes.Count > 0
+            ? await store.PutItemWithIndexesAsync(
+                request.TableName, pk, sk, itemJson, skNum, ttlEpoch, nowEpoch,
+                indexes, keyInfo.AttributeDefinitions, request.Item, cancellationToken)
+            : await store.PutItemAsync(request.TableName, pk, sk, itemJson, skNum, ttlEpoch, nowEpoch, cancellationToken);
 
-                var response = new PutItemResponse { HttpStatusCode = System.Net.HttpStatusCode.OK };
-                if (request.ReturnValues == ReturnValue.ALL_OLD && oldJson is not null)
-                    response.Attributes = AttributeValueSerializer.Deserialize(oldJson);
-                return response;
-            }
-        }
-        else
-        {
-            var oldJson = await store.PutItemAsync(request.TableName, pk, sk, itemJson, skNum, ttlEpoch, nowEpoch, cancellationToken);
-            var response = new PutItemResponse { HttpStatusCode = System.Net.HttpStatusCode.OK };
-            if (request.ReturnValues == ReturnValue.ALL_OLD && oldJson is not null)
-                response.Attributes = AttributeValueSerializer.Deserialize(oldJson);
-            return response;
-        }
+        var response = new PutItemResponse { HttpStatusCode = System.Net.HttpStatusCode.OK };
+        if (request.ReturnValues == ReturnValue.ALL_OLD && oldJson is not null)
+            response.Attributes = AttributeValueSerializer.Deserialize(oldJson);
+        return response;
     }
 
     public Task<GetItemResponse> GetItemAsync(
@@ -109,7 +94,7 @@ public sealed partial class DynamoDbClient
         ArgumentException.ThrowIfNullOrWhiteSpace(request.TableName);
         ArgumentNullException.ThrowIfNull(request.Key);
 
-        var nowEpoch = SqliteStore.NowEpoch();
+        var nowEpoch = SqliteStoreBase.NowEpoch();
 
         var keyInfo = await store.GetKeySchemaAsync(request.TableName, cancellationToken)
             ?? throw new ResourceNotFoundException($"Requested resource not found: Table: {request.TableName} not found");
@@ -161,7 +146,7 @@ public sealed partial class DynamoDbClient
         ArgumentException.ThrowIfNullOrWhiteSpace(request.TableName);
         ArgumentNullException.ThrowIfNull(request.Key);
 
-        var nowEpoch = SqliteStore.NowEpoch();
+        var nowEpoch = SqliteStoreBase.NowEpoch();
 
         var keyInfo = await store.GetKeySchemaAsync(request.TableName, cancellationToken)
             ?? throw new ResourceNotFoundException($"Requested resource not found: Table: {request.TableName} not found");
@@ -185,32 +170,16 @@ public sealed partial class DynamoDbClient
         }
 
         var indexes = await store.GetIndexDefinitionsAsync(request.TableName, cancellationToken);
-        if (indexes.Count > 0)
-        {
-            var (oldJson, connection, transaction) = await store.DeleteItemWithTransactionAsync(
-                request.TableName, pk, sk, nowEpoch, cancellationToken);
-            using (connection)
-            using (transaction)
-            {
-                await SqliteStore.MaintainIndexesAsync(
-                    connection, transaction, request.TableName, pk, sk,
-                    indexes, keyInfo.AttributeDefinitions, null, oldJson);
-                await transaction.CommitAsync(cancellationToken);
+        var oldJson = indexes.Count > 0
+            ? await store.DeleteItemWithIndexesAsync(
+                request.TableName, pk, sk, nowEpoch,
+                indexes, keyInfo.AttributeDefinitions, cancellationToken)
+            : await store.DeleteItemAsync(request.TableName, pk, sk, nowEpoch, cancellationToken);
 
-                var response = new DeleteItemResponse { HttpStatusCode = System.Net.HttpStatusCode.OK };
-                if (request.ReturnValues == ReturnValue.ALL_OLD && oldJson is not null)
-                    response.Attributes = AttributeValueSerializer.Deserialize(oldJson);
-                return response;
-            }
-        }
-        else
-        {
-            var oldJson = await store.DeleteItemAsync(request.TableName, pk, sk, nowEpoch, cancellationToken);
-            var response = new DeleteItemResponse { HttpStatusCode = System.Net.HttpStatusCode.OK };
-            if (request.ReturnValues == ReturnValue.ALL_OLD && oldJson is not null)
-                response.Attributes = AttributeValueSerializer.Deserialize(oldJson);
-            return response;
-        }
+        var response = new DeleteItemResponse { HttpStatusCode = System.Net.HttpStatusCode.OK };
+        if (request.ReturnValues == ReturnValue.ALL_OLD && oldJson is not null)
+            response.Attributes = AttributeValueSerializer.Deserialize(oldJson);
+        return response;
     }
 
     public async Task<UpdateItemResponse> UpdateItemAsync(
@@ -222,7 +191,7 @@ public sealed partial class DynamoDbClient
         ArgumentException.ThrowIfNullOrWhiteSpace(request.TableName);
         ArgumentNullException.ThrowIfNull(request.Key);
 
-        var nowEpoch = SqliteStore.NowEpoch();
+        var nowEpoch = SqliteStoreBase.NowEpoch();
 
         var keyInfo = await store.GetKeySchemaAsync(request.TableName, cancellationToken)
             ?? throw new ResourceNotFoundException($"Requested resource not found: Table: {request.TableName} not found");
@@ -295,22 +264,11 @@ public sealed partial class DynamoDbClient
 
         var indexes = await store.GetIndexDefinitionsAsync(request.TableName, cancellationToken);
         if (indexes.Count > 0)
-        {
-            var (_, connection, transaction) = await store.PutItemWithTransactionAsync(
-                request.TableName, pk, sk, itemJson, skNum, ttlEpoch, nowEpoch, cancellationToken);
-            using (connection)
-            using (transaction)
-            {
-                await SqliteStore.MaintainIndexesAsync(
-                    connection, transaction, request.TableName, pk, sk,
-                    indexes, keyInfo.AttributeDefinitions, existingItem, existingJson, ttlEpoch);
-                await transaction.CommitAsync(cancellationToken);
-            }
-        }
+            _ = await store.PutItemWithIndexesAsync(
+                request.TableName, pk, sk, itemJson, skNum, ttlEpoch, nowEpoch,
+                indexes, keyInfo.AttributeDefinitions, existingItem, cancellationToken);
         else
-        {
             _ = await store.PutItemAsync(request.TableName, pk, sk, itemJson, skNum, ttlEpoch, nowEpoch, cancellationToken);
-        }
 
         var response = new UpdateItemResponse { HttpStatusCode = System.Net.HttpStatusCode.OK };
 

@@ -1,5 +1,6 @@
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
+using DynamoDbLite.SqlteStores;
 using System.Net;
 
 namespace DynamoDbLite;
@@ -93,7 +94,7 @@ public sealed partial class DynamoDbClient
         }
 
         // ── Pre-read phase ───────────────────────────────────────────
-        var nowEpoch = SqliteStore.NowEpoch();
+        var nowEpoch = SqliteStoreBase.NowEpoch();
         var existingItems = new string?[actions.Count];
         for (var i = 0; i < resolvedActions.Count; i++)
         {
@@ -266,7 +267,7 @@ public sealed partial class DynamoDbClient
             throw new AmazonDynamoDBException(
                 $"1 validation error detected: Value at 'transactItems' failed to satisfy constraint: Member must have length less than or equal to {MaxTransactItems}");
 
-        var nowEpoch = SqliteStore.NowEpoch();
+        var nowEpoch = SqliteStoreBase.NowEpoch();
         var responses = new List<ItemResponse>(request.TransactItems.Count);
         var cleanedTables = new HashSet<string>();
 
