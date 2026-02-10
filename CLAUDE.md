@@ -1,18 +1,24 @@
-# DynamoDbLite
+# CLAUDE.md
 
-In-process IAmazonDynamoDB backed by SQLite for local dev/testing.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Project
+
+In-process `IAmazonDynamoDB` backed by `SQLite` for local dev/testing, or mobile apps.
 
 ## Quick Reference
-- Solution file: src/DynamoDbLite.slnx
+- Solution file: `src/DynamoDbLite.slnx`
 - Build: `dotnet build "src/DynamoDbLite.slnx"`
 - Test: `dotnet test "src/DynamoDbLite.slnx"`
+- Single test: `dotnet test "src/DynamoDbLite.slnx" --filter "FullyQualifiedName~MethodName"`
+- Format: `format.cmd` (runs `dotnet format` — whitespace, style, analyzers via `.editorconfig`)
 - All projects live under `src/`; add new ones to the solution
 
 ## Code Style
-Read `.claude/style.md` before writing any code.
+Read `.claude/style.md` before writing any code. The `.editorconfig` is enforced by `dotnet format` — run `format.cmd` after writing code and fix any violations before committing.
 
 ## Testing
-Read `.claude/testing.md` before creating test projects.
+Read `.claude/testing.md` before creating test projects and before writing tests.
 
 ## Architecture
 - `DynamoDbClient.cs` — partial class, core + disposal; split by feature into:
