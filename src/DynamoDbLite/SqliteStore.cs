@@ -78,6 +78,13 @@ internal sealed class SqliteStore : IDisposable
                 table_name      TEXT PRIMARY KEY,
                 attribute_name  TEXT NOT NULL
             );
+
+            CREATE TABLE IF NOT EXISTS table_tags (
+                table_name  TEXT NOT NULL,
+                tag_key     TEXT NOT NULL,
+                tag_value   TEXT NOT NULL DEFAULT '',
+                PRIMARY KEY (table_name, tag_key)
+            );
             """);
 
         // Migration for existing file-based DBs that lack ttl_epoch
@@ -136,6 +143,54 @@ internal sealed class SqliteStore : IDisposable
         return await connection.QuerySingleOrDefaultAsync<string>(
             "SELECT attribute_name FROM ttl_config WHERE table_name = @tableName",
             new { tableName });
+    }
+
+    // ── Tag CRUD ──────────────────────────────────────────────────
+
+    internal static string ExtractTableNameFromArn(string? arn)
+    {
+        if (string.IsNullOrWhiteSpace(arn))
+            throw new AmazonDynamoDBException("Invalid TableArn");
+
+        var slashIndex = arn.LastIndexOf('/');
+        if (slashIndex < 0 || slashIndex == arn.Length - 1)
+            throw new AmazonDynamoDBException("Invalid TableArn");
+
+        return arn[(slashIndex + 1)..];
+    }
+
+    internal async Task SetTagsAsync(string tableName, List<(string Key, string Value)> tags, CancellationToken cancellationToken = default)
+    {
+        using var connection = await OpenConnectionAsync(cancellationToken);
+        foreach (var (key, value) in tags)
+        {
+            _ = await connection.ExecuteAsync(
+                """
+                INSERT INTO table_tags (table_name, tag_key, tag_value) VALUES (@tableName, @key, @value)
+                ON CONFLICT (table_name, tag_key) DO UPDATE SET tag_value = @value
+                """,
+                new { tableName, key, value });
+        }
+    }
+
+    internal async Task RemoveTagsAsync(string tableName, List<string> tagKeys, CancellationToken cancellationToken = default)
+    {
+        using var connection = await OpenConnectionAsync(cancellationToken);
+        foreach (var tagKey in tagKeys)
+        {
+            _ = await connection.ExecuteAsync(
+                "DELETE FROM table_tags WHERE table_name = @tableName AND tag_key = @tagKey",
+                new { tableName, tagKey });
+        }
+    }
+
+    internal async Task<List<(string Key, string Value)>> GetTagsAsync(string tableName, CancellationToken cancellationToken = default)
+    {
+        using var connection = await OpenConnectionAsync(cancellationToken);
+        var rows = await connection.QueryAsync<(string Key, string Value)>(
+            "SELECT tag_key AS Key, tag_value AS Value FROM table_tags WHERE table_name = @tableName",
+            new { tableName });
+        return rows.AsList();
     }
 
     internal async Task<bool> TableExistsAsync(string tableName, CancellationToken cancellationToken = default)
@@ -210,6 +265,11 @@ internal sealed class SqliteStore : IDisposable
 
         _ = await connection.ExecuteAsync(
             "DELETE FROM ttl_config WHERE table_name = @tableName",
+            new { tableName },
+            transaction);
+
+        _ = await connection.ExecuteAsync(
+            "DELETE FROM table_tags WHERE table_name = @tableName",
             new { tableName },
             transaction);
 

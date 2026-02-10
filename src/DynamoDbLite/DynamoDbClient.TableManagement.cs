@@ -46,6 +46,16 @@ public sealed partial class DynamoDbClient
             lsiDefs,
             cancellationToken);
 
+        if (request.Tags is { Count: > 0 })
+        {
+            ValidateTags(request.Tags);
+            if (request.Tags.Count > MaxTagsPerResource)
+                throw new AmazonDynamoDBException(
+                    $"One or more parameter values were invalid: Too many tags: {request.Tags.Count}, maximum is {MaxTagsPerResource}");
+            await store.SetTagsAsync(request.TableName,
+                request.Tags.Select(static t => (t.Key, t.Value)).ToList(), cancellationToken);
+        }
+
         var description = await store.GetTableDescriptionAsync(request.TableName, cancellationToken);
 
         return new CreateTableResponse
