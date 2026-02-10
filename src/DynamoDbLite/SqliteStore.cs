@@ -191,10 +191,9 @@ internal sealed class SqliteStore
             throw new AmazonDynamoDBException("Invalid TableArn");
 
         var slashIndex = arn.LastIndexOf('/');
-        if (slashIndex < 0 || slashIndex == arn.Length - 1)
-            throw new AmazonDynamoDBException("Invalid TableArn");
-
-        return arn[(slashIndex + 1)..];
+        return slashIndex < 0 || slashIndex == arn.Length - 1
+            ? throw new AmazonDynamoDBException("Invalid TableArn")
+            : arn[(slashIndex + 1)..];
     }
 
     internal async Task SetTagsAsync(string tableName, List<(string Key, string Value)> tags, CancellationToken cancellationToken = default)

@@ -132,15 +132,13 @@ public sealed class ExportTests
 
     [Fact]
     public async Task Export_Nonexistent_Table_Throws_ResourceNotFoundException()
-    {
-        _ = await Assert.ThrowsAsync<ResourceNotFoundException>(() =>
-            client.ExportTableToPointInTimeAsync(new ExportTableToPointInTimeRequest
+        => _ = await Assert.ThrowsAsync<ResourceNotFoundException>(()
+            => client.ExportTableToPointInTimeAsync(new ExportTableToPointInTimeRequest
             {
                 TableArn = "arn:aws:dynamodb:local:000000000000:table/NoSuchTable",
                 S3Bucket = tempDir,
                 ExportFormat = ExportFormat.DYNAMODB_JSON
             }, TestContext.Current.CancellationToken));
-    }
 
     [Fact]
     public async Task DescribeExport_Nonexistent_Throws_ResourceNotFoundException() =>
