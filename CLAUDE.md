@@ -10,12 +10,12 @@ In-process `IAmazonDynamoDB` backed by `SQLite` for local dev/testing, or mobile
 - Solution file: `src/DynamoDbLite.slnx`
 - Build: `dotnet build "src/DynamoDbLite.slnx"`
 - Test: `dotnet test "src/DynamoDbLite.slnx"`
-- Single test: `dotnet test "src/DynamoDbLite.slnx" --filter "FullyQualifiedName~MethodName"`
-- Format: `format.cmd` (runs `dotnet format` — whitespace, style, analyzers via `.editorconfig`)
+- Single test: `dotnet test "src/DynamoDbLite.slnx" --filter "FullyQualifiedClassName~MethodName"`
+- Format: `dotnet format "src/DynamoDbLite.slnx" --verbosity normal` (whitespace, style, analyzers via `.editorconfig`)
 - All projects live under `src/`; add new ones to the solution
 
 ## Code Style
-Read `.claude/style.md` before writing any code. The `.editorconfig` is enforced by `dotnet format` — run `format.cmd` after writing code and fix any violations before committing.
+Read `.claude/style.md` before writing any code. The `.editorconfig` is enforced by `dotnet format` — run `dotnet format "src/DynamoDbLite.slnx" --verbosity normal` after writing code and fix any violations before committing.
 
 ## Testing
 Read `.claude/testing.md` before creating test projects and before writing tests.
@@ -35,6 +35,9 @@ Read `.claude/testing.md` before creating test projects and before writing tests
 
 ## Tech Stack
 Read `.claude/tech-stack.md` for platform and dependency info.
+
+## Tech Debt
+Read `tech-debt/readme.md` for tech-debt template.
 
 ## Gotchas
 Read `.claude/gotchas.md` before debugging build or runtime issues.
