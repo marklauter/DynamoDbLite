@@ -676,16 +676,9 @@ internal sealed class SqliteStore : IDisposable
 
         foreach (var op in operations)
         {
-            string? oldJson;
-
-            if (op.IsDelete)
-            {
-                oldJson = await DeleteItemCoreAsync(connection, transaction, op.TableName, op.Pk, op.Sk, epoch);
-            }
-            else
-            {
-                oldJson = await PutItemCoreAsync(connection, transaction, op.TableName, op.Pk, op.Sk, op.ItemJson!, op.SkNum, op.TtlEpoch, epoch);
-            }
+            var oldJson = op.IsDelete
+                ? await DeleteItemCoreAsync(connection, transaction, op.TableName, op.Pk, op.Sk, epoch)
+                : await PutItemCoreAsync(connection, transaction, op.TableName, op.Pk, op.Sk, op.ItemJson!, op.SkNum, op.TtlEpoch, epoch);
 
             if (indexInfoByTable is not null
                 && indexInfoByTable.TryGetValue(op.TableName, out var info)

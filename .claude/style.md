@@ -4,7 +4,7 @@ C# 14 / .NET 10 — high-performance, functional, zero-allocation.
 
 ## Design Philosophy
 1. **Performance-aware always, zero-allocation when it matters** — design for performance by default (prefer spans, avoid allocations, think about memory); sacrifice readability only in hot paths
-2. **Functional style** — expression bodies, pure functions, immutability, no side effects
+2. **Functional style** — expression bodies, pure functions, immutability, no side effects; decompose methods into small focused functions until expression bodies emerge naturally (don't force complex logic into one expression — extract until each method is a single expression)
 3. **Immutable by default** — records over classes, `readonly` everything, no mutable state
 4. **Span-first** — pass `Span<T>`/`ReadOnlySpan<T>` instead of arrays or strings
 

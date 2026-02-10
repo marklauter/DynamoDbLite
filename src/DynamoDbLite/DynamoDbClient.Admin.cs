@@ -241,5 +241,4 @@ public sealed partial class DynamoDbClient
             HttpStatusCode = System.Net.HttpStatusCode.OK
         };
     }
-
 }

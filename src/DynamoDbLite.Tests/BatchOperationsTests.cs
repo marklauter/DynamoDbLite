@@ -292,24 +292,25 @@ public sealed class BatchOperationsTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task BatchGetItemAsync_NonExistentTable_ThrowsResourceNotFoundException() => _ = await Assert.ThrowsAsync<ResourceNotFoundException>(() =>
-                                                                                                       client.BatchGetItemAsync(new BatchGetItemRequest
-                                                                                                       {
-                                                                                                           RequestItems = new Dictionary<string, KeysAndAttributes>
-                                                                                                           {
-                                                                                                               ["NonExistent"] = new()
-                                                                                                               {
-                                                                                                                   Keys =
-                                                                                                                   [
-                                                                                                                       new Dictionary<string, AttributeValue>
+    public async Task BatchGetItemAsync_NonExistentTable_ThrowsResourceNotFoundException()
+        => _ = await Assert.ThrowsAsync<ResourceNotFoundException>(()
+            => client.BatchGetItemAsync(new BatchGetItemRequest
+            {
+                RequestItems = new Dictionary<string, KeysAndAttributes>
+                {
+                    ["NonExistent"] = new()
+                    {
+                        Keys =
+                        [
+                            new Dictionary<string, AttributeValue>
                             {
                                 ["PK"] = new() { S = "X" },
                                 ["SK"] = new() { S = "Y" }
                             }
-                                                                                                                   ]
-                                                                                                               }
-                                                                                                           }
-                                                                                                       }, TestContext.Current.CancellationToken));
+                        ]
+                    }
+                }
+            }, TestContext.Current.CancellationToken));
 
     [Fact]
     public async Task BatchGetItemAsync_EmptyRequestItems_ThrowsException()
@@ -577,20 +578,28 @@ public sealed class BatchOperationsTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task BatchWriteItemAsync_NonExistentTable_ThrowsResourceNotFoundException() => _ = await Assert.ThrowsAsync<ResourceNotFoundException>(() =>
-                                                                                                         client.BatchWriteItemAsync(new BatchWriteItemRequest
-                                                                                                         {
-                                                                                                             RequestItems = new Dictionary<string, List<WriteRequest>>
-                                                                                                             {
-                                                                                                                 ["NonExistent"] =
-                                                                                                                 [
-                                                                                                                     new WriteRequest { PutRequest = new PutRequest { Item = new Dictionary<string, AttributeValue>
+    public async Task BatchWriteItemAsync_NonExistentTable_ThrowsResourceNotFoundException()
+        => _ = await Assert.ThrowsAsync<ResourceNotFoundException>(()
+            => client.BatchWriteItemAsync(new BatchWriteItemRequest
+            {
+                RequestItems = new Dictionary<string, List<WriteRequest>>
+                {
+                    ["NonExistent"] =
+                    [
+                        new WriteRequest
                         {
-                            ["PK"] = new() { S = "X" }, ["SK"] = new() { S = "Y" }
-                        }}}
-                                                                                                                 ]
-                                                                                                             }
-                                                                                                         }, TestContext.Current.CancellationToken));
+                            PutRequest = new PutRequest
+                            {
+                                Item = new Dictionary<string, AttributeValue>
+                                {
+                                    ["PK"] = new() { S = "X" },
+                                    ["SK"] = new() { S = "Y" }
+                                }
+                            }
+                        }
+                    ]
+                }
+            }, TestContext.Current.CancellationToken));
 
     [Fact]
     public async Task BatchWriteItemAsync_EmptyRequestItems_ThrowsException()

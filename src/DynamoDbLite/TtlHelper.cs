@@ -7,16 +7,11 @@ internal static class TtlHelper
 {
     internal static double? ExtractTtlEpoch(
         Dictionary<string, AttributeValue> item,
-        string ttlAttributeName)
-    {
-        if (!item.TryGetValue(ttlAttributeName, out var attr))
-            return null;
-
-        if (attr.N is null)
-            return null;
-
-        return double.TryParse(attr.N, NumberStyles.Any, CultureInfo.InvariantCulture, out var epoch)
+        string ttlAttributeName) => !item.TryGetValue(ttlAttributeName, out var attr)
+            ? null
+            : attr.N is null
+            ? null
+            : double.TryParse(attr.N, NumberStyles.Any, CultureInfo.InvariantCulture, out var epoch)
             ? epoch
             : null;
-    }
 }

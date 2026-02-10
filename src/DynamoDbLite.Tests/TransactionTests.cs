@@ -428,9 +428,8 @@ public sealed class TransactionTests : IAsyncLifetime
 
     [Fact]
     public async Task TransactWriteItems_DuplicateKeys_Throws()
-    {
-        _ = await Assert.ThrowsAsync<AmazonDynamoDBException>(() =>
-            client.TransactWriteItemsAsync(new TransactWriteItemsRequest
+        => _ = await Assert.ThrowsAsync<AmazonDynamoDBException>(()
+            => client.TransactWriteItemsAsync(new TransactWriteItemsRequest
             {
                 TransactItems =
                 [
@@ -461,13 +460,11 @@ public sealed class TransactionTests : IAsyncLifetime
                     }
                 ]
             }, TestContext.Current.CancellationToken));
-    }
 
     [Fact]
     public async Task TransactWriteItems_MissingTable_ThrowsResourceNotFound()
-    {
-        _ = await Assert.ThrowsAsync<ResourceNotFoundException>(() =>
-            client.TransactWriteItemsAsync(new TransactWriteItemsRequest
+        => _ = await Assert.ThrowsAsync<ResourceNotFoundException>(()
+            => client.TransactWriteItemsAsync(new TransactWriteItemsRequest
             {
                 TransactItems =
                 [
@@ -485,17 +482,14 @@ public sealed class TransactionTests : IAsyncLifetime
                     }
                 ]
             }, TestContext.Current.CancellationToken));
-    }
 
     [Fact]
     public async Task TransactWriteItems_EmptyTransactItems_Throws()
-    {
-        _ = await Assert.ThrowsAsync<AmazonDynamoDBException>(() =>
-            client.TransactWriteItemsAsync(new TransactWriteItemsRequest
+        => _ = await Assert.ThrowsAsync<AmazonDynamoDBException>(()
+            => client.TransactWriteItemsAsync(new TransactWriteItemsRequest
             {
                 TransactItems = []
             }, TestContext.Current.CancellationToken));
-    }
 
     // ── TransactWriteItems — idempotency ────────────────────────────────
 
@@ -864,9 +858,8 @@ public sealed class TransactionTests : IAsyncLifetime
 
     [Fact]
     public async Task TransactWriteItems_UpdateWithoutUpdateExpression_Throws()
-    {
-        _ = await Assert.ThrowsAsync<AmazonDynamoDBException>(() =>
-            client.TransactWriteItemsAsync(new TransactWriteItemsRequest
+        => _ = await Assert.ThrowsAsync<AmazonDynamoDBException>(()
+            => client.TransactWriteItemsAsync(new TransactWriteItemsRequest
             {
                 TransactItems =
                 [
@@ -884,15 +877,13 @@ public sealed class TransactionTests : IAsyncLifetime
                     }
                 ]
             }, TestContext.Current.CancellationToken));
-    }
 
     // ── TransactGetItems — missing table ─────────────────────────────────
 
     [Fact]
     public async Task TransactGetItems_MissingTable_ThrowsResourceNotFound()
-    {
-        _ = await Assert.ThrowsAsync<ResourceNotFoundException>(() =>
-            client.TransactGetItemsAsync(new TransactGetItemsRequest
+        => _ = await Assert.ThrowsAsync<ResourceNotFoundException>(()
+            => client.TransactGetItemsAsync(new TransactGetItemsRequest
             {
                 TransactItems =
                 [
@@ -910,5 +901,4 @@ public sealed class TransactionTests : IAsyncLifetime
                     }
                 ]
             }, TestContext.Current.CancellationToken));
-    }
 }

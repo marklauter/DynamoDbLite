@@ -188,9 +188,10 @@ public sealed class ScanTests : IAsyncLifetime
     // ── Non-existent table ──────────────────────────────────────────
 
     [Fact]
-    public async Task ScanAsync_NonExistentTable_ThrowsResourceNotFoundException() => _ = await Assert.ThrowsAsync<ResourceNotFoundException>(() =>
-                                                                                               client.ScanAsync(new ScanRequest
-                                                                                               {
-                                                                                                   TableName = "NonExistent"
-                                                                                               }, TestContext.Current.CancellationToken));
+    public async Task ScanAsync_NonExistentTable_ThrowsResourceNotFoundException()
+        => _ = await Assert.ThrowsAsync<ResourceNotFoundException>(()
+            => client.ScanAsync(new ScanRequest
+            {
+                TableName = "NonExistent"
+            }, TestContext.Current.CancellationToken));
 }
