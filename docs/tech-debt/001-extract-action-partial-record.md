@@ -14,8 +14,8 @@ Introduce a lightweight intermediate type (e.g., `ExtractedTransactAction` posit
 
 ## Code References
 
-- `src/DynamoDbLite/DynamoDbClient.Transactions.cs:310` — `ExtractTransactWriteAction` method
-- `src/DynamoDbLite/DynamoDbClient.Transactions.cs:79` — caller rebuilds the record with computed fields
+- `src/DynamoDbLite/DynamoDbClient.Transactions.cs` — `ExtractTransactWriteAction` method
+- `src/DynamoDbLite/DynamoDbClient.Transactions.cs` — caller rebuilds the record with computed fields
 
 ## Notes
 

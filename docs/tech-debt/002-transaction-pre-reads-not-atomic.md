@@ -14,9 +14,9 @@ Move pre-reads into the same SQLite connection/transaction as writes. This would
 
 ## Code References
 
-- `src/DynamoDbLite/DynamoDbClient.Transactions.cs:96` — pre-read phase uses `store.GetItemAsync()` (separate connections)
-- `src/DynamoDbLite/DynamoDbClient.Transactions.cs:230` — write phase uses `store.TransactWriteItemsAsync()` (single transaction)
-- `src/DynamoDbLite/SqliteStore.cs:252` — `GetItemAsync` opens its own connection
+- `src/DynamoDbLite/DynamoDbClient.Transactions.cs` — pre-read phase uses `store.GetItemAsync()` (separate connections)
+- `src/DynamoDbLite/DynamoDbClient.Transactions.cs` — write phase uses `store.TransactWriteItemsAsync()` (single transaction)
+- `src/DynamoDbLite/SqliteStore.cs` — `GetItemAsync` opens its own connection
 
 ## Notes
 

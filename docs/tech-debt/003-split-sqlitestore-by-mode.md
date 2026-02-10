@@ -21,10 +21,10 @@ A factory method or constructor on `DynamoDbClient` picks the right implementati
 
 ## Code References
 
-- `src/DynamoDbLite/SqliteStore.cs:20` — constructor with `isMemory` branching
-- `src/DynamoDbLite/SqliteStore.cs:36` — WAL skipped for in-memory
-- `src/DynamoDbLite/SqliteStore.cs:81` — WAL guard in `OpenConnectionAsync`
-- `.claude/gotchas.md:4` — workaround guidance that should become unnecessary
+- `src/DynamoDbLite/SqliteStore.cs` — constructor with `isMemory` branching
+- `src/DynamoDbLite/SqliteStore.cs` — WAL skipped for in-memory
+- `src/DynamoDbLite/SqliteStore.cs` — WAL guard in `OpenConnectionAsync`
+- `.claude/gotchas.md` — workaround guidance that should become unnecessary
 
 ## Notes
 
