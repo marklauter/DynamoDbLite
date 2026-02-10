@@ -43,6 +43,9 @@ Full fidelity with DynamoDB semantics:
 9. **Phase 9 — Capacity & limits (mock)** · effort: low · value: low — `DescribeLimitsAsync`, `DescribeEndpointsAsync` — return sensible default/mock values
 10. **Phase 10 — Export & import** · effort: medium · value: medium — Local file-based export/import using directories as S3 bucket analogs
 
+11. **Phase 11 — Split SqliteStore by mode** · effort: medium · value: medium — Extract interface, implement file-based (WAL) and in-memory (`SemaphoreSlim`) stores so callers get correct concurrency regardless of connection string. See [`docs/tech-debt/003-split-sqlitestore-by-mode.md`](tech-debt/003-split-sqlitestore-by-mode.md).
+12. **Phase 12 — Tech debt cleanup** · effort: medium · value: medium — Address accumulated tech debt items tracked in [`docs/tech-debt/`](tech-debt/)
+
 ### Out of scope
 
 These operations are not meaningful for a local embedded emulator and will remain as `NotImplementedException` stubs:
