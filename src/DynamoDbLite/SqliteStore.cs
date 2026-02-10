@@ -2,6 +2,7 @@ using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
 using Dapper;
 using Microsoft.Data.Sqlite;
+using System.Collections.Concurrent;
 using System.Data.Common;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
@@ -14,6 +15,7 @@ internal sealed class SqliteStore : IDisposable
     private readonly string connectionString;
     private readonly SqliteConnection sentinel;
     private readonly bool isMemory;
+    private readonly ConcurrentDictionary<string, DateTime> lastCleanupByTable = new();
     private bool walEnabled;
     private bool disposed;
 
@@ -67,10 +69,26 @@ internal sealed class SqliteStore : IDisposable
                 pk          TEXT NOT NULL,
                 sk          TEXT NOT NULL DEFAULT '',
                 sk_num      REAL,
+                ttl_epoch   REAL,
                 item_json   TEXT NOT NULL,
                 PRIMARY KEY (table_name, pk, sk)
             );
+
+            CREATE TABLE IF NOT EXISTS ttl_config (
+                table_name      TEXT PRIMARY KEY,
+                attribute_name  TEXT NOT NULL
+            );
             """);
+
+        // Migration for existing file-based DBs that lack ttl_epoch
+        try
+        {
+            _ = connection.Execute("ALTER TABLE items ADD COLUMN ttl_epoch REAL");
+        }
+        catch (SqliteException)
+        {
+            // Column already exists
+        }
     }
 
     internal async Task<DbConnection> OpenConnectionAsync(CancellationToken cancellationToken = default)
@@ -87,6 +105,37 @@ internal sealed class SqliteStore : IDisposable
         }
 
         return connection;
+    }
+
+    internal static double NowEpoch() => DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+
+    // ── TTL config CRUD ──────────────────────────────────────────────
+
+    internal async Task SetTtlConfigAsync(string tableName, string attributeName, CancellationToken cancellationToken = default)
+    {
+        using var connection = await OpenConnectionAsync(cancellationToken);
+        _ = await connection.ExecuteAsync(
+            """
+            INSERT INTO ttl_config (table_name, attribute_name) VALUES (@tableName, @attributeName)
+            ON CONFLICT (table_name) DO UPDATE SET attribute_name = @attributeName
+            """,
+            new { tableName, attributeName });
+    }
+
+    internal async Task RemoveTtlConfigAsync(string tableName, CancellationToken cancellationToken = default)
+    {
+        using var connection = await OpenConnectionAsync(cancellationToken);
+        _ = await connection.ExecuteAsync(
+            "DELETE FROM ttl_config WHERE table_name = @tableName",
+            new { tableName });
+    }
+
+    internal async Task<string?> GetTtlAttributeNameAsync(string tableName, CancellationToken cancellationToken = default)
+    {
+        using var connection = await OpenConnectionAsync(cancellationToken);
+        return await connection.QuerySingleOrDefaultAsync<string>(
+            "SELECT attribute_name FROM ttl_config WHERE table_name = @tableName",
+            new { tableName });
     }
 
     internal async Task<bool> TableExistsAsync(string tableName, CancellationToken cancellationToken = default)
@@ -159,6 +208,11 @@ internal sealed class SqliteStore : IDisposable
             new { tableName },
             transaction);
 
+        _ = await connection.ExecuteAsync(
+            "DELETE FROM ttl_config WHERE table_name = @tableName",
+            new { tableName },
+            transaction);
+
         await transaction.CommitAsync(cancellationToken);
     }
 
@@ -204,11 +258,11 @@ internal sealed class SqliteStore : IDisposable
             : new KeySchemaInfo(DeserializeKeySchema(row.KeySchemaJson), DeserializeAttributeDefinitions(row.AttributeDefinitionsJson));
     }
 
-    internal async Task<string?> PutItemAsync(string tableName, string pk, string sk, string itemJson, double? skNum = null, CancellationToken cancellationToken = default)
+    internal async Task<string?> PutItemAsync(string tableName, string pk, string sk, string itemJson, double? skNum = null, double? ttlEpoch = null, double? nowEpoch = null, CancellationToken cancellationToken = default)
     {
         using var connection = await OpenConnectionAsync(cancellationToken);
         using var transaction = await connection.BeginTransactionAsync(cancellationToken);
-        var oldJson = await PutItemCoreAsync(connection, transaction, tableName, pk, sk, itemJson, skNum);
+        var oldJson = await PutItemCoreAsync(connection, transaction, tableName, pk, sk, itemJson, skNum, ttlEpoch, nowEpoch ?? NowEpoch());
         await transaction.CommitAsync(cancellationToken);
         return oldJson;
     }
@@ -220,20 +274,22 @@ internal sealed class SqliteStore : IDisposable
         string pk,
         string sk,
         string itemJson,
-        double? skNum)
+        double? skNum,
+        double? ttlEpoch,
+        double nowEpoch)
     {
         var oldJson = await connection.QuerySingleOrDefaultAsync<string>(
-            "SELECT item_json FROM items WHERE table_name = @tableName AND pk = @pk AND sk = @sk",
-            new { tableName, pk, sk },
+            "SELECT item_json FROM items WHERE table_name = @tableName AND pk = @pk AND sk = @sk AND (ttl_epoch IS NULL OR ttl_epoch >= @nowEpoch)",
+            new { tableName, pk, sk, nowEpoch },
             transaction);
 
         _ = await connection.ExecuteAsync(
             """
-            INSERT INTO items (table_name, pk, sk, sk_num, item_json)
-            VALUES (@tableName, @pk, @sk, @skNum, @itemJson)
-            ON CONFLICT (table_name, pk, sk) DO UPDATE SET item_json = @itemJson, sk_num = @skNum
+            INSERT INTO items (table_name, pk, sk, sk_num, ttl_epoch, item_json)
+            VALUES (@tableName, @pk, @sk, @skNum, @ttlEpoch, @itemJson)
+            ON CONFLICT (table_name, pk, sk) DO UPDATE SET item_json = @itemJson, sk_num = @skNum, ttl_epoch = @ttlEpoch
             """,
-            new { tableName, pk, sk, skNum, itemJson },
+            new { tableName, pk, sk, skNum, ttlEpoch, itemJson },
             transaction);
 
         _ = await connection.ExecuteAsync(
@@ -249,19 +305,20 @@ internal sealed class SqliteStore : IDisposable
         return oldJson;
     }
 
-    internal async Task<string?> GetItemAsync(string tableName, string pk, string sk, CancellationToken cancellationToken = default)
+    internal async Task<string?> GetItemAsync(string tableName, string pk, string sk, double? nowEpoch = null, CancellationToken cancellationToken = default)
     {
+        var epoch = nowEpoch ?? NowEpoch();
         using var connection = await OpenConnectionAsync(cancellationToken);
         return await connection.QuerySingleOrDefaultAsync<string>(
-            "SELECT item_json FROM items WHERE table_name = @tableName AND pk = @pk AND sk = @sk",
-            new { tableName, pk, sk });
+            "SELECT item_json FROM items WHERE table_name = @tableName AND pk = @pk AND sk = @sk AND (ttl_epoch IS NULL OR ttl_epoch >= @nowEpoch)",
+            new { tableName, pk, sk, nowEpoch = epoch });
     }
 
-    internal async Task<string?> DeleteItemAsync(string tableName, string pk, string sk, CancellationToken cancellationToken = default)
+    internal async Task<string?> DeleteItemAsync(string tableName, string pk, string sk, double? nowEpoch = null, CancellationToken cancellationToken = default)
     {
         using var connection = await OpenConnectionAsync(cancellationToken);
         using var transaction = await connection.BeginTransactionAsync(cancellationToken);
-        var oldJson = await DeleteItemCoreAsync(connection, transaction, tableName, pk, sk);
+        var oldJson = await DeleteItemCoreAsync(connection, transaction, tableName, pk, sk, nowEpoch);
         await transaction.CommitAsync(cancellationToken);
         return oldJson;
     }
@@ -271,11 +328,13 @@ internal sealed class SqliteStore : IDisposable
         DbTransaction transaction,
         string tableName,
         string pk,
-        string sk)
+        string sk,
+        double? nowEpoch = null)
     {
+        var epoch = nowEpoch ?? NowEpoch();
         var oldJson = await connection.QuerySingleOrDefaultAsync<string>(
-            "SELECT item_json FROM items WHERE table_name = @tableName AND pk = @pk AND sk = @sk",
-            new { tableName, pk, sk },
+            "SELECT item_json FROM items WHERE table_name = @tableName AND pk = @pk AND sk = @sk AND (ttl_epoch IS NULL OR ttl_epoch >= @nowEpoch)",
+            new { tableName, pk, sk, nowEpoch = epoch },
             transaction);
 
         if (oldJson is not null)
@@ -308,17 +367,19 @@ internal sealed class SqliteStore : IDisposable
         bool ascending,
         int? limit,
         string? exclusiveStartSk,
+        double? nowEpoch = null,
         CancellationToken cancellationToken = default)
     {
         using var connection = await OpenConnectionAsync(cancellationToken);
         var parameters = new DynamicParameters();
         parameters.Add("@tableName", tableName);
         parameters.Add("@pk", pkValue);
+        parameters.Add("@nowEpoch", nowEpoch ?? NowEpoch());
 
         if (skParams is not null)
             parameters.AddDynamicParams(skParams);
 
-        var sql = "SELECT pk AS Pk, sk AS Sk, item_json AS ItemJson FROM items WHERE table_name = @tableName AND pk = @pk";
+        var sql = "SELECT pk AS Pk, sk AS Sk, item_json AS ItemJson FROM items WHERE table_name = @tableName AND pk = @pk AND (ttl_epoch IS NULL OR ttl_epoch >= @nowEpoch)";
 
         if (skWhereSql is not null)
             sql += $" AND {skWhereSql}";
@@ -347,13 +408,15 @@ internal sealed class SqliteStore : IDisposable
         int? limit,
         string? exclusiveStartPk,
         string? exclusiveStartSk,
+        double? nowEpoch = null,
         CancellationToken cancellationToken = default)
     {
         using var connection = await OpenConnectionAsync(cancellationToken);
         var parameters = new DynamicParameters();
         parameters.Add("@tableName", tableName);
+        parameters.Add("@nowEpoch", nowEpoch ?? NowEpoch());
 
-        var sql = "SELECT pk AS Pk, sk AS Sk, item_json AS ItemJson FROM items WHERE table_name = @tableName";
+        var sql = "SELECT pk AS Pk, sk AS Sk, item_json AS ItemJson FROM items WHERE table_name = @tableName AND (ttl_epoch IS NULL OR ttl_epoch >= @nowEpoch)";
 
         if (exclusiveStartPk is not null)
         {
@@ -509,16 +572,18 @@ internal sealed class SqliteStore : IDisposable
 
     internal async Task<List<(string TableName, string ItemJson)>> BatchGetItemsAsync(
         List<(string TableName, string Pk, string Sk)> keys,
+        double? nowEpoch = null,
         CancellationToken cancellationToken = default)
     {
         using var connection = await OpenConnectionAsync(cancellationToken);
+        var epoch = nowEpoch ?? NowEpoch();
         var results = new List<(string TableName, string ItemJson)>(keys.Count);
 
         foreach (var (tableName, pk, sk) in keys)
         {
             var itemJson = await connection.QuerySingleOrDefaultAsync<string>(
-                "SELECT item_json FROM items WHERE table_name = @tableName AND pk = @pk AND sk = @sk",
-                new { tableName, pk, sk });
+                "SELECT item_json FROM items WHERE table_name = @tableName AND pk = @pk AND sk = @sk AND (ttl_epoch IS NULL OR ttl_epoch >= @nowEpoch)",
+                new { tableName, pk, sk, nowEpoch = epoch });
 
             if (itemJson is not null)
                 results.Add((tableName, itemJson));
@@ -548,9 +613,9 @@ internal sealed class SqliteStore : IDisposable
 
                 _ = await connection.ExecuteAsync(
                     """
-                    INSERT INTO items (table_name, pk, sk, sk_num, item_json)
-                    VALUES (@TableName, @Pk, @Sk, @SkNum, @ItemJson)
-                    ON CONFLICT (table_name, pk, sk) DO UPDATE SET item_json = @ItemJson, sk_num = @SkNum
+                    INSERT INTO items (table_name, pk, sk, sk_num, ttl_epoch, item_json)
+                    VALUES (@TableName, @Pk, @Sk, @SkNum, @TtlEpoch, @ItemJson)
+                    ON CONFLICT (table_name, pk, sk) DO UPDATE SET item_json = @ItemJson, sk_num = @SkNum, ttl_epoch = @TtlEpoch
                     """,
                     op,
                     transaction);
@@ -578,7 +643,7 @@ internal sealed class SqliteStore : IDisposable
 
                 await MaintainIndexesAsync(
                     connection, transaction, op.TableName, op.Pk, op.Sk,
-                    info.Indexes, info.AttrDefs, newItem, oldJson);
+                    info.Indexes, info.AttrDefs, newItem, oldJson, op.TtlEpoch);
             }
         }
 
@@ -602,8 +667,10 @@ internal sealed class SqliteStore : IDisposable
     internal async Task TransactWriteItemsAsync(
         List<TransactWriteOperation> operations,
         Dictionary<string, (List<IndexDefinition> Indexes, List<AttributeDefinition> AttrDefs)>? indexInfoByTable,
+        double? nowEpoch = null,
         CancellationToken cancellationToken = default)
     {
+        var epoch = nowEpoch ?? NowEpoch();
         using var connection = await OpenConnectionAsync(cancellationToken);
         using var transaction = await connection.BeginTransactionAsync(cancellationToken);
 
@@ -613,11 +680,11 @@ internal sealed class SqliteStore : IDisposable
 
             if (op.IsDelete)
             {
-                oldJson = await DeleteItemCoreAsync(connection, transaction, op.TableName, op.Pk, op.Sk);
+                oldJson = await DeleteItemCoreAsync(connection, transaction, op.TableName, op.Pk, op.Sk, epoch);
             }
             else
             {
-                oldJson = await PutItemCoreAsync(connection, transaction, op.TableName, op.Pk, op.Sk, op.ItemJson!, op.SkNum);
+                oldJson = await PutItemCoreAsync(connection, transaction, op.TableName, op.Pk, op.Sk, op.ItemJson!, op.SkNum, op.TtlEpoch, epoch);
             }
 
             if (indexInfoByTable is not null
@@ -629,7 +696,7 @@ internal sealed class SqliteStore : IDisposable
 
                 await MaintainIndexesAsync(
                     connection, transaction, op.TableName, op.Pk, op.Sk,
-                    info.Indexes, info.AttrDefs, newItem, oldJson);
+                    info.Indexes, info.AttrDefs, newItem, oldJson, op.TtlEpoch);
             }
         }
 
@@ -658,6 +725,7 @@ internal sealed class SqliteStore : IDisposable
                 sk_num      REAL,
                 table_pk    TEXT NOT NULL,
                 table_sk    TEXT NOT NULL DEFAULT '',
+                ttl_epoch   REAL,
                 item_json   TEXT NOT NULL,
                 PRIMARY KEY (pk, sk, table_pk, table_sk)
             )
@@ -746,16 +814,17 @@ internal sealed class SqliteStore : IDisposable
         double? indexSkNum,
         string tablePk,
         string tableSk,
-        string itemJson)
+        string itemJson,
+        double? ttlEpoch = null)
     {
         var idxTable = IndexTableName(tableName, indexName);
         _ = await connection.ExecuteAsync(
             $"""
-            INSERT INTO "{idxTable}" (pk, sk, sk_num, table_pk, table_sk, item_json)
-            VALUES (@indexPk, @indexSk, @indexSkNum, @tablePk, @tableSk, @itemJson)
-            ON CONFLICT (pk, sk, table_pk, table_sk) DO UPDATE SET item_json = @itemJson, sk_num = @indexSkNum
+            INSERT INTO "{idxTable}" (pk, sk, sk_num, table_pk, table_sk, ttl_epoch, item_json)
+            VALUES (@indexPk, @indexSk, @indexSkNum, @tablePk, @tableSk, @ttlEpoch, @itemJson)
+            ON CONFLICT (pk, sk, table_pk, table_sk) DO UPDATE SET item_json = @itemJson, sk_num = @indexSkNum, ttl_epoch = @ttlEpoch
             """,
-            new { indexPk, indexSk, indexSkNum, tablePk, tableSk, itemJson },
+            new { indexPk, indexSk, indexSkNum, tablePk, tableSk, ttlEpoch, itemJson },
             transaction);
     }
 
@@ -783,7 +852,8 @@ internal sealed class SqliteStore : IDisposable
         List<IndexDefinition> indexes,
         List<AttributeDefinition> attributeDefinitions,
         Dictionary<string, AttributeValue>? newItem,
-        string? oldItemJson)
+        string? oldItemJson,
+        double? ttlEpoch = null)
     {
         foreach (var idx in indexes)
         {
@@ -801,13 +871,13 @@ internal sealed class SqliteStore : IDisposable
                     var itemJson = AttributeValueSerializer.Serialize(newItem);
                     await UpsertIndexEntryAsync(
                         connection, transaction, tableName, idx.IndexName,
-                        keys.Value.Pk, keys.Value.Sk, skNum, tablePk, tableSk, itemJson);
+                        keys.Value.Pk, keys.Value.Sk, skNum, tablePk, tableSk, itemJson, ttlEpoch);
                 }
             }
         }
     }
 
-    private static double? ComputeIndexSkNum(
+    internal static double? ComputeIndexSkNum(
         string sk,
         List<KeySchemaElement> keySchema,
         List<AttributeDefinition> attributeDefinitions)
@@ -836,17 +906,19 @@ internal sealed class SqliteStore : IDisposable
         string? exclusiveStartSk,
         string? exclusiveStartTablePk,
         string? exclusiveStartTableSk,
+        double? nowEpoch = null,
         CancellationToken cancellationToken = default)
     {
         using var connection = await OpenConnectionAsync(cancellationToken);
         var idxTable = IndexTableName(tableName, indexName);
         var parameters = new DynamicParameters();
         parameters.Add("@pk", pkValue);
+        parameters.Add("@nowEpoch", nowEpoch ?? NowEpoch());
 
         if (skParams is not null)
             parameters.AddDynamicParams(skParams);
 
-        var sql = $"""SELECT pk AS Pk, sk AS Sk, table_pk AS TablePk, table_sk AS TableSk, item_json AS ItemJson FROM "{idxTable}" WHERE pk = @pk""";
+        var sql = $"""SELECT pk AS Pk, sk AS Sk, table_pk AS TablePk, table_sk AS TableSk, item_json AS ItemJson FROM "{idxTable}" WHERE pk = @pk AND (ttl_epoch IS NULL OR ttl_epoch >= @nowEpoch)""";
 
         if (skWhereSql is not null)
             sql += $" AND {skWhereSql}";
@@ -880,13 +952,15 @@ internal sealed class SqliteStore : IDisposable
         string? exclusiveStartSk,
         string? exclusiveStartTablePk,
         string? exclusiveStartTableSk,
+        double? nowEpoch = null,
         CancellationToken cancellationToken = default)
     {
         using var connection = await OpenConnectionAsync(cancellationToken);
         var idxTable = IndexTableName(tableName, indexName);
         var parameters = new DynamicParameters();
+        parameters.Add("@nowEpoch", nowEpoch ?? NowEpoch());
 
-        var sql = $"""SELECT pk AS Pk, sk AS Sk, table_pk AS TablePk, table_sk AS TableSk, item_json AS ItemJson FROM "{idxTable}" """;
+        var sql = $"""SELECT pk AS Pk, sk AS Sk, table_pk AS TablePk, table_sk AS TableSk, item_json AS ItemJson FROM "{idxTable}" WHERE (ttl_epoch IS NULL OR ttl_epoch >= @nowEpoch)""";
 
         if (exclusiveStartPk is not null)
         {
@@ -894,7 +968,7 @@ internal sealed class SqliteStore : IDisposable
             parameters.Add("@esSk", exclusiveStartSk ?? string.Empty);
             parameters.Add("@esTablePk", exclusiveStartTablePk ?? string.Empty);
             parameters.Add("@esTableSk", exclusiveStartTableSk ?? string.Empty);
-            sql += " WHERE (pk > @esPk OR (pk = @esPk AND sk > @esSk) OR (pk = @esPk AND sk = @esSk AND (table_pk > @esTablePk OR (table_pk = @esTablePk AND table_sk > @esTableSk))))";
+            sql += " AND (pk > @esPk OR (pk = @esPk AND sk > @esSk) OR (pk = @esPk AND sk = @esSk AND (table_pk > @esTablePk OR (table_pk = @esTablePk AND table_sk > @esTableSk))))";
         }
 
         sql += " ORDER BY pk, sk, table_pk, table_sk";
@@ -967,11 +1041,13 @@ internal sealed class SqliteStore : IDisposable
         string sk,
         string itemJson,
         double? skNum,
+        double? ttlEpoch = null,
+        double? nowEpoch = null,
         CancellationToken cancellationToken = default)
     {
         var connection = await OpenConnectionAsync(cancellationToken);
         var transaction = await connection.BeginTransactionAsync(cancellationToken);
-        var oldJson = await PutItemCoreAsync(connection, transaction, tableName, pk, sk, itemJson, skNum);
+        var oldJson = await PutItemCoreAsync(connection, transaction, tableName, pk, sk, itemJson, skNum, ttlEpoch, nowEpoch ?? NowEpoch());
         return (oldJson, connection, transaction);
     }
 
@@ -979,11 +1055,12 @@ internal sealed class SqliteStore : IDisposable
         string tableName,
         string pk,
         string sk,
+        double? nowEpoch = null,
         CancellationToken cancellationToken = default)
     {
         var connection = await OpenConnectionAsync(cancellationToken);
         var transaction = await connection.BeginTransactionAsync(cancellationToken);
-        var oldJson = await DeleteItemCoreAsync(connection, transaction, tableName, pk, sk);
+        var oldJson = await DeleteItemCoreAsync(connection, transaction, tableName, pk, sk, nowEpoch);
         return (oldJson, connection, transaction);
     }
 
@@ -1038,6 +1115,110 @@ internal sealed class SqliteStore : IDisposable
             idx.NonKeyAttributes
         }).ToList());
 
+    // ── TTL cleanup & backfill ──────────────────────────────────────
+
+    internal async Task CleanupExpiredItemsAsync(string tableName, CancellationToken cancellationToken = default)
+    {
+        var now = DateTime.UtcNow;
+        if (lastCleanupByTable.TryGetValue(tableName, out var lastCleanup)
+            && (now - lastCleanup).TotalSeconds < 30)
+            return;
+
+        lastCleanupByTable[tableName] = now;
+
+        var nowEpoch = NowEpoch();
+        using var connection = await OpenConnectionAsync(cancellationToken);
+        using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+
+        _ = await connection.ExecuteAsync(
+            "DELETE FROM items WHERE table_name = @tableName AND ttl_epoch IS NOT NULL AND ttl_epoch < @nowEpoch",
+            new { tableName, nowEpoch },
+            transaction);
+
+        var indexes = await GetIndexDefinitionsAsync(connection, tableName, transaction);
+        foreach (var idx in indexes)
+        {
+            var idxTable = IndexTableName(tableName, idx.IndexName);
+            _ = await connection.ExecuteAsync(
+                $"""DELETE FROM "{idxTable}" WHERE ttl_epoch IS NOT NULL AND ttl_epoch < @nowEpoch""",
+                new { nowEpoch },
+                transaction);
+        }
+
+        _ = await connection.ExecuteAsync(
+            """
+            UPDATE tables SET
+                item_count = (SELECT COUNT(1) FROM items WHERE table_name = @tableName),
+                table_size_bytes = (SELECT COALESCE(SUM(LENGTH(item_json)), 0) FROM items WHERE table_name = @tableName)
+            WHERE table_name = @tableName
+            """,
+            new { tableName },
+            transaction);
+
+        await transaction.CommitAsync(cancellationToken);
+    }
+
+    internal async Task BatchUpdateTtlEpochAsync(string tableName, List<(string Pk, string Sk, double? TtlEpoch)> updates, CancellationToken cancellationToken = default)
+    {
+        using var connection = await OpenConnectionAsync(cancellationToken);
+        using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+
+        foreach (var (pk, sk, ttlEpoch) in updates)
+        {
+            _ = await connection.ExecuteAsync(
+                "UPDATE items SET ttl_epoch = @ttlEpoch WHERE table_name = @tableName AND pk = @pk AND sk = @sk",
+                new { tableName, pk, sk, ttlEpoch },
+                transaction);
+        }
+
+        await transaction.CommitAsync(cancellationToken);
+    }
+
+    internal async Task ClearTtlEpochAsync(string tableName, CancellationToken cancellationToken = default)
+    {
+        using var connection = await OpenConnectionAsync(cancellationToken);
+        using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+
+        _ = await connection.ExecuteAsync(
+            "UPDATE items SET ttl_epoch = NULL WHERE table_name = @tableName",
+            new { tableName },
+            transaction);
+
+        var indexes = await GetIndexDefinitionsAsync(connection, tableName, transaction);
+        foreach (var idx in indexes)
+        {
+            var idxTable = IndexTableName(tableName, idx.IndexName);
+            _ = await connection.ExecuteAsync(
+                $"""UPDATE "{idxTable}" SET ttl_epoch = NULL""",
+                transaction: transaction);
+        }
+
+        await transaction.CommitAsync(cancellationToken);
+    }
+
+    internal async Task BackfillIndexTtlEpochAsync(string tableName, string indexName, string ttlAttributeName, CancellationToken cancellationToken = default)
+    {
+        var idxTable = IndexTableName(tableName, indexName);
+        using var connection = await OpenConnectionAsync(cancellationToken);
+
+        var rows = (await connection.QueryAsync<IndexItemRow>(
+            $"""SELECT pk AS Pk, sk AS Sk, table_pk AS TablePk, table_sk AS TableSk, item_json AS ItemJson FROM "{idxTable}" """))
+            .AsList();
+
+        using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        foreach (var row in rows)
+        {
+            var item = AttributeValueSerializer.Deserialize(row.ItemJson);
+            var ttlEpoch = TtlHelper.ExtractTtlEpoch(item, ttlAttributeName);
+            _ = await connection.ExecuteAsync(
+                $"""UPDATE "{idxTable}" SET ttl_epoch = @ttlEpoch WHERE pk = @Pk AND sk = @Sk AND table_pk = @TablePk AND table_sk = @TableSk""",
+                new { ttlEpoch, row.Pk, row.Sk, row.TablePk, row.TableSk },
+                transaction);
+        }
+
+        await transaction.CommitAsync(cancellationToken);
+    }
+
     public void Dispose()
     {
         if (disposed)
@@ -1053,6 +1234,7 @@ internal sealed record BatchWriteOperation(
     string Pk,
     string Sk,
     double? SkNum,
+    double? TtlEpoch,
     string? ItemJson);
 
 internal sealed record TransactWriteOperation(
@@ -1060,6 +1242,7 @@ internal sealed record TransactWriteOperation(
     string Pk,
     string Sk,
     double? SkNum,
+    double? TtlEpoch,
     string? ItemJson,
     bool IsDelete);
 

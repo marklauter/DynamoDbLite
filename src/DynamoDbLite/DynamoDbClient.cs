@@ -29,6 +29,20 @@ public sealed partial class DynamoDbClient(DynamoDbLiteOptions? options = null)
         disposed = true;
     }
 
+    private void TriggerBackgroundCleanup(string tableName) =>
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await store.CleanupExpiredItemsAsync(tableName);
+            }
+            catch
+            {
+                // todo: logging would be good
+                /* swallow */
+            }
+        });
+
     private void ThrowIfDisposed() =>
         ObjectDisposedException.ThrowIf(disposed, this);
 }

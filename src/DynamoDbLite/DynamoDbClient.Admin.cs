@@ -1,7 +1,6 @@
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
 using Amazon.Runtime;
-using System.Globalization;
 
 namespace DynamoDbLite;
 
@@ -24,9 +23,92 @@ public sealed partial class DynamoDbClient
     public Task<UpdateContributorInsightsResponse> UpdateContributorInsightsAsync(UpdateContributorInsightsRequest request, CancellationToken cancellationToken = default) => throw new NotImplementedException();
 
     // ── Time To Live ─────────────────────────────────────────────────
-    public Task<DescribeTimeToLiveResponse> DescribeTimeToLiveAsync(string tableName, CancellationToken cancellationToken = default) => throw new NotImplementedException();
-    public Task<DescribeTimeToLiveResponse> DescribeTimeToLiveAsync(DescribeTimeToLiveRequest request, CancellationToken cancellationToken = default) => throw new NotImplementedException();
-    public Task<UpdateTimeToLiveResponse> UpdateTimeToLiveAsync(UpdateTimeToLiveRequest request, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+    public Task<DescribeTimeToLiveResponse> DescribeTimeToLiveAsync(string tableName, CancellationToken cancellationToken = default) =>
+        DescribeTimeToLiveAsync(new DescribeTimeToLiveRequest { TableName = tableName }, cancellationToken);
+
+    public async Task<DescribeTimeToLiveResponse> DescribeTimeToLiveAsync(DescribeTimeToLiveRequest request, CancellationToken cancellationToken = default)
+    {
+        ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.TableName);
+
+        if (!await store.TableExistsAsync(request.TableName, cancellationToken))
+            throw new ResourceNotFoundException($"Requested resource not found: Table: {request.TableName} not found");
+
+        var ttlAttr = await store.GetTtlAttributeNameAsync(request.TableName, cancellationToken);
+
+        return new DescribeTimeToLiveResponse
+        {
+            TimeToLiveDescription = new TimeToLiveDescription
+            {
+                TimeToLiveStatus = ttlAttr is not null ? TimeToLiveStatus.ENABLED : TimeToLiveStatus.DISABLED,
+                AttributeName = ttlAttr
+            },
+            HttpStatusCode = System.Net.HttpStatusCode.OK
+        };
+    }
+
+    public async Task<UpdateTimeToLiveResponse> UpdateTimeToLiveAsync(UpdateTimeToLiveRequest request, CancellationToken cancellationToken = default)
+    {
+        ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(request.TimeToLiveSpecification);
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.TableName);
+
+        if (!await store.TableExistsAsync(request.TableName, cancellationToken))
+            throw new ResourceNotFoundException($"Requested resource not found: Table: {request.TableName} not found");
+
+        var currentAttr = await store.GetTtlAttributeNameAsync(request.TableName, cancellationToken);
+        var spec = request.TimeToLiveSpecification;
+
+        if (spec.Enabled is not true and not false)
+            throw new AmazonDynamoDBException(
+                "One or more parameter values were invalid: TimeToLiveSpecification.Enabled must be specified");
+
+        if (spec.Enabled is true)
+        {
+            if (currentAttr is not null)
+                throw new AmazonDynamoDBException(
+                    "TimeToLive is already enabled on the table");
+
+            ArgumentException.ThrowIfNullOrWhiteSpace(spec.AttributeName);
+            await store.SetTtlConfigAsync(request.TableName, spec.AttributeName, cancellationToken);
+            await BackfillTtlEpochAsync(request.TableName, spec.AttributeName, cancellationToken);
+        }
+        else
+        {
+            if (currentAttr is null)
+                throw new AmazonDynamoDBException(
+                    "TimeToLive is already disabled on the table");
+
+            await store.RemoveTtlConfigAsync(request.TableName, cancellationToken);
+            await store.ClearTtlEpochAsync(request.TableName, cancellationToken);
+        }
+
+        return new UpdateTimeToLiveResponse
+        {
+            TimeToLiveSpecification = spec,
+            HttpStatusCode = System.Net.HttpStatusCode.OK
+        };
+    }
+
+    private async Task BackfillTtlEpochAsync(string tableName, string ttlAttributeName, CancellationToken cancellationToken)
+    {
+        var items = await store.GetAllItemsAsync(tableName, cancellationToken);
+        var updates = new List<(string Pk, string Sk, double? TtlEpoch)>(items.Count);
+        foreach (var row in items)
+        {
+            var item = AttributeValueSerializer.Deserialize(row.ItemJson);
+            var ttlEpoch = TtlHelper.ExtractTtlEpoch(item, ttlAttributeName);
+            updates.Add((row.Pk, row.Sk, ttlEpoch));
+        }
+
+        await store.BatchUpdateTtlEpochAsync(tableName, updates, cancellationToken);
+
+        var indexes = await store.GetIndexDefinitionsAsync(tableName, cancellationToken);
+        foreach (var idx in indexes)
+            await store.BackfillIndexTtlEpochAsync(tableName, idx.IndexName, ttlAttributeName, cancellationToken);
+    }
 
     // ── Endpoints & Limits ───────────────────────────────────────────
     public Task<DescribeEndpointsResponse> DescribeEndpointsAsync(DescribeEndpointsRequest request, CancellationToken cancellationToken = default) => throw new NotImplementedException();
@@ -100,8 +182,9 @@ public sealed partial class DynamoDbClient
                         update.Create.IndexName, true, update.Create.KeySchema, projectionType, nonKeyAttrs);
                     gsiDefs.Add(newIdx);
 
-                    // Read existing items before starting transaction to avoid schema lock
+                    // Read existing items and TTL config before starting transaction to avoid schema lock
                     var existingItems = await store.GetAllItemsAsync(request.TableName, cancellationToken);
+                    var ttlAttrForBackfill = await store.GetTtlAttributeNameAsync(request.TableName, cancellationToken);
 
                     // Create index table and backfill
                     using var connection = await store.OpenConnectionAsync(cancellationToken);
@@ -114,11 +197,12 @@ public sealed partial class DynamoDbClient
                         var keys = KeyHelper.TryExtractIndexKeys(item, newIdx.KeySchema, attrDefs);
                         if (keys is not null)
                         {
-                            var skNum = ComputeIndexSkNum(keys.Value.Sk, newIdx.KeySchema, attrDefs);
+                            var skNum = SqliteStore.ComputeIndexSkNum(keys.Value.Sk, newIdx.KeySchema, attrDefs);
+                            var ttlEpoch = ttlAttrForBackfill is not null ? TtlHelper.ExtractTtlEpoch(item, ttlAttrForBackfill) : null;
                             await SqliteStore.UpsertIndexEntryAsync(
                                 connection, transaction, request.TableName, newIdx.IndexName,
                                 keys.Value.Pk, keys.Value.Sk, skNum,
-                                existingRow.Pk, existingRow.Sk, existingRow.ItemJson);
+                                existingRow.Pk, existingRow.Sk, existingRow.ItemJson, ttlEpoch);
                         }
                     }
 
@@ -158,18 +242,4 @@ public sealed partial class DynamoDbClient
         };
     }
 
-    private static double? ComputeIndexSkNum(
-        string sk,
-        List<KeySchemaElement> keySchema,
-        List<AttributeDefinition> attributeDefinitions)
-    {
-        var rangeKey = keySchema.FirstOrDefault(static k => k.KeyType == KeyType.RANGE);
-        if (rangeKey is null)
-            return null;
-
-        var attrDef = attributeDefinitions.First(a => a.AttributeName == rangeKey.AttributeName);
-        return attrDef.AttributeType == ScalarAttributeType.N
-            ? double.Parse(sk, CultureInfo.InvariantCulture)
-            : null;
-    }
 }

@@ -93,6 +93,7 @@ public sealed partial class DynamoDbClient
         }
 
         // ── Pre-read phase ───────────────────────────────────────────
+        var nowEpoch = SqliteStore.NowEpoch();
         var existingItems = new string?[actions.Count];
         for (var i = 0; i < resolvedActions.Count; i++)
         {
@@ -107,7 +108,7 @@ public sealed partial class DynamoDbClient
             };
 
             if (needsExisting)
-                existingItems[i] = await store.GetItemAsync(ra.TableName, ra.Pk, ra.Sk, cancellationToken);
+                existingItems[i] = await store.GetItemAsync(ra.TableName, ra.Pk, ra.Sk, nowEpoch, cancellationToken);
         }
 
         // ── Condition evaluation phase ───────────────────────────────
@@ -192,6 +193,7 @@ public sealed partial class DynamoDbClient
 
         // ── Write phase (single SQLite transaction) ──────────────────
         var operations = new List<TransactWriteOperation>();
+        var ttlConfigByTable = new Dictionary<string, string?>();
 
         for (var i = 0; i < resolvedActions.Count; i++)
         {
@@ -202,14 +204,21 @@ public sealed partial class DynamoDbClient
 
             if (ra.ActionType is TransactActionType.Delete)
             {
-                operations.Add(new TransactWriteOperation(ra.TableName, ra.Pk, ra.Sk, null, null, IsDelete: true));
+                operations.Add(new TransactWriteOperation(ra.TableName, ra.Pk, ra.Sk, null, null, null, IsDelete: true));
             }
             else
             {
+                if (!ttlConfigByTable.TryGetValue(ra.TableName, out var ttlAttr))
+                {
+                    ttlAttr = await store.GetTtlAttributeNameAsync(ra.TableName, cancellationToken);
+                    ttlConfigByTable[ra.TableName] = ttlAttr;
+                }
+
                 var itemToWrite = computedItems[i]!;
+                var ttlEpoch = ttlAttr is not null ? TtlHelper.ExtractTtlEpoch(itemToWrite, ttlAttr) : null;
                 var itemJson = AttributeValueSerializer.Serialize(itemToWrite);
                 var skNum = ComputeSkNum(ra.Sk, ra.KeyInfo);
-                operations.Add(new TransactWriteOperation(ra.TableName, ra.Pk, ra.Sk, skNum, itemJson, IsDelete: false));
+                operations.Add(new TransactWriteOperation(ra.TableName, ra.Pk, ra.Sk, skNum, ttlEpoch, itemJson, IsDelete: false));
             }
         }
 
@@ -228,7 +237,7 @@ public sealed partial class DynamoDbClient
         }
 
         if (operations.Count > 0)
-            await store.TransactWriteItemsAsync(operations, indexInfoByTable, cancellationToken);
+            await store.TransactWriteItemsAsync(operations, indexInfoByTable, nowEpoch, cancellationToken);
 
         var response = new TransactWriteItemsResponse { HttpStatusCode = HttpStatusCode.OK };
 
@@ -257,7 +266,9 @@ public sealed partial class DynamoDbClient
             throw new AmazonDynamoDBException(
                 $"1 validation error detected: Value at 'transactItems' failed to satisfy constraint: Member must have length less than or equal to {MaxTransactItems}");
 
+        var nowEpoch = SqliteStore.NowEpoch();
         var responses = new List<ItemResponse>(request.TransactItems.Count);
+        var cleanedTables = new HashSet<string>();
 
         foreach (var transactItem in request.TransactItems)
         {
@@ -270,8 +281,11 @@ public sealed partial class DynamoDbClient
                 ?? throw new ResourceNotFoundException(
                     $"Requested resource not found: Table: {get.TableName} not found");
 
+            if (cleanedTables.Add(get.TableName))
+                TriggerBackgroundCleanup(get.TableName);
+
             var (pk, sk) = KeyHelper.ExtractKeys(get.Key, keyInfo.KeySchema, keyInfo.AttributeDefinitions);
-            var itemJson = await store.GetItemAsync(get.TableName, pk, sk, cancellationToken);
+            var itemJson = await store.GetItemAsync(get.TableName, pk, sk, nowEpoch, cancellationToken);
 
             if (itemJson is not null)
             {

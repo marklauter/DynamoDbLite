@@ -12,12 +12,14 @@ public sealed partial class DynamoDbClient
         ArgumentException.ThrowIfNullOrWhiteSpace(request.TableName);
         ArgumentException.ThrowIfNullOrWhiteSpace(request.KeyConditionExpression);
 
+        var nowEpoch = SqliteStore.NowEpoch();
+
         // Validate table exists
         var tableKeyInfo = await store.GetKeySchemaAsync(request.TableName, cancellationToken)
             ?? throw new ResourceNotFoundException($"Requested resource not found: Table: {request.TableName} not found");
 
         if (!string.IsNullOrEmpty(request.IndexName))
-            return await QueryIndexAsync(request, tableKeyInfo, cancellationToken);
+            return await QueryIndexAsync(request, tableKeyInfo, nowEpoch, cancellationToken);
 
         var keyCondition = Expressions.KeyConditionExpressionParser.Parse(request.KeyConditionExpression);
         var sql = KeyConditionSqlBuilder.Build(
@@ -34,7 +36,9 @@ public sealed partial class DynamoDbClient
 
         var rows = await store.QueryItemsAsync(
             request.TableName, sql.PkValue, sql.SkWhereSql, sql.SkParams,
-            sql.OrderByColumn, ascending, request.Limit, exclusiveStartSk, cancellationToken);
+            sql.OrderByColumn, ascending, request.Limit, exclusiveStartSk, nowEpoch, cancellationToken);
+
+        TriggerBackgroundCleanup(request.TableName);
 
         var scannedCount = rows.Count;
         var items = new List<Dictionary<string, AttributeValue>>(rows.Count);
@@ -94,6 +98,7 @@ public sealed partial class DynamoDbClient
     private async Task<QueryResponse> QueryIndexAsync(
         QueryRequest request,
         KeySchemaInfo tableKeyInfo,
+        double nowEpoch,
         CancellationToken cancellationToken)
     {
         var indexKeyInfo = await store.GetIndexKeySchemaAsync(request.TableName, request.IndexName, cancellationToken)
@@ -132,7 +137,7 @@ public sealed partial class DynamoDbClient
         var rows = await store.QueryIndexItemsAsync(
             request.TableName, request.IndexName, sql.PkValue, sql.SkWhereSql, sql.SkParams,
             sql.OrderByColumn, ascending, request.Limit, exclusiveStartSk,
-            exclusiveStartTablePk, exclusiveStartTableSk, cancellationToken);
+            exclusiveStartTablePk, exclusiveStartTableSk, nowEpoch, cancellationToken);
 
         var scannedCount = rows.Count;
         var items = new List<Dictionary<string, AttributeValue>>(rows.Count);
@@ -206,11 +211,13 @@ public sealed partial class DynamoDbClient
         ArgumentNullException.ThrowIfNull(request);
         ArgumentException.ThrowIfNullOrWhiteSpace(request.TableName);
 
+        var nowEpoch = SqliteStore.NowEpoch();
+
         var tableKeyInfo = await store.GetKeySchemaAsync(request.TableName, cancellationToken)
             ?? throw new ResourceNotFoundException($"Requested resource not found: Table: {request.TableName} not found");
 
         if (!string.IsNullOrEmpty(request.IndexName))
-            return await ScanIndexAsync(request, tableKeyInfo, cancellationToken);
+            return await ScanIndexAsync(request, tableKeyInfo, nowEpoch, cancellationToken);
 
         string? exclusiveStartPk = null;
         string? exclusiveStartSk = null;
@@ -222,7 +229,9 @@ public sealed partial class DynamoDbClient
         }
 
         var rows = await store.ScanItemsAsync(
-            request.TableName, request.Limit, exclusiveStartPk, exclusiveStartSk, cancellationToken);
+            request.TableName, request.Limit, exclusiveStartPk, exclusiveStartSk, nowEpoch, cancellationToken);
+
+        TriggerBackgroundCleanup(request.TableName);
 
         var scannedCount = rows.Count;
         var items = new List<Dictionary<string, AttributeValue>>(rows.Count);
@@ -282,6 +291,7 @@ public sealed partial class DynamoDbClient
     private async Task<ScanResponse> ScanIndexAsync(
         ScanRequest request,
         KeySchemaInfo tableKeyInfo,
+        double nowEpoch,
         CancellationToken cancellationToken)
     {
         var indexKeyInfo = await store.GetIndexKeySchemaAsync(request.TableName, request.IndexName, cancellationToken)
@@ -314,7 +324,7 @@ public sealed partial class DynamoDbClient
         var rows = await store.ScanIndexItemsAsync(
             request.TableName, request.IndexName, request.Limit,
             exclusiveStartPk, exclusiveStartSk,
-            exclusiveStartTablePk, exclusiveStartTableSk, cancellationToken);
+            exclusiveStartTablePk, exclusiveStartTableSk, nowEpoch, cancellationToken);
 
         var scannedCount = rows.Count;
         var items = new List<Dictionary<string, AttributeValue>>(rows.Count);
