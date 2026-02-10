@@ -10,7 +10,8 @@ using System.Text.Json;
 
 namespace DynamoDbLite;
 
-internal sealed class SqliteStore : IDisposable
+internal sealed class SqliteStore
+    : IDisposable
 {
     private readonly string connectionString;
     private readonly SqliteConnection sentinel;

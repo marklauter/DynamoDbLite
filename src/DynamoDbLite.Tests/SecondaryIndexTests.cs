@@ -3,7 +3,8 @@ using Amazon.DynamoDBv2.Model;
 
 namespace DynamoDbLite.Tests;
 
-public sealed class SecondaryIndexTests : IAsyncLifetime
+public sealed class SecondaryIndexTests
+    : IAsyncLifetime
 {
     private readonly DynamoDbClient client = new(new DynamoDbLiteOptions(
         $"Data Source=Test_{Guid.NewGuid():N};Mode=Memory;Cache=Shared"));

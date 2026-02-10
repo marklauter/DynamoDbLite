@@ -3,7 +3,8 @@ using Amazon.DynamoDBv2.Model;
 
 namespace DynamoDbLite.Tests;
 
-public sealed class QueryNumericSortKeyTests : IAsyncLifetime
+public sealed class QueryNumericSortKeyTests
+    : IAsyncLifetime
 {
     private readonly DynamoDbClient client = new(new DynamoDbLiteOptions(
         $"Data Source=Test_{Guid.NewGuid():N};Mode=Memory;Cache=Shared"));

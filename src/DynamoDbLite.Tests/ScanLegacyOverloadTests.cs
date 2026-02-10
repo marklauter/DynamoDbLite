@@ -4,7 +4,8 @@ using System.Globalization;
 
 namespace DynamoDbLite.Tests;
 
-public sealed class ScanLegacyOverloadTests : IAsyncLifetime
+public sealed class ScanLegacyOverloadTests
+    : IAsyncLifetime
 {
     private readonly DynamoDbClient client = new(new DynamoDbLiteOptions(
         $"Data Source=Test_{Guid.NewGuid():N};Mode=Memory;Cache=Shared"));

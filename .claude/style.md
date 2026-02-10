@@ -89,5 +89,14 @@ No `_` prefix. No `this.` qualifier. No Hungarian notation.
 - 4-space indentation, spaces only, CRLF line endings, final newline at end of files
 - Allman braces (open brace on new line)
 - file-scoped namespace declarations (not block-scoped)
+- **inheritance / interface implementation on next line** — place the `: BaseType` on a new line, indented by 4 spaces
+  ```csharp
+  // correct
+  public sealed class DynamoDbFixture
+      : IAsyncLifetime
+
+  // wrong — do not put inheritance on the same line
+  public sealed class DynamoDbFixture : IAsyncLifetime
+  ```
 - usings outside namespace, not grouped or sorted specially
 - modifier order: `public` `private` `protected` `internal` `file` `static` `extern` `new` `virtual` `abstract` `sealed` `override` `readonly` `unsafe` `required` `volatile` `async`
