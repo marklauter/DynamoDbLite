@@ -38,7 +38,7 @@ Full fidelity with DynamoDB semantics:
 4. **Phase 4 — Batch operations (complete):** `BatchGetItemAsync`, `BatchWriteItemAsync`
 5. **Phase 5 — Secondary indexes (complete):** GSI/LSI creation, index maintenance on writes, `QueryAsync`/`ScanAsync` with `IndexName`
 6. **Phase 6 — Transactions (complete):** `TransactGetItemsAsync`, `TransactWriteItemsAsync`
-7. **Phase 7 — TTL** · effort: low · value: medium — `DescribeTimeToLiveAsync`, `UpdateTimeToLiveAsync` (metadata-only, no background expiry)
+7. **Phase 7 — TTL (complete):** `DescribeTimeToLiveAsync`, `UpdateTimeToLiveAsync`, SQL-level read filtering, background cleanup with 30s throttle
 8. **Phase 8 — Tags** · effort: low · value: low — `TagResourceAsync`, `UntagResourceAsync`, `ListTagsOfResourceAsync`
 9. **Phase 9 — Capacity & limits (mock)** · effort: low · value: low — `DescribeLimitsAsync`, `DescribeEndpointsAsync` — return sensible default/mock values
 10. **Phase 10 — Export & import** · effort: medium · value: medium — Local file-based export/import using directories as S3 bucket analogs
