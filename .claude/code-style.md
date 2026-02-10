@@ -21,6 +21,27 @@ C# 14 / .NET 10 — high-performance, functional, zero-allocation.
       public string ConnectionString { get; init; } = "";
   }
   ```
+- **record parameter formatting** — for records with 2+ parameters, place each parameter on its own line indented by 4 spaces; separate records with a blank line
+  ```csharp
+  // correct — each param on its own line, blank line between records
+  internal sealed record ComparisonNode(
+      Operand Left,
+      string Operator,
+      Operand Right)
+      : ConditionNode;
+
+  internal sealed record BetweenNode(
+      Operand Value,
+      Operand Lower,
+      Operand Upper)
+      : ConditionNode;
+
+  // wrong — all params on one line
+  internal sealed record ComparisonNode(Operand Left, string Operator, Operand Right)
+      : ConditionNode;
+  internal sealed record BetweenNode(Operand Value, Operand Lower, Operand Upper)
+      : ConditionNode;
+  ```
 - use `readonly record struct` for small value types (≤16 bytes)
 - seal all records and classes by default (enables devirtualization)
 - use primary constructors for dependency injection and simple initialization
@@ -84,6 +105,7 @@ C# 14 / .NET 10 — high-performance, functional, zero-allocation.
 | Constants | PascalCase | `MaxRetryCount` |
 
 No `_` prefix. No `this.` qualifier. No Hungarian notation.
+- **no "Base" suffix** — don't name abstract/base classes with a `Base` suffix; use a meaningful name instead
 
 ## Formatting
 - 4-space indentation, spaces only, CRLF line endings, final newline at end of files

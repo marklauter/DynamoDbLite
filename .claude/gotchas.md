@@ -1,7 +1,6 @@
 # Gotchas
 
 ## SQLite
-- Don't open a new connection while a transaction is active on another — read data first, then start the transaction
 - Dapper column aliases needed: snake_case SQL columns → PascalCase C# properties
 
 ## AWS SDK v4
