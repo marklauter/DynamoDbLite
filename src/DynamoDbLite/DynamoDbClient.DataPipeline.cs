@@ -76,11 +76,22 @@ public sealed partial class DynamoDbClient
             await store.UpdateExportStatusAsync(
                 exportArn, "COMPLETED", endTime, manifestPath, itemCount, billedSize, null, null);
         }
+        catch (ObjectDisposedException)
+        {
+            // Store disposed during background operation (e.g. test cleanup) — silently abandon
+        }
         catch (Exception ex)
         {
-            var endTime = DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture);
-            await store.UpdateExportStatusAsync(
-                exportArn, "FAILED", endTime, null, null, null, "INTERNAL_ERROR", ex.Message);
+            try
+            {
+                var endTime = DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture);
+                await store.UpdateExportStatusAsync(
+                    exportArn, "FAILED", endTime, null, null, null, "INTERNAL_ERROR", ex.Message);
+            }
+            catch (ObjectDisposedException)
+            {
+                // Store disposed during background operation — silently abandon
+            }
         }
     }
 
@@ -240,11 +251,22 @@ public sealed partial class DynamoDbClient
                 importArn, "COMPLETED", endTime,
                 importedCount, processedCount, processedBytes, 0L, null, null);
         }
+        catch (ObjectDisposedException)
+        {
+            // Store disposed during background operation (e.g. test cleanup) — silently abandon
+        }
         catch (Exception ex)
         {
-            var endTime = DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture);
-            await store.UpdateImportStatusAsync(
-                importArn, "FAILED", endTime, null, null, null, null, "INTERNAL_ERROR", ex.Message);
+            try
+            {
+                var endTime = DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture);
+                await store.UpdateImportStatusAsync(
+                    importArn, "FAILED", endTime, null, null, null, null, "INTERNAL_ERROR", ex.Message);
+            }
+            catch (ObjectDisposedException)
+            {
+                // Store disposed during background operation — silently abandon
+            }
         }
     }
 
