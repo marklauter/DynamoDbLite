@@ -1188,7 +1188,7 @@ internal abstract class SqliteStore
             if (keys is not null)
             {
                 var skNum = ComputeIndexSkNum(keys.Value.Sk, newIndex.KeySchema, attrDefs);
-                var ttlEpoch = ttlAttributeName is not null ? TtlHelper.ExtractTtlEpoch(item, ttlAttributeName) : null;
+                var ttlEpoch = ttlAttributeName is not null ? TtlEpochParser.ParseTtlEpoch(item, ttlAttributeName) : null;
                 await UpsertIndexEntryAsync(
                     connection, transaction, tableName, newIndex.IndexName,
                     keys.Value.Pk, keys.Value.Sk, skNum,
@@ -1359,7 +1359,7 @@ internal abstract class SqliteStore
         foreach (var row in rows)
         {
             var item = AttributeValueSerializer.Deserialize(row.ItemJson);
-            var ttlEpoch = TtlHelper.ExtractTtlEpoch(item, ttlAttributeName);
+            var ttlEpoch = TtlEpochParser.ParseTtlEpoch(item, ttlAttributeName);
             _ = await connection.ExecuteAsync(
                 $"""UPDATE "{idxTable}" SET ttl_epoch = @ttlEpoch WHERE pk = @Pk AND sk = @Sk AND table_pk = @TablePk AND table_sk = @TableSk""",
                 new { ttlEpoch, row.Pk, row.Sk, row.TablePk, row.TableSk },

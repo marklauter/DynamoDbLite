@@ -184,7 +184,7 @@ public sealed partial class DynamoDbClient
         foreach (var row in items)
         {
             var item = AttributeValueSerializer.Deserialize(row.ItemJson);
-            var ttlEpoch = TtlHelper.ExtractTtlEpoch(item, ttlAttributeName);
+            var ttlEpoch = TtlEpochParser.ParseTtlEpoch(item, ttlAttributeName);
             updates.Add((row.Pk, row.Sk, ttlEpoch));
         }
 

@@ -217,7 +217,7 @@ public sealed partial class DynamoDbClient
                 }
 
                 var itemToWrite = computedItems[i]!;
-                var ttlEpoch = ttlAttr is not null ? TtlHelper.ExtractTtlEpoch(itemToWrite, ttlAttr) : null;
+                var ttlEpoch = ttlAttr is not null ? TtlEpochParser.ParseTtlEpoch(itemToWrite, ttlAttr) : null;
                 var itemJson = AttributeValueSerializer.Serialize(itemToWrite);
                 var skNum = ComputeSkNum(ra.Sk, ra.KeyInfo);
                 operations.Add(new TransactWriteOperation(ra.TableName, ra.Pk, ra.Sk, skNum, ttlEpoch, itemJson, IsDelete: false));
