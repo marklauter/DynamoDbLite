@@ -2,6 +2,7 @@ using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
 using Amazon.Runtime;
 using DynamoDbLite.SqlteStores;
+using DynamoDbLite.SqlteStores.Models;
 
 namespace DynamoDbLite;
 
@@ -19,7 +20,7 @@ public sealed partial class DynamoDbClient
         ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(request);
 
-        var tableName = SqliteStoreBase.ExtractTableNameFromArn(request.ResourceArn);
+        var tableName = SqliteStore.ExtractTableNameFromArn(request.ResourceArn);
 
         if (!await store.TableExistsAsync(tableName, cancellationToken))
             throw new ResourceNotFoundException($"Requested resource not found: Table: {tableName} not found");
@@ -51,7 +52,7 @@ public sealed partial class DynamoDbClient
         ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(request);
 
-        var tableName = SqliteStoreBase.ExtractTableNameFromArn(request.ResourceArn);
+        var tableName = SqliteStore.ExtractTableNameFromArn(request.ResourceArn);
 
         if (!await store.TableExistsAsync(tableName, cancellationToken))
             throw new ResourceNotFoundException($"Requested resource not found: Table: {tableName} not found");
@@ -66,7 +67,7 @@ public sealed partial class DynamoDbClient
         ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(request);
 
-        var tableName = SqliteStoreBase.ExtractTableNameFromArn(request.ResourceArn);
+        var tableName = SqliteStore.ExtractTableNameFromArn(request.ResourceArn);
 
         if (!await store.TableExistsAsync(tableName, cancellationToken))
             throw new ResourceNotFoundException($"Requested resource not found: Table: {tableName} not found");

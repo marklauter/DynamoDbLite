@@ -4,10 +4,10 @@ using System.Data.Common;
 namespace DynamoDbLite.SqlteStores;
 
 internal sealed class FileSqliteStore
-    : SqliteStoreBase
+    : SqliteStore
 {
     internal FileSqliteStore(DynamoDbLiteOptions options)
-        : base(options)
+        : base(options, createTables: true)
     {
         using var connection = new SqliteConnection(ConnectionString);
         connection.Open();
@@ -21,10 +21,5 @@ internal sealed class FileSqliteStore
         var connection = new SqliteConnection(ConnectionString);
         await connection.OpenAsync(ct).ConfigureAwait(false);
         return connection;
-    }
-
-    protected override void DisposeCore()
-    {
-        // No-op: file-based connections are transient
     }
 }

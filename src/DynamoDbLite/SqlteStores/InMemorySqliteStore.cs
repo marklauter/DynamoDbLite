@@ -4,17 +4,17 @@ using System.Data.Common;
 namespace DynamoDbLite.SqlteStores;
 
 internal sealed class InMemorySqliteStore
-    : SqliteStoreBase
+    : SqliteStore
 {
     private readonly SqliteConnection sentinel;
     private readonly AsyncReaderWriterLock rwLock = new();
 
     internal InMemorySqliteStore(DynamoDbLiteOptions options)
-        : base(options, initialize: false)
+        : base(options, createTables: false)
     {
         sentinel = new SqliteConnection(ConnectionString);
         sentinel.Open();
-        Initialize();
+        CreateTables();
     }
 
     protected override async Task<DbConnection> OpenConnectionAsync(CancellationToken ct)

@@ -1,6 +1,7 @@
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
 using DynamoDbLite.SqlteStores;
+using DynamoDbLite.SqlteStores.Models;
 using System.Globalization;
 
 namespace DynamoDbLite;
@@ -29,7 +30,7 @@ public sealed partial class DynamoDbClient
         ArgumentException.ThrowIfNullOrWhiteSpace(request.TableName);
         ArgumentNullException.ThrowIfNull(request.Item);
 
-        var nowEpoch = SqliteStoreBase.NowEpoch();
+        var nowEpoch = SqliteStore.NowEpoch();
 
         var keyInfo = await store.GetKeySchemaAsync(request.TableName, cancellationToken)
             ?? throw new ResourceNotFoundException($"Requested resource not found: Table: {request.TableName} not found");
@@ -94,7 +95,7 @@ public sealed partial class DynamoDbClient
         ArgumentException.ThrowIfNullOrWhiteSpace(request.TableName);
         ArgumentNullException.ThrowIfNull(request.Key);
 
-        var nowEpoch = SqliteStoreBase.NowEpoch();
+        var nowEpoch = SqliteStore.NowEpoch();
 
         var keyInfo = await store.GetKeySchemaAsync(request.TableName, cancellationToken)
             ?? throw new ResourceNotFoundException($"Requested resource not found: Table: {request.TableName} not found");
@@ -146,7 +147,7 @@ public sealed partial class DynamoDbClient
         ArgumentException.ThrowIfNullOrWhiteSpace(request.TableName);
         ArgumentNullException.ThrowIfNull(request.Key);
 
-        var nowEpoch = SqliteStoreBase.NowEpoch();
+        var nowEpoch = SqliteStore.NowEpoch();
 
         var keyInfo = await store.GetKeySchemaAsync(request.TableName, cancellationToken)
             ?? throw new ResourceNotFoundException($"Requested resource not found: Table: {request.TableName} not found");
@@ -191,7 +192,7 @@ public sealed partial class DynamoDbClient
         ArgumentException.ThrowIfNullOrWhiteSpace(request.TableName);
         ArgumentNullException.ThrowIfNull(request.Key);
 
-        var nowEpoch = SqliteStoreBase.NowEpoch();
+        var nowEpoch = SqliteStore.NowEpoch();
 
         var keyInfo = await store.GetKeySchemaAsync(request.TableName, cancellationToken)
             ?? throw new ResourceNotFoundException($"Requested resource not found: Table: {request.TableName} not found");

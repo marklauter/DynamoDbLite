@@ -15,7 +15,17 @@ internal static class FileBasedTestHelper
         if (dbPath is null)
             return;
 
-        SqliteConnection.ClearAllPools();
+        // Clear only the pool for this specific database — ClearAllPools() is a global
+        // static that destroys pooled connections for ALL databases, breaking concurrent tests.
+        var builder = new SqliteConnectionStringBuilder($"Data Source={dbPath}")
+        {
+            Pooling = true,
+            Mode = SqliteOpenMode.ReadWriteCreate,
+            ForeignKeys = true,
+        };
+        using (var conn = new SqliteConnection(builder.ToString()))
+            SqliteConnection.ClearPool(conn);
+
         TryDelete(dbPath);
         TryDelete(dbPath + "-wal");
         TryDelete(dbPath + "-shm");

@@ -77,8 +77,16 @@ public abstract class ImportTestsBase
     public virtual ValueTask DisposeAsync()
     {
         client.Dispose();
-        if (Directory.Exists(tempDir))
-            Directory.Delete(tempDir, true);
+        try
+        {
+            if (Directory.Exists(tempDir))
+                Directory.Delete(tempDir, true);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Best-effort: background import task may still hold file handles
+        }
+
         return ValueTask.CompletedTask;
     }
 

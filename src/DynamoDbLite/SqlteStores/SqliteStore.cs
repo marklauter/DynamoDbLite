@@ -1,23 +1,25 @@
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
 using Dapper;
+using DynamoDbLite.SqlteStores.Models;
 using Microsoft.Data.Sqlite;
 using System.Collections.Concurrent;
 using System.Data.Common;
-using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Text.Json;
 
 namespace DynamoDbLite.SqlteStores;
 
-internal abstract class SqliteStoreBase
+internal abstract class SqliteStore
     : IDisposable
 {
     protected readonly string ConnectionString;
     private readonly ConcurrentDictionary<string, DateTime> lastCleanupByTable = new();
     private bool disposed;
 
-    protected SqliteStoreBase(DynamoDbLiteOptions options, bool initialize = true)
+    protected SqliteStore(
+        DynamoDbLiteOptions options,
+        bool createTables = true)
     {
         var builder = new SqliteConnectionStringBuilder(options.ConnectionString)
         {
@@ -28,11 +30,11 @@ internal abstract class SqliteStoreBase
 
         ConnectionString = builder.ToString();
 
-        if (initialize)
-            Initialize();
+        if (createTables)
+            CreateTables();
     }
 
-    protected void Initialize()
+    protected void CreateTables()
     {
         using var connection = new SqliteConnection(ConnectionString);
         connection.Open();
@@ -110,15 +112,17 @@ internal abstract class SqliteStoreBase
             );
             """);
 
-        // Migration for existing file-based DBs that lack ttl_epoch
-        try
-        {
-            _ = connection.Execute("ALTER TABLE items ADD COLUMN ttl_epoch REAL");
-        }
-        catch (SqliteException)
-        {
-            // Column already exists
-        }
+        EnsureTtlEpochColumn(connection);
+    }
+
+    private static void EnsureTtlEpochColumn(SqliteConnection connection)
+    {
+        var exists = connection.ExecuteScalar<long>(
+            "SELECT COUNT(*) FROM pragma_table_info('items') WHERE name = 'ttl_epoch'");
+        if (exists > 0)
+            return;
+
+        _ = connection.Execute("ALTER TABLE items ADD COLUMN ttl_epoch REAL");
     }
 
     protected abstract Task<DbConnection> OpenConnectionAsync(CancellationToken ct);
@@ -128,8 +132,6 @@ internal abstract class SqliteStoreBase
 
     protected virtual ValueTask<IDisposable?> AcquireWriteLockAsync(CancellationToken ct) =>
         default;
-
-    protected abstract void DisposeCore();
 
     internal static double NowEpoch() => DateTimeOffset.UtcNow.ToUnixTimeSeconds();
 
@@ -1571,6 +1573,8 @@ internal abstract class SqliteStoreBase
         return (await connection.QueryAsync<ImportSummaryRow>(sql, parameters)).AsList();
     }
 
+    protected virtual void DisposeCore() { }
+
     public virtual void Dispose()
     {
         if (disposed)
@@ -1580,75 +1584,3 @@ internal abstract class SqliteStoreBase
         disposed = true;
     }
 }
-
-internal sealed record BatchWriteOperation(
-    string TableName,
-    string Pk,
-    string Sk,
-    double? SkNum,
-    double? TtlEpoch,
-    string? ItemJson);
-
-internal sealed record TransactWriteOperation(
-    string TableName,
-    string Pk,
-    string Sk,
-    double? SkNum,
-    double? TtlEpoch,
-    string? ItemJson,
-    bool IsDelete);
-
-internal sealed record TableRow(
-    string TableName,
-    string KeySchemaJson,
-    string AttributeDefinitionsJson,
-    string ProvisionedThroughputJson,
-    string GlobalSecondaryIndexesJson,
-    string LocalSecondaryIndexesJson,
-    string CreatedAt,
-    string Status,
-    long ItemCount,
-    long TableSizeBytes);
-
-internal sealed record IndexMetadataRow(
-    string GlobalSecondaryIndexesJson,
-    string LocalSecondaryIndexesJson);
-
-internal sealed record KeySchemaRow(
-    string KeySchemaJson,
-    string AttributeDefinitionsJson);
-
-internal sealed record KeySchemaInfo(
-    List<KeySchemaElement> KeySchema,
-    List<AttributeDefinition> AttributeDefinitions);
-
-internal sealed record ItemRow(string Pk, string Sk, string ItemJson);
-
-internal sealed record IndexItemRow(string Pk, string Sk, string TablePk, string TableSk, string ItemJson);
-
-internal sealed record IndexDefinition(
-    string IndexName,
-    bool IsGlobal,
-    List<KeySchemaElement> KeySchema,
-    string ProjectionType,
-    List<string>? NonKeyAttributes);
-
-internal sealed record ExportRow(
-    string ExportArn, string TableName, string Status, string ExportFormat,
-    string S3Bucket, string S3Prefix, string? ExportManifest,
-    long? ItemCount, long? BilledSize, string StartTime, string? EndTime,
-    string? FailureCode, string? FailureMessage, string? ClientToken);
-
-internal sealed record ExportSummaryRow(string ExportArn, string Status);
-
-internal sealed record ImportRow(
-    string ImportArn, string TableName, string Status, string InputFormat,
-    string InputCompression, string S3Bucket, string S3KeyPrefix,
-    string TableCreationJson, long? ImportedCount, long? ProcessedCount,
-    long? ProcessedBytes, long? ErrorCount, string StartTime, string? EndTime,
-    string? FailureCode, string? FailureMessage, string? ClientToken);
-
-internal sealed record ImportSummaryRow(
-    string ImportArn, string TableName, string Status,
-    string S3Bucket, string S3KeyPrefix, string InputFormat,
-    string StartTime, string? EndTime);

@@ -1,6 +1,7 @@
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
 using DynamoDbLite.SqlteStores;
+using DynamoDbLite.SqlteStores.Models;
 using System.Globalization;
 using System.Text.Json;
 
@@ -17,7 +18,7 @@ public sealed partial class DynamoDbClient
         ArgumentNullException.ThrowIfNull(request);
         ArgumentException.ThrowIfNullOrWhiteSpace(request.TableArn);
 
-        var tableName = SqliteStoreBase.ExtractTableNameFromArn(request.TableArn);
+        var tableName = SqliteStore.ExtractTableNameFromArn(request.TableArn);
 
         if (!await store.TableExistsAsync(tableName, cancellationToken))
             throw new ResourceNotFoundException($"Requested resource not found: Table: {tableName} not found");
@@ -409,36 +410,31 @@ public sealed partial class DynamoDbClient
             WriteCapacityUnits = element.GetProperty("WriteCapacityUnits").GetInt64()
         };
 
-    [System.Diagnostics.CodeAnalysis.SuppressMessage("IDisposableAnalyzers.Correctness", "IDISP004:Don't ignore created IDisposable", Justification = "ArrayEnumerator is a struct; foreach disposes it")]
     private static List<GlobalSecondaryIndex> DeserializeGlobalSecondaryIndexes(JsonElement array)
     {
-        var gsis = new List<GlobalSecondaryIndex>();
-        foreach (var g in array.EnumerateArray())
-        {
-            var gsiKeySchema = new List<KeySchemaElement>();
-            foreach (var gk in g.GetProperty("KeySchema").EnumerateArray())
+        using var arr = array.EnumerateArray();
+        return
+        [
+            .. arr.Select(g =>
             {
-                gsiKeySchema.Add(new KeySchemaElement
+                using var ks = g.GetProperty("KeySchema").EnumerateArray();
+                return new GlobalSecondaryIndex
                 {
-                    AttributeName = gk.GetProperty("AttributeName").GetString()!,
-                    KeyType = gk.GetProperty("KeyType").GetString()!
-                });
-            }
-
-            var projection = DeserializeProjection(g);
-
-            gsis.Add(new GlobalSecondaryIndex
-            {
-                IndexName = g.GetProperty("IndexName").GetString()!,
-                KeySchema = gsiKeySchema,
-                Projection = projection
-            });
-        }
-
-        return gsis;
+                    IndexName = g.GetProperty("IndexName").GetString()!,
+                    KeySchema =
+                    [
+                        .. ks.Select(gk => new KeySchemaElement
+                        {
+                            AttributeName = gk.GetProperty("AttributeName").GetString()!,
+                            KeyType = gk.GetProperty("KeyType").GetString()!
+                        })
+                    ],
+                    Projection = DeserializeProjection(g)
+                };
+            })
+        ];
     }
 
-    [System.Diagnostics.CodeAnalysis.SuppressMessage("IDisposableAnalyzers.Correctness", "IDISP004:Don't ignore created IDisposable", Justification = "ArrayEnumerator is a struct; foreach disposes it")]
     private static Projection DeserializeProjection(JsonElement gsiElement)
     {
         if (!gsiElement.TryGetProperty("Projection", out var proj) || proj.ValueKind == JsonValueKind.Null)
@@ -449,9 +445,8 @@ public sealed partial class DynamoDbClient
             projection.ProjectionType = projType.GetString()!;
         if (proj.TryGetProperty("NonKeyAttributes", out var nka) && nka.ValueKind == JsonValueKind.Array)
         {
-            projection.NonKeyAttributes = [];
-            foreach (var attr in nka.EnumerateArray())
-                projection.NonKeyAttributes.Add(attr.GetString()!);
+            using var nkaArr = nka.EnumerateArray();
+            projection.NonKeyAttributes = [.. nkaArr.Select(a => a.GetString()!)];
         }
 
         return projection;

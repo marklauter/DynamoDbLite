@@ -15,7 +15,7 @@ public sealed partial class DynamoDbClient(DynamoDbLiteOptions? options = null)
     private const int DefaultListTablesLimit = 100;
     private const int MaxTransactItems = 100;
 
-    private readonly SqliteStoreBase store = CreateStore(options ?? new DynamoDbLiteOptions());
+    private readonly SqliteStore store = CreateStore(options ?? new DynamoDbLiteOptions());
     private readonly ConcurrentDictionary<string, (DateTime Expiry, TransactWriteItemsResponse Response)> transactWriteTokenCache = new();
     private bool disposed;
 
@@ -47,7 +47,7 @@ public sealed partial class DynamoDbClient(DynamoDbLiteOptions? options = null)
     private void ThrowIfDisposed() =>
         ObjectDisposedException.ThrowIf(disposed, this);
 
-    private static SqliteStoreBase CreateStore(DynamoDbLiteOptions options)
+    private static SqliteStore CreateStore(DynamoDbLiteOptions options)
     {
         var cs = options.ConnectionString ?? string.Empty;
         var isMemory = cs.Contains(":memory:", StringComparison.OrdinalIgnoreCase)

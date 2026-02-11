@@ -1,6 +1,7 @@
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
 using DynamoDbLite.SqlteStores;
+using DynamoDbLite.SqlteStores.Models;
 
 namespace DynamoDbLite;
 
@@ -13,7 +14,7 @@ public sealed partial class DynamoDbClient
         ArgumentException.ThrowIfNullOrWhiteSpace(request.TableName);
         ArgumentException.ThrowIfNullOrWhiteSpace(request.KeyConditionExpression);
 
-        var nowEpoch = SqliteStoreBase.NowEpoch();
+        var nowEpoch = SqliteStore.NowEpoch();
 
         // Validate table exists
         var tableKeyInfo = await store.GetKeySchemaAsync(request.TableName, cancellationToken)
@@ -212,7 +213,7 @@ public sealed partial class DynamoDbClient
         ArgumentNullException.ThrowIfNull(request);
         ArgumentException.ThrowIfNullOrWhiteSpace(request.TableName);
 
-        var nowEpoch = SqliteStoreBase.NowEpoch();
+        var nowEpoch = SqliteStore.NowEpoch();
 
         var tableKeyInfo = await store.GetKeySchemaAsync(request.TableName, cancellationToken)
             ?? throw new ResourceNotFoundException($"Requested resource not found: Table: {request.TableName} not found");
