@@ -42,7 +42,7 @@ public sealed partial class DynamoDbClient
                 $"One or more parameter values were invalid: Too many tags: {merged.Count}, maximum is {MaxTagsPerResource}");
 
         await store.SetTagsAsync(tableName,
-            request.Tags.Select(static t => (t.Key, t.Value)).ToList(), cancellationToken);
+            [.. request.Tags.Select(static t => (t.Key, t.Value))], cancellationToken);
 
         return new TagResourceResponse { HttpStatusCode = System.Net.HttpStatusCode.OK };
     }
@@ -76,7 +76,7 @@ public sealed partial class DynamoDbClient
 
         return new ListTagsOfResourceResponse
         {
-            Tags = tags.Select(static t => new Tag { Key = t.Key, Value = t.Value }).ToList(),
+            Tags = [.. tags.Select(static t => new Tag { Key = t.Key, Value = t.Value })],
             HttpStatusCode = System.Net.HttpStatusCode.OK
         };
     }
@@ -184,7 +184,7 @@ public sealed partial class DynamoDbClient
         foreach (var row in items)
         {
             var item = AttributeValueSerializer.Deserialize(row.ItemJson);
-            var ttlEpoch = TtlEpochParser.ParseTtlEpoch(item, ttlAttributeName);
+            double? ttlEpoch = TtlEpochParser.TryParse(item, ttlAttributeName, out var epoch) ? epoch : null;
             updates.Add((row.Pk, row.Sk, ttlEpoch));
         }
 

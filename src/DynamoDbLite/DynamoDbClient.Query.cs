@@ -25,7 +25,7 @@ public sealed partial class DynamoDbClient
 
         var keyCondition = Expressions.KeyConditionExpressionParser.Parse(request.KeyConditionExpression);
         var sql = KeyConditionSqlBuilder.Build(
-            keyCondition, tableKeyInfo, request.ExpressionAttributeNames, request.ExpressionAttributeValues);
+            keyCondition, tableKeyInfo, request.ExpressionAttributeValues);
 
         var ascending = request.ScanIndexForward is not false;
 
@@ -116,7 +116,7 @@ public sealed partial class DynamoDbClient
 
         var keyCondition = Expressions.KeyConditionExpressionParser.Parse(request.KeyConditionExpression);
         var sql = KeyConditionSqlBuilder.Build(
-            keyCondition, indexKeyInfo, request.ExpressionAttributeNames, request.ExpressionAttributeValues);
+            keyCondition, indexKeyInfo, request.ExpressionAttributeValues);
 
         var ascending = request.ScanIndexForward is not false;
 

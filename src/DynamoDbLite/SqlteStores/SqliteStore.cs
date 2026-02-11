@@ -579,7 +579,7 @@ internal abstract class SqliteStore
 
         if (gsiDefs.Count > 0)
         {
-            description.GlobalSecondaryIndexes = gsiDefs.Select(idx => new GlobalSecondaryIndexDescription
+            description.GlobalSecondaryIndexes = [.. gsiDefs.Select(idx => new GlobalSecondaryIndexDescription
             {
                 IndexName = idx.IndexName,
                 KeySchema = idx.KeySchema,
@@ -589,12 +589,12 @@ internal abstract class SqliteStore
                 ItemCount = 0,
                 IndexArn = $"arn:aws:dynamodb:local:000000000000:table/{row.TableName}/index/{idx.IndexName}",
                 ProvisionedThroughput = new ProvisionedThroughputDescription()
-            }).ToList();
+            })];
         }
 
         if (lsiDefs.Count > 0)
         {
-            description.LocalSecondaryIndexes = lsiDefs.Select(idx => new LocalSecondaryIndexDescription
+            description.LocalSecondaryIndexes = [.. lsiDefs.Select(idx => new LocalSecondaryIndexDescription
             {
                 IndexName = idx.IndexName,
                 KeySchema = idx.KeySchema,
@@ -602,7 +602,7 @@ internal abstract class SqliteStore
                 IndexSizeBytes = 0,
                 ItemCount = 0,
                 IndexArn = $"arn:aws:dynamodb:local:000000000000:table/{row.TableName}/index/{idx.IndexName}"
-            }).ToList();
+            })];
         }
 
         return description;
@@ -1188,7 +1188,7 @@ internal abstract class SqliteStore
             if (keys is not null)
             {
                 var skNum = ComputeIndexSkNum(keys.Value.Sk, newIndex.KeySchema, attrDefs);
-                var ttlEpoch = ttlAttributeName is not null ? TtlEpochParser.ParseTtlEpoch(item, ttlAttributeName) : null;
+                double? ttlEpoch = ttlAttributeName is not null && TtlEpochParser.TryParse(item, ttlAttributeName, out var epoch) ? epoch : null;
                 await UpsertIndexEntryAsync(
                     connection, transaction, tableName, newIndex.IndexName,
                     keys.Value.Pk, keys.Value.Sk, skNum,
@@ -1359,7 +1359,7 @@ internal abstract class SqliteStore
         foreach (var row in rows)
         {
             var item = AttributeValueSerializer.Deserialize(row.ItemJson);
-            var ttlEpoch = TtlEpochParser.ParseTtlEpoch(item, ttlAttributeName);
+            double? ttlEpoch = TtlEpochParser.TryParse(item, ttlAttributeName, out var epoch) ? epoch : null;
             _ = await connection.ExecuteAsync(
                 $"""UPDATE "{idxTable}" SET ttl_epoch = @ttlEpoch WHERE pk = @Pk AND sk = @Sk AND table_pk = @TablePk AND table_sk = @TableSk""",
                 new { ttlEpoch, row.Pk, row.Sk, row.TablePk, row.TableSk },

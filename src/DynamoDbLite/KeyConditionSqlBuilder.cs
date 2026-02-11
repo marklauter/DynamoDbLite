@@ -18,7 +18,6 @@ internal static class KeyConditionSqlBuilder
     internal static KeyConditionSql Build(
         KeyCondition keyCondition,
         KeySchemaInfo keyInfo,
-        Dictionary<string, string>? exprAttrNames,
         Dictionary<string, AttributeValue>? exprAttrValues)
     {
         var pkValue = ResolveValue(keyCondition.PartitionKey.Value, exprAttrValues);

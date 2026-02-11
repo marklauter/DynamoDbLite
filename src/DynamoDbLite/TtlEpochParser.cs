@@ -5,14 +5,14 @@ namespace DynamoDbLite;
 
 internal static class TtlEpochParser
 {
-    internal static double? ParseTtlEpoch(
+    internal static bool TryParse(
         Dictionary<string, AttributeValue> item,
-        string ttlAttributeName) =>
-        !item.TryGetValue(ttlAttributeName, out var attr)
-            ? null
-            : attr.N is null
-                ? null
-                : double.TryParse(attr.N, NumberStyles.Any, CultureInfo.InvariantCulture, out var epoch)
-                    ? epoch
-                    : null;
+        string ttlAttributeName,
+        out double epoch)
+    {
+        epoch = default;
+        return item.TryGetValue(ttlAttributeName, out var attr)
+            && attr.N is not null
+            && double.TryParse(attr.N, NumberStyles.Any, CultureInfo.InvariantCulture, out epoch);
+    }
 }

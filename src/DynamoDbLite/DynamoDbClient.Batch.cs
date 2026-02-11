@@ -136,7 +136,7 @@ public sealed partial class DynamoDbClient
 
                     var itemJson = AttributeValueSerializer.Serialize(writeRequest.PutRequest.Item);
                     var skNum = ComputeSkNum(sk, keyInfo);
-                    var ttlEpoch = ttlAttr is not null ? TtlEpochParser.ParseTtlEpoch(writeRequest.PutRequest.Item, ttlAttr) : null;
+                    double? ttlEpoch = ttlAttr is not null && TtlEpochParser.TryParse(writeRequest.PutRequest.Item, ttlAttr, out var epoch) ? epoch : null;
                     operations.Add(new BatchWriteOperation(tableName, pk, sk, skNum, ttlEpoch, itemJson));
                 }
                 else if (writeRequest.DeleteRequest is not null)

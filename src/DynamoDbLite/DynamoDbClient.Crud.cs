@@ -58,7 +58,7 @@ public sealed partial class DynamoDbClient
         var skNum = ComputeSkNum(sk, keyInfo);
 
         var ttlAttr = await store.GetTtlAttributeNameAsync(request.TableName, cancellationToken);
-        var ttlEpoch = ttlAttr is not null ? TtlEpochParser.ParseTtlEpoch(request.Item, ttlAttr) : null;
+        double? ttlEpoch = ttlAttr is not null && TtlEpochParser.TryParse(request.Item, ttlAttr, out var epoch) ? epoch : null;
 
         var indexes = await store.GetIndexDefinitionsAsync(request.TableName, cancellationToken);
         var oldJson = indexes.Count > 0
@@ -261,7 +261,7 @@ public sealed partial class DynamoDbClient
         var skNum = ComputeSkNum(sk, keyInfo);
 
         var ttlAttr = await store.GetTtlAttributeNameAsync(request.TableName, cancellationToken);
-        var ttlEpoch = ttlAttr is not null ? TtlEpochParser.ParseTtlEpoch(existingItem, ttlAttr) : null;
+        double? ttlEpoch = ttlAttr is not null && TtlEpochParser.TryParse(existingItem, ttlAttr, out var epoch) ? epoch : null;
 
         var indexes = await store.GetIndexDefinitionsAsync(request.TableName, cancellationToken);
         _ = indexes.Count > 0
