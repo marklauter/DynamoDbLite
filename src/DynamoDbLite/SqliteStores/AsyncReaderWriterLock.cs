@@ -1,4 +1,4 @@
-namespace DynamoDbLite.SqlteStores;
+namespace DynamoDbLite.SqliteStores;
 
 internal sealed class AsyncReaderWriterLock
     : IDisposable

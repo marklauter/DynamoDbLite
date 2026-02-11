@@ -1,7 +1,7 @@
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
-using DynamoDbLite.SqlteStores;
-using DynamoDbLite.SqlteStores.Models;
+using DynamoDbLite.SqliteStores;
+using DynamoDbLite.SqliteStores.Models;
 using System.Globalization;
 using System.Text.Json;
 

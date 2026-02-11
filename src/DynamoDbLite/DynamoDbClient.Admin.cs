@@ -1,8 +1,8 @@
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
 using Amazon.Runtime;
-using DynamoDbLite.SqlteStores;
-using DynamoDbLite.SqlteStores.Models;
+using DynamoDbLite.SqliteStores;
+using DynamoDbLite.SqliteStores.Models;
 
 namespace DynamoDbLite;
 

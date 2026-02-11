@@ -1,6 +1,6 @@
 using Amazon.DynamoDBv2.Model;
 
-namespace DynamoDbLite.SqlteStores.Models;
+namespace DynamoDbLite.SqliteStores.Models;
 
 internal sealed record IndexDefinition(
     string IndexName,

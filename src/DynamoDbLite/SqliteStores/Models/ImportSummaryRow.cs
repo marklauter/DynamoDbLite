@@ -1,4 +1,4 @@
-namespace DynamoDbLite.SqlteStores.Models;
+namespace DynamoDbLite.SqliteStores.Models;
 
 internal sealed record ImportSummaryRow(
     string ImportArn,

@@ -1,14 +1,14 @@
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
 using Dapper;
-using DynamoDbLite.SqlteStores.Models;
+using DynamoDbLite.SqliteStores.Models;
 using Microsoft.Data.Sqlite;
 using System.Collections.Concurrent;
 using System.Data.Common;
 using System.Globalization;
 using System.Text.Json;
 
-namespace DynamoDbLite.SqlteStores;
+namespace DynamoDbLite.SqliteStores;
 
 internal abstract class SqliteStore
     : IDisposable

@@ -1,7 +1,7 @@
 using Microsoft.Data.Sqlite;
 using System.Data.Common;
 
-namespace DynamoDbLite.SqlteStores;
+namespace DynamoDbLite.SqliteStores;
 
 internal sealed class FileSqliteStore
     : SqliteStore
