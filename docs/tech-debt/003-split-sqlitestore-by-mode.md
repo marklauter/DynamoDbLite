@@ -2,7 +2,7 @@
 
 - **Area:** SqliteStore
 - **Priority:** Medium
-- **Status:** Done
+- **Status:** Resolved
 
 ## Problem
 

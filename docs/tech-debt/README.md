@@ -1,6 +1,6 @@
 # Tech Debt
 
-Track technical debt as individual markdown files in this folder.
+Track technical debt as individual markdown files in this folder (docs/tech-debt).
 
 ## For AI Agents
 
