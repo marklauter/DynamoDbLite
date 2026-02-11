@@ -12,6 +12,15 @@ public sealed partial class DynamoDbClient
         ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(request);
         ArgumentException.ThrowIfNullOrWhiteSpace(request.TableName);
+
+        // Support legacy KeyConditions by converting to KeyConditionExpression
+        if (string.IsNullOrWhiteSpace(request.KeyConditionExpression) && request.KeyConditions is { Count: > 0 })
+            ConvertKeyConditionsToExpression(request);
+
+        // Support legacy QueryFilter by converting to FilterExpression
+        if (string.IsNullOrEmpty(request.FilterExpression) && request.QueryFilter is { Count: > 0 })
+            ConvertQueryFilterToExpression(request);
+
         ArgumentException.ThrowIfNullOrWhiteSpace(request.KeyConditionExpression);
 
         var nowEpoch = SqliteStore.NowEpoch();
@@ -212,6 +221,10 @@ public sealed partial class DynamoDbClient
         ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(request);
         ArgumentException.ThrowIfNullOrWhiteSpace(request.TableName);
+
+        // Support legacy ScanFilter by converting to FilterExpression
+        if (string.IsNullOrEmpty(request.FilterExpression) && request.ScanFilter is { Count: > 0 })
+            ConvertScanFilterToExpression(request);
 
         var nowEpoch = SqliteStore.NowEpoch();
 
@@ -464,7 +477,7 @@ public sealed partial class DynamoDbClient
         };
 
     private static (string FilterExpression, Dictionary<string, string> AttrNames, Dictionary<string, AttributeValue> AttrValues)
-        ConvertConditionsToExpression(Dictionary<string, Condition> conditions)
+        ConvertConditionsToExpression(Dictionary<string, Condition> conditions, string prefix = "legacy")
     {
         var expressions = new List<string>();
         var attrNames = new Dictionary<string, string>();
@@ -473,20 +486,20 @@ public sealed partial class DynamoDbClient
 
         foreach (var (attributeName, condition) in conditions)
         {
-            var nameKey = $"#legacyN{i}";
+            var nameKey = $"#{prefix}N{i}";
             attrNames[nameKey] = attributeName;
 
             var expr = condition.ComparisonOperator.Value switch
             {
-                "EQ" => BuildSingleValueCondition(nameKey, "=", i, condition, attrValues),
-                "NE" => BuildSingleValueCondition(nameKey, "<>", i, condition, attrValues),
-                "LT" => BuildSingleValueCondition(nameKey, "<", i, condition, attrValues),
-                "LE" => BuildSingleValueCondition(nameKey, "<=", i, condition, attrValues),
-                "GT" => BuildSingleValueCondition(nameKey, ">", i, condition, attrValues),
-                "GE" => BuildSingleValueCondition(nameKey, ">=", i, condition, attrValues),
-                "BEGINS_WITH" => BuildBeginsWithCondition(nameKey, i, condition, attrValues),
-                "CONTAINS" => BuildContainsCondition(nameKey, i, condition, attrValues),
-                "BETWEEN" => BuildBetweenCondition(nameKey, i, condition, attrValues),
+                "EQ" => BuildSingleValueCondition(nameKey, "=", prefix, i, condition, attrValues),
+                "NE" => BuildSingleValueCondition(nameKey, "<>", prefix, i, condition, attrValues),
+                "LT" => BuildSingleValueCondition(nameKey, "<", prefix, i, condition, attrValues),
+                "LE" => BuildSingleValueCondition(nameKey, "<=", prefix, i, condition, attrValues),
+                "GT" => BuildSingleValueCondition(nameKey, ">", prefix, i, condition, attrValues),
+                "GE" => BuildSingleValueCondition(nameKey, ">=", prefix, i, condition, attrValues),
+                "BEGINS_WITH" => BuildBeginsWithCondition(nameKey, prefix, i, condition, attrValues),
+                "CONTAINS" => BuildContainsCondition(nameKey, prefix, i, condition, attrValues),
+                "BETWEEN" => BuildBetweenCondition(nameKey, prefix, i, condition, attrValues),
                 "NOT_NULL" => $"attribute_exists({nameKey})",
                 "NULL" => $"attribute_not_exists({nameKey})",
                 _ => throw new ArgumentException($"Unsupported comparison operator: {condition.ComparisonOperator.Value}")
@@ -500,41 +513,89 @@ public sealed partial class DynamoDbClient
     }
 
     private static string BuildSingleValueCondition(
-        string nameKey, string op, int index,
+        string nameKey, string op, string prefix, int index,
         Condition condition, Dictionary<string, AttributeValue> attrValues)
     {
-        var valueKey = $":legacyV{index}";
+        var valueKey = $":{prefix}V{index}";
         attrValues[valueKey] = condition.AttributeValueList[0];
         return $"{nameKey} {op} {valueKey}";
     }
 
     private static string BuildBeginsWithCondition(
-        string nameKey, int index,
+        string nameKey, string prefix, int index,
         Condition condition, Dictionary<string, AttributeValue> attrValues)
     {
-        var valueKey = $":legacyV{index}";
+        var valueKey = $":{prefix}V{index}";
         attrValues[valueKey] = condition.AttributeValueList[0];
         return $"begins_with({nameKey}, {valueKey})";
     }
 
     private static string BuildContainsCondition(
-        string nameKey, int index,
+        string nameKey, string prefix, int index,
         Condition condition, Dictionary<string, AttributeValue> attrValues)
     {
-        var valueKey = $":legacyV{index}";
+        var valueKey = $":{prefix}V{index}";
         attrValues[valueKey] = condition.AttributeValueList[0];
         return $"contains({nameKey}, {valueKey})";
     }
 
     private static string BuildBetweenCondition(
-        string nameKey, int index,
+        string nameKey, string prefix, int index,
         Condition condition, Dictionary<string, AttributeValue> attrValues)
     {
-        var lowKey = $":legacyV{index}a";
-        var highKey = $":legacyV{index}b";
+        var lowKey = $":{prefix}V{index}a";
+        var highKey = $":{prefix}V{index}b";
         attrValues[lowKey] = condition.AttributeValueList[0];
         attrValues[highKey] = condition.AttributeValueList[1];
         return $"{nameKey} BETWEEN {lowKey} AND {highKey}";
+    }
+
+    private static void ConvertKeyConditionsToExpression(QueryRequest request)
+    {
+        var (expression, attrNames, attrValues) = ConvertConditionsToExpression(request.KeyConditions);
+        request.KeyConditionExpression = expression;
+
+        request.ExpressionAttributeNames ??= [];
+        foreach (var (k, v) in attrNames)
+            request.ExpressionAttributeNames[k] = v;
+
+        request.ExpressionAttributeValues ??= [];
+        foreach (var (k, v) in attrValues)
+            request.ExpressionAttributeValues[k] = v;
+    }
+
+    private static void ConvertQueryFilterToExpression(QueryRequest request)
+    {
+        var (expression, attrNames, attrValues) = ConvertConditionsToExpression(request.QueryFilter, "qf");
+
+        request.FilterExpression = request.FilterExpression is not null
+            ? $"({request.FilterExpression}) AND ({expression})"
+            : expression;
+
+        request.ExpressionAttributeNames ??= [];
+        foreach (var (k, v) in attrNames)
+            request.ExpressionAttributeNames[k] = v;
+
+        request.ExpressionAttributeValues ??= [];
+        foreach (var (k, v) in attrValues)
+            request.ExpressionAttributeValues[k] = v;
+    }
+
+    private static void ConvertScanFilterToExpression(ScanRequest request)
+    {
+        var (expression, attrNames, attrValues) = ConvertConditionsToExpression(request.ScanFilter, "sf");
+
+        request.FilterExpression = request.FilterExpression is not null
+            ? $"({request.FilterExpression}) AND ({expression})"
+            : expression;
+
+        request.ExpressionAttributeNames ??= [];
+        foreach (var (k, v) in attrNames)
+            request.ExpressionAttributeNames[k] = v;
+
+        request.ExpressionAttributeValues ??= [];
+        foreach (var (k, v) in attrValues)
+            request.ExpressionAttributeValues[k] = v;
     }
 
     private static Dictionary<string, AttributeValue> ApplyIndexProjection(

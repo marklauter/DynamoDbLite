@@ -256,6 +256,10 @@ public sealed partial class DynamoDbClient
 
             existingItem = newItem;
         }
+        else if (request.AttributeUpdates is { Count: > 0 })
+        {
+            existingItem = ApplyAttributeUpdates(existingItem, request.AttributeUpdates);
+        }
 
         var itemJson = AttributeValueSerializer.Serialize(existingItem);
         var skNum = ComputeSkNum(sk, keyInfo);
@@ -289,7 +293,12 @@ public sealed partial class DynamoDbClient
         Dictionary<string, AttributeValue> key,
         Dictionary<string, AttributeValueUpdate> attributeUpdates,
         CancellationToken cancellationToken = default) =>
-        throw new NotImplementedException("Legacy AttributeValueUpdate API is not supported. Use UpdateExpression instead.");
+        UpdateItemAsync(new UpdateItemRequest
+        {
+            TableName = tableName,
+            Key = key,
+            AttributeUpdates = attributeUpdates,
+        }, cancellationToken);
 
     public Task<UpdateItemResponse> UpdateItemAsync(
         string tableName,
@@ -297,7 +306,76 @@ public sealed partial class DynamoDbClient
         Dictionary<string, AttributeValueUpdate> attributeUpdates,
         ReturnValue returnValues,
         CancellationToken cancellationToken = default) =>
-        throw new NotImplementedException("Legacy AttributeValueUpdate API is not supported. Use UpdateExpression instead.");
+        UpdateItemAsync(new UpdateItemRequest
+        {
+            TableName = tableName,
+            Key = key,
+            AttributeUpdates = attributeUpdates,
+            ReturnValues = returnValues,
+        }, cancellationToken);
+
+    private static Dictionary<string, AttributeValue> ApplyAttributeUpdates(
+        Dictionary<string, AttributeValue> item,
+        Dictionary<string, AttributeValueUpdate> attributeUpdates)
+    {
+        var result = new Dictionary<string, AttributeValue>(item);
+        foreach (var (attrName, update) in attributeUpdates)
+        {
+            var action = update.Action?.Value ?? "PUT";
+            switch (action)
+            {
+                case "PUT":
+                    result[attrName] = update.Value;
+                    break;
+                case "DELETE" when update.Value is null:
+                    _ = result.Remove(attrName);
+                    break;
+                case "DELETE" when update.Value.SS is { Count: > 0 }:
+                    if (result.TryGetValue(attrName, out var ssVal) && ssVal.SS is not null)
+                    {
+                        foreach (var s in update.Value.SS)
+                            _ = ssVal.SS.Remove(s);
+                    }
+                    break;
+                case "DELETE" when update.Value.NS is { Count: > 0 }:
+                    if (result.TryGetValue(attrName, out var nsVal) && nsVal.NS is not null)
+                    {
+                        foreach (var n in update.Value.NS)
+                            _ = nsVal.NS.Remove(n);
+                    }
+                    break;
+                case "ADD" when update.Value.N is not null:
+                    if (result.TryGetValue(attrName, out var numVal) && numVal.N is not null)
+                    {
+                        var current = double.Parse(numVal.N, CultureInfo.InvariantCulture);
+                        var addend = double.Parse(update.Value.N, CultureInfo.InvariantCulture);
+                        result[attrName] = new AttributeValue { N = (current + addend).ToString(CultureInfo.InvariantCulture) };
+                    }
+                    else
+                    {
+                        result[attrName] = update.Value;
+                    }
+                    break;
+                case "ADD" when update.Value.SS is { Count: > 0 }:
+                    if (result.TryGetValue(attrName, out var addSsVal) && addSsVal.SS is not null)
+                        addSsVal.SS.AddRange(update.Value.SS);
+                    else
+                        result[attrName] = update.Value;
+                    break;
+                case "ADD" when update.Value.NS is { Count: > 0 }:
+                    if (result.TryGetValue(attrName, out var addNsVal) && addNsVal.NS is not null)
+                        addNsVal.NS.AddRange(update.Value.NS);
+                    else
+                        result[attrName] = update.Value;
+                    break;
+                default:
+                    result[attrName] = update.Value;
+                    break;
+            }
+        }
+
+        return result;
+    }
 
     private static double? ComputeSkNum(string sk, KeySchemaInfo keyInfo)
     {

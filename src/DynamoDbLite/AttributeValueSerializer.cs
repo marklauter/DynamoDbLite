@@ -94,6 +94,11 @@ internal static class AttributeValueSerializer
             writer.WritePropertyName("M");
             WriteMap(writer, value.M);
         }
+        else
+        {
+            // Fallback for empty collections or unset attribute values
+            writer.WriteBoolean("NULL", true);
+        }
 
         writer.WriteEndObject();
     }
@@ -107,7 +112,8 @@ internal static class AttributeValueSerializer
     private static AttributeValue ReadAttributeValue(JsonElement element)
     {
         using var obj = element.EnumerateObject();
-        return obj.Select(ReadProperty).First();
+        var first = obj.Select(ReadProperty).FirstOrDefault();
+        return first ?? new AttributeValue { NULL = true };
     }
 
     private static AttributeValue ReadProperty(JsonProperty prop) =>
