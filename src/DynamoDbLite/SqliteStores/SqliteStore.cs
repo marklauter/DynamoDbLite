@@ -618,29 +618,39 @@ internal abstract class SqliteStore
     private static List<KeySchemaElement> DeserializeKeySchema(string json)
     {
         using var doc = JsonDocument.Parse(json);
-        using var arr = doc.RootElement.EnumerateArray();
-        return
-        [
-            .. arr.Select(e => new KeySchemaElement
+        var root = doc.RootElement;
+        var list = new List<KeySchemaElement>(root.GetArrayLength());
+#pragma warning disable IDISP004 // foreach disposes the ArrayEnumerator
+        foreach (var e in root.EnumerateArray())
+#pragma warning restore IDISP004
+        {
+            list.Add(new KeySchemaElement
             {
                 AttributeName = e.GetProperty("AttributeName").GetString()!,
                 KeyType = e.GetProperty("KeyType").GetString()!
-            })
-        ];
+            });
+        }
+
+        return list;
     }
 
     private static List<AttributeDefinition> DeserializeAttributeDefinitions(string json)
     {
         using var doc = JsonDocument.Parse(json);
-        using var arr = doc.RootElement.EnumerateArray();
-        return
-        [
-            .. arr.Select(e => new AttributeDefinition
+        var root = doc.RootElement;
+        var list = new List<AttributeDefinition>(root.GetArrayLength());
+#pragma warning disable IDISP004 // foreach disposes the ArrayEnumerator
+        foreach (var e in root.EnumerateArray())
+#pragma warning restore IDISP004
+        {
+            list.Add(new AttributeDefinition
             {
                 AttributeName = e.GetProperty("AttributeName").GetString()!,
                 AttributeType = e.GetProperty("AttributeType").GetString()!
-            })
-        ];
+            });
+        }
+
+        return list;
     }
 
     private static ProvisionedThroughput? DeserializeProvisionedThroughput(string json)
@@ -1234,33 +1244,40 @@ internal abstract class SqliteStore
     private static List<IndexDefinition> DeserializeIndexDefinitions(string json)
     {
         using var doc = JsonDocument.Parse(json);
-        using var arr = doc.RootElement.EnumerateArray();
-        return
-        [
-            .. arr.Select(e =>
+        var root = doc.RootElement;
+        var list = new List<IndexDefinition>(root.GetArrayLength());
+#pragma warning disable IDISP004 // foreach disposes the ArrayEnumerator
+        foreach (var e in root.EnumerateArray())
+        {
+            var ksElement = e.GetProperty("KeySchema");
+            var keySchema = new List<KeySchemaElement>(ksElement.GetArrayLength());
+            foreach (var k in ksElement.EnumerateArray())
             {
-                using var ks = e.GetProperty("KeySchema").EnumerateArray();
-                var keySchema = ks.Select(k => new KeySchemaElement
+                keySchema.Add(new KeySchemaElement
                 {
                     AttributeName = k.GetProperty("AttributeName").GetString()!,
                     KeyType = k.GetProperty("KeyType").GetString()!
-                }).ToList();
+                });
+            }
 
-                List<string>? nonKeyAttrs = null;
-                if (e.TryGetProperty("NonKeyAttributes", out var nka) && nka.ValueKind == JsonValueKind.Array)
-                {
-                    using var nkaArr = nka.EnumerateArray();
-                    nonKeyAttrs = [.. nkaArr.Select(a => a.GetString()!)];
-                }
+            List<string>? nonKeyAttrs = null;
+            if (e.TryGetProperty("NonKeyAttributes", out var nka) && nka.ValueKind == JsonValueKind.Array)
+            {
+                nonKeyAttrs = new List<string>(nka.GetArrayLength());
+                foreach (var a in nka.EnumerateArray())
+                    nonKeyAttrs.Add(a.GetString()!);
+            }
+#pragma warning restore IDISP004
 
-                return new IndexDefinition(
-                    e.GetProperty("IndexName").GetString()!,
-                    e.TryGetProperty("IsGlobal", out var ig) && ig.GetBoolean(),
-                    keySchema,
-                    e.GetProperty("ProjectionType").GetString()!,
-                    nonKeyAttrs);
-            })
-        ];
+            list.Add(new IndexDefinition(
+                e.GetProperty("IndexName").GetString()!,
+                e.TryGetProperty("IsGlobal", out var ig) && ig.GetBoolean(),
+                keySchema,
+                e.GetProperty("ProjectionType").GetString()!,
+                nonKeyAttrs));
+        }
+
+        return list;
     }
 
     private static string SerializeIndexDefinitions(List<IndexDefinition> indexes) =>

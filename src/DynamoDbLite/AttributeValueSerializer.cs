@@ -134,20 +134,32 @@ internal static class AttributeValueSerializer
 
     private static List<string> ReadStringList(JsonElement element)
     {
-        using var arr = element.EnumerateArray();
-        return [.. arr.Select(e => e.GetString()!)];
+        var list = new List<string>(element.GetArrayLength());
+#pragma warning disable IDISP004 // foreach disposes the ArrayEnumerator
+        foreach (var e in element.EnumerateArray())
+            list.Add(e.GetString()!);
+#pragma warning restore IDISP004
+        return list;
     }
 
     private static List<MemoryStream> ReadBinaryList(JsonElement element)
     {
-        using var arr = element.EnumerateArray();
-        return [.. arr.Select(e => new MemoryStream(e.GetBytesFromBase64()))];
+        var list = new List<MemoryStream>(element.GetArrayLength());
+#pragma warning disable IDISP004 // foreach disposes the ArrayEnumerator
+        foreach (var e in element.EnumerateArray())
+            list.Add(new MemoryStream(e.GetBytesFromBase64()));
+#pragma warning restore IDISP004
+        return list;
     }
 
     private static List<AttributeValue> ReadAttributeValueList(JsonElement element)
     {
-        using var arr = element.EnumerateArray();
-        return [.. arr.Select(ReadAttributeValue)];
+        var list = new List<AttributeValue>(element.GetArrayLength());
+#pragma warning disable IDISP004 // foreach disposes the ArrayEnumerator
+        foreach (var e in element.EnumerateArray())
+            list.Add(ReadAttributeValue(e));
+#pragma warning restore IDISP004
+        return list;
     }
 
     /// <summary>
