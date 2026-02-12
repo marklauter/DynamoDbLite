@@ -8,6 +8,7 @@ internal sealed class InMemorySqliteStore
 {
     private readonly SqliteConnection sentinel;
     private readonly AsyncReaderWriterLock rwLock = new();
+    private bool disposed;
 
     internal InMemorySqliteStore(DynamoDbLiteOptions options)
         : base(options, createTables: false)
@@ -30,9 +31,14 @@ internal sealed class InMemorySqliteStore
     protected override ValueTask<IDisposable?> AcquireWriteLockAsync(CancellationToken ct) =>
         rwLock.AcquireWriteLockAsync(ct);
 
-    protected override void DisposeCore()
+    public override void Dispose()
     {
+        if (disposed)
+            return;
+
         sentinel.Dispose();
         rwLock.Dispose();
+
+        disposed = true;
     }
 }

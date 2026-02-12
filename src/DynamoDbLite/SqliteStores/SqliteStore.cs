@@ -16,7 +16,6 @@ internal abstract class SqliteStore
 {
     protected readonly string ConnectionString;
     private readonly ConcurrentDictionary<string, DateTime> lastCleanupByTable = new();
-    private bool disposed;
 
     protected SqliteStore(
         DynamoDbLiteOptions options,
@@ -1603,14 +1602,5 @@ internal abstract class SqliteStore
         return (await connection.QueryAsync<ImportSummaryRow>(sql.ToString(), parameters)).AsList();
     }
 
-    protected virtual void DisposeCore() { }
-
-    public virtual void Dispose()
-    {
-        if (disposed)
-            return;
-
-        DisposeCore();
-        disposed = true;
-    }
+    public virtual void Dispose() { }
 }
