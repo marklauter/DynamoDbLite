@@ -1,4 +1,3 @@
-using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.DataModel;
 using Amazon.DynamoDBv2.DocumentModel;
 using Amazon.DynamoDBv2.Model;
@@ -7,134 +6,9 @@ using DynamoDbLite.Tests.Models;
 
 namespace DynamoDbLite.Tests;
 
-public abstract class DynamoDbContextTestsBase
-    : IAsyncLifetime
+public abstract class DynamoDbContextTests
+    : DynamoDbContextFixture
 {
-    protected DynamoDbClient client = null!;
-#pragma warning disable IDISP008 // Don't assign member with injected and created disposables
-    protected DynamoDBContext context = null!;
-#pragma warning restore IDISP008
-
-    protected abstract DynamoDbClient CreateClient();
-
-    protected virtual DynamoDBContext CreateContext(DynamoDbClient c) =>
-        new DynamoDBContextBuilder()
-            .ConfigureContext(cfg => cfg.DisableFetchingTableMetadata = true)
-            .WithDynamoDBClient(() => c)
-            .Build();
-
-    public async ValueTask InitializeAsync()
-    {
-        client = CreateClient();
-#pragma warning disable IDISP003 // Dispose previous before re-assigning
-        context = CreateContext(client);
-#pragma warning restore IDISP003
-
-        var ct = TestContext.Current.CancellationToken;
-
-        _ = await client.CreateTableAsync(new CreateTableRequest
-        {
-            TableName = "SimpleItems",
-            KeySchema = [new KeySchemaElement("Id", KeyType.HASH)],
-            AttributeDefinitions = [new AttributeDefinition("Id", ScalarAttributeType.S)],
-            BillingMode = BillingMode.PAY_PER_REQUEST,
-        }, ct);
-
-        _ = await client.CreateTableAsync(new CreateTableRequest
-        {
-            TableName = "CompositeItems",
-            KeySchema =
-            [
-                new KeySchemaElement("PK", KeyType.HASH),
-                new KeySchemaElement("SK", KeyType.RANGE),
-            ],
-            AttributeDefinitions =
-            [
-                new AttributeDefinition("PK", ScalarAttributeType.S),
-                new AttributeDefinition("SK", ScalarAttributeType.S),
-            ],
-            BillingMode = BillingMode.PAY_PER_REQUEST,
-        }, ct);
-
-        _ = await client.CreateTableAsync(new CreateTableRequest
-        {
-            TableName = "NumericKeyItems",
-            KeySchema =
-            [
-                new KeySchemaElement("Category", KeyType.HASH),
-                new KeySchemaElement("OrderNumber", KeyType.RANGE),
-            ],
-            AttributeDefinitions =
-            [
-                new AttributeDefinition("Category", ScalarAttributeType.S),
-                new AttributeDefinition("OrderNumber", ScalarAttributeType.N),
-            ],
-            BillingMode = BillingMode.PAY_PER_REQUEST,
-        }, ct);
-
-        _ = await client.CreateTableAsync(new CreateTableRequest
-        {
-            TableName = "CollectionItems",
-            KeySchema = [new KeySchemaElement("Id", KeyType.HASH)],
-            AttributeDefinitions = [new AttributeDefinition("Id", ScalarAttributeType.S)],
-            BillingMode = BillingMode.PAY_PER_REQUEST,
-        }, ct);
-
-        _ = await client.CreateTableAsync(new CreateTableRequest
-        {
-            TableName = "GsiItems",
-            KeySchema =
-            [
-                new KeySchemaElement("PK", KeyType.HASH),
-                new KeySchemaElement("SK", KeyType.RANGE),
-            ],
-            AttributeDefinitions =
-            [
-                new AttributeDefinition("PK", ScalarAttributeType.S),
-                new AttributeDefinition("SK", ScalarAttributeType.S),
-                new AttributeDefinition("GsiPK", ScalarAttributeType.S),
-                new AttributeDefinition("GsiSK", ScalarAttributeType.S),
-            ],
-            GlobalSecondaryIndexes =
-            [
-                new GlobalSecondaryIndex
-                {
-                    IndexName = "GsiIndex",
-                    KeySchema =
-                    [
-                        new KeySchemaElement("GsiPK", KeyType.HASH),
-                        new KeySchemaElement("GsiSK", KeyType.RANGE),
-                    ],
-                    Projection = new Projection { ProjectionType = ProjectionType.ALL },
-                },
-            ],
-            BillingMode = BillingMode.PAY_PER_REQUEST,
-        }, ct);
-
-        _ = await client.CreateTableAsync(new CreateTableRequest
-        {
-            TableName = "VersionedItems",
-            KeySchema = [new KeySchemaElement("Id", KeyType.HASH)],
-            AttributeDefinitions = [new AttributeDefinition("Id", ScalarAttributeType.S)],
-            BillingMode = BillingMode.PAY_PER_REQUEST,
-        }, ct);
-
-        _ = await client.CreateTableAsync(new CreateTableRequest
-        {
-            TableName = "EnumItems",
-            KeySchema = [new KeySchemaElement("Id", KeyType.HASH)],
-            AttributeDefinitions = [new AttributeDefinition("Id", ScalarAttributeType.S)],
-            BillingMode = BillingMode.PAY_PER_REQUEST,
-        }, ct);
-    }
-
-    public virtual ValueTask DisposeAsync()
-    {
-        context.Dispose();
-        client.Dispose();
-        return ValueTask.CompletedTask;
-    }
-
     // ───────────────────── Basic CRUD ─────────────────────
 
     [Fact]
@@ -909,32 +783,5 @@ public abstract class DynamoDbContextTestsBase
         var results = await query.GetRemainingAsync(ct);
 
         Assert.Equal(10, results.Count);
-    }
-}
-
-public sealed class InMemoryDynamoDbContextTests
-    : DynamoDbContextTestsBase
-{
-    protected override DynamoDbClient CreateClient() =>
-        new(new DynamoDbLiteOptions($"Data Source=Test_{Guid.NewGuid():N};Mode=Memory;Cache=Shared"));
-}
-
-public sealed class FileBasedDynamoDbContextTests
-    : DynamoDbContextTestsBase
-{
-    private string? dbPath;
-
-    protected override DynamoDbClient CreateClient()
-    {
-        var (c, path) = FileBasedTestHelper.CreateFileBasedClient();
-        dbPath = path;
-        return c;
-    }
-
-    public override ValueTask DisposeAsync()
-    {
-        var result = base.DisposeAsync();
-        FileBasedTestHelper.Cleanup(dbPath);
-        return result;
     }
 }
