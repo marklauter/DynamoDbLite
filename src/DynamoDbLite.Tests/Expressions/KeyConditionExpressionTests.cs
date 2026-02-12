@@ -1,3 +1,5 @@
+using DynamoDbLite.Expressions;
+
 namespace DynamoDbLite.Tests.Expressions;
 
 public sealed class KeyConditionExpressionTests
