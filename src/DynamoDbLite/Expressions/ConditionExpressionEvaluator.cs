@@ -194,22 +194,7 @@ internal static class ConditionExpressionEvaluator
         if (value is null || typeVal?.S is null)
             return false;
 
-        var actualType = value switch
-        {
-            { S: not null } => "S",
-            { N: not null } => "N",
-            { B: not null } => "B",
-            { BOOL: not null } => "BOOL",
-            { NULL: true } => "NULL",
-            { SS.Count: > 0 } => "SS",
-            { NS.Count: > 0 } => "NS",
-            { BS.Count: > 0 } => "BS",
-            { L: not null } => "L",
-            { M: not null } => "M",
-            _ => ""
-        };
-
-        return actualType == typeVal.S;
+        return ExpressionHelper.GetAttributeType(value) == typeVal.S;
     }
 
     private static bool EvaluateBeginsWith(

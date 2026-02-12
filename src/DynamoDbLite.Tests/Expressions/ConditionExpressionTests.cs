@@ -312,6 +312,51 @@ public sealed class ConditionExpressionTests
         Assert.False(result);
     }
 
+    [Fact]
+    public void AttributeType_NonEmptyStringSet_True()
+    {
+        var ast = ConditionExpressionParser.Parse("attribute_type(tags, :type)");
+        var result = ConditionExpressionEvaluator.Evaluate(
+            ast, TestItem, null,
+            new Dictionary<string, AttributeValue> { [":type"] = new() { S = "SS" } });
+
+        Assert.True(result);
+    }
+
+    [Fact]
+    public void AttributeType_EmptyStringSet_True()
+    {
+        var item = new Dictionary<string, AttributeValue>
+        {
+            ["PK"] = new() { S = "USER#1" },
+            ["tags"] = new() { SS = [] },
+        };
+
+        var ast = ConditionExpressionParser.Parse("attribute_type(tags, :type)");
+        var result = ConditionExpressionEvaluator.Evaluate(
+            ast, item, null,
+            new Dictionary<string, AttributeValue> { [":type"] = new() { S = "SS" } });
+
+        Assert.True(result);
+    }
+
+    [Fact]
+    public void AttributeType_EmptyNumberSet_True()
+    {
+        var item = new Dictionary<string, AttributeValue>
+        {
+            ["PK"] = new() { S = "USER#1" },
+            ["nums"] = new() { NS = [] },
+        };
+
+        var ast = ConditionExpressionParser.Parse("attribute_type(nums, :type)");
+        var result = ConditionExpressionEvaluator.Evaluate(
+            ast, item, null,
+            new Dictionary<string, AttributeValue> { [":type"] = new() { S = "NS" } });
+
+        Assert.True(result);
+    }
+
     // ── Size function ──────────────────────────────────────────────────
 
     [Fact]
@@ -324,6 +369,38 @@ public sealed class ConditionExpressionTests
             new Dictionary<string, AttributeValue> { [":len"] = new() { N = "5" } });
 
         Assert.True(result);
+    }
+
+    // ── Empty container path resolution ────────────────────────────────
+
+    [Fact]
+    public void ResolvePath_ThroughEmptyMap_ReturnsNull()
+    {
+        var item = new Dictionary<string, AttributeValue>
+        {
+            ["PK"] = new() { S = "USER#1" },
+            ["a"] = new() { M = new Dictionary<string, AttributeValue>() },
+        };
+
+        var ast = ConditionExpressionParser.Parse("attribute_exists(a.b)");
+        var result = ConditionExpressionEvaluator.Evaluate(ast, item, null, null);
+
+        Assert.False(result);
+    }
+
+    [Fact]
+    public void ResolvePath_ThroughEmptyList_ReturnsNull()
+    {
+        var item = new Dictionary<string, AttributeValue>
+        {
+            ["PK"] = new() { S = "USER#1" },
+            ["a"] = new() { L = [] },
+        };
+
+        var ast = ConditionExpressionParser.Parse("attribute_exists(a[0])");
+        var result = ConditionExpressionEvaluator.Evaluate(ast, item, null, null);
+
+        Assert.False(result);
     }
 
     // ── Parenthesized expressions ──────────────────────────────────────

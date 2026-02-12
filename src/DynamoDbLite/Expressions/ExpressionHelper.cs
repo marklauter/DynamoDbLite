@@ -33,16 +33,16 @@ internal static class ExpressionHelper
                     var resolvedName = ResolveAttributeName(nameEl.Name, expressionAttributeNames);
                     if (currentMap is null || !currentMap.TryGetValue(resolvedName, out current))
                         return null;
-                    currentMap = current.M is { Count: > 0 } ? current.M : null;
-                    currentList = current.L is { Count: > 0 } ? current.L : null;
+                    currentMap = current.M;
+                    currentList = current.L;
                     break;
 
                 case ListIndexElement indexEl:
                     if (currentList is null || indexEl.Index >= currentList.Count)
                         return null;
                     current = currentList[indexEl.Index];
-                    currentMap = current.M is { Count: > 0 } ? current.M : null;
-                    currentList = current.L is { Count: > 0 } ? current.L : null;
+                    currentMap = current.M;
+                    currentList = current.L;
                     break;
             }
         }
@@ -80,7 +80,7 @@ internal static class ExpressionHelper
                     while (list.Count <= indexEl.Index)
                         list.Add(new AttributeValue { NULL = true });
                     current = list[indexEl.Index];
-                    currentMap = current.M is { Count: > 0 } ? current.M : null;
+                    currentMap = current.M;
                     break;
             }
         }
@@ -101,6 +101,22 @@ internal static class ExpressionHelper
         }
     }
 
+    internal static string GetAttributeType(AttributeValue value) =>
+        value switch
+        {
+            { S: not null } => "S",
+            { N: not null } => "N",
+            { B: not null } => "B",
+            { SS: not null } => "SS",
+            { NS: not null } => "NS",
+            { BS: not null } => "BS",
+            { L: not null } => "L",
+            { M: not null } => "M",
+            { BOOL: not null } => "BOOL",
+            { NULL: true } => "NULL",
+            _ => "UNKNOWN"
+        };
+
     internal static void RemoveAtPath(
         Dictionary<string, AttributeValue> item,
         AttributePath path,
@@ -118,14 +134,14 @@ internal static class ExpressionHelper
                     var resolvedName = ResolveAttributeName(nameEl.Name, expressionAttributeNames);
                     if (!currentMap!.TryGetValue(resolvedName, out current))
                         return;
-                    currentMap = current.M is { Count: > 0 } ? current.M : null;
+                    currentMap = current.M;
                     break;
 
                 case ListIndexElement indexEl:
                     if (current?.L is null || indexEl.Index >= current.L.Count)
                         return;
                     current = current.L[indexEl.Index];
-                    currentMap = current.M is { Count: > 0 } ? current.M : null;
+                    currentMap = current.M;
                     break;
             }
         }

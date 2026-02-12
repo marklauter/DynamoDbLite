@@ -121,8 +121,10 @@ internal static class UpdateExpressionEvaluator
         var first = ResolveUpdateValue(la.First, item, expressionAttributeNames, expressionAttributeValues);
         var second = ResolveUpdateValue(la.Second, item, expressionAttributeNames, expressionAttributeValues);
 
-        var firstList = first.L ?? [];
-        var secondList = second.L ?? [];
+        var firstList = first.L ?? throw new ArgumentException(
+            "Invalid UpdateExpression: Incorrect operand type for operator or function; operator or function: list_append, operand type: " + ExpressionHelper.GetAttributeType(first));
+        var secondList = second.L ?? throw new ArgumentException(
+            "Invalid UpdateExpression: Incorrect operand type for operator or function; operator or function: list_append, operand type: " + ExpressionHelper.GetAttributeType(second));
 
         return new AttributeValue { L = [.. firstList, .. secondList] };
     }

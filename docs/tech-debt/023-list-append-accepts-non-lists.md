@@ -2,7 +2,7 @@
 
 - **Area:** Expressions / UpdateExpressionEvaluator
 - **Priority:** Medium
-- **Status:** Open
+- **Status:** Resolved
 
 ## Problem
 

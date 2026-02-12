@@ -211,6 +211,99 @@ public sealed class UpdateExpressionTests
         Assert.Contains("c", result["tags"].SS);
     }
 
+    // ── Empty container path resolution ────────────────────────────────
+
+    [Fact]
+    public void Set_ThroughEmptyMap_SetsValue()
+    {
+        var item = new Dictionary<string, AttributeValue>
+        {
+            ["PK"] = new() { S = "USER#1" },
+            ["a"] = new() { M = new Dictionary<string, AttributeValue>() },
+        };
+
+        var ast = UpdateExpressionParser.Parse("SET a.b = :val");
+        var (result, _) = UpdateExpressionEvaluator.Apply(
+            ast, item, null,
+            new Dictionary<string, AttributeValue> { [":val"] = new() { S = "hello" } });
+
+        Assert.Equal("hello", result["a"].M["b"].S);
+    }
+
+    [Fact]
+    public void Remove_ThroughEmptyMap_NoOp()
+    {
+        var item = new Dictionary<string, AttributeValue>
+        {
+            ["PK"] = new() { S = "USER#1" },
+            ["a"] = new() { M = new Dictionary<string, AttributeValue>() },
+        };
+
+        var ast = UpdateExpressionParser.Parse("REMOVE a.b");
+        var (result, _) = UpdateExpressionEvaluator.Apply(ast, item, null, null);
+
+        Assert.Empty(result["a"].M);
+    }
+
+    // ── list_append validation ──────────────────────────────────────────
+
+    [Fact]
+    public void Set_ListAppend_NonListFirstOperand_Throws()
+    {
+        var item = new Dictionary<string, AttributeValue>
+        {
+            ["PK"] = new() { S = "USER#1" },
+            ["items"] = new() { L = [new() { S = "a" }] },
+        };
+
+        var ast = UpdateExpressionParser.Parse("SET items = list_append(:val, items)");
+        var ex = Assert.Throws<ArgumentException>(() =>
+            UpdateExpressionEvaluator.Apply(
+                ast, item, null,
+                new Dictionary<string, AttributeValue> { [":val"] = new() { S = "not-a-list" } }));
+
+        Assert.Contains("list_append", ex.Message);
+    }
+
+    [Fact]
+    public void Set_ListAppend_NonListSecondOperand_Throws()
+    {
+        var item = new Dictionary<string, AttributeValue>
+        {
+            ["PK"] = new() { S = "USER#1" },
+            ["items"] = new() { L = [new() { S = "a" }] },
+        };
+
+        var ast = UpdateExpressionParser.Parse("SET items = list_append(items, :val)");
+        var ex = Assert.Throws<ArgumentException>(() =>
+            UpdateExpressionEvaluator.Apply(
+                ast, item, null,
+                new Dictionary<string, AttributeValue> { [":val"] = new() { N = "42" } }));
+
+        Assert.Contains("list_append", ex.Message);
+    }
+
+    [Fact]
+    public void Set_ListAppend_BothNonList_Throws()
+    {
+        var item = new Dictionary<string, AttributeValue>
+        {
+            ["PK"] = new() { S = "USER#1" },
+        };
+
+        var ast = UpdateExpressionParser.Parse("SET items = list_append(:a, :b)");
+        var ex = Assert.Throws<ArgumentException>(() =>
+            UpdateExpressionEvaluator.Apply(
+                ast, item, null,
+                new Dictionary<string, AttributeValue>
+                {
+                    [":a"] = new() { S = "not-a-list" },
+                    [":b"] = new() { N = "42" },
+                }));
+
+        Assert.Contains("list_append", ex.Message);
+    }
+
     // ── Combined clauses ───────────────────────────────────────────────
 
     [Fact]
