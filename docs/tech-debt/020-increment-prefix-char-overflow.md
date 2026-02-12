@@ -2,7 +2,7 @@
 
 - **Area:** KeyConditionSqlBuilder
 - **Priority:** High
-- **Status:** Open
+- **Status:** Resolved
 
 ## Problem
 

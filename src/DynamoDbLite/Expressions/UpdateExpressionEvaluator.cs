@@ -43,6 +43,9 @@ internal static class UpdateExpressionEvaluator
         return (item, modifiedKeys);
     }
 
+    private static ReadOnlySpan<byte> GetSpan(MemoryStream ms) =>
+        ms.TryGetBuffer(out var segment) ? segment.AsSpan() : ms.ToArray();
+
     private static string GetTopLevelKey(AttributePath path, Dictionary<string, string>? expressionAttributeNames)
     {
         var first = path.Elements[0];
@@ -164,8 +167,11 @@ internal static class UpdateExpressionEvaluator
         {
             // Binary set union
             foreach (var b in addValue.BS)
-                if (!existing.BS.Any(eb => eb.ToArray().AsSpan().SequenceEqual(b.ToArray())))
+            {
+                var bBytes = b.ToArray();
+                if (!existing.BS.Any(eb => GetSpan(eb).SequenceEqual(bBytes)))
                     existing.BS.Add(b);
+            }
         }
     }
 
@@ -192,7 +198,10 @@ internal static class UpdateExpressionEvaluator
         else if (existing.BS is not null && deleteValue.BS is not null)
         {
             foreach (var b in deleteValue.BS)
-                _ = existing.BS.RemoveAll(eb => eb.ToArray().AsSpan().SequenceEqual(b.ToArray()));
+            {
+                var bBytes = b.ToArray();
+                _ = existing.BS.RemoveAll(eb => GetSpan(eb).SequenceEqual(bBytes));
+            }
         }
     }
 }

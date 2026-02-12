@@ -62,6 +62,9 @@ internal static class ConditionExpressionEvaluator
         return new AttributeValue { N = size.ToString(CultureInfo.InvariantCulture) };
     }
 
+    private static ReadOnlySpan<byte> GetSpan(MemoryStream ms) =>
+        ms.TryGetBuffer(out var segment) ? segment.AsSpan() : ms.ToArray();
+
     private static int CompareValues(AttributeValue? left, AttributeValue? right) =>
         (left, right) switch
         {
@@ -69,22 +72,9 @@ internal static class ConditionExpressionEvaluator
             ({ S: not null }, { S: not null }) => string.Compare(left.S, right.S, StringComparison.Ordinal),
             ({ N: not null }, { N: not null }) => decimal.Parse(left.N, CultureInfo.InvariantCulture)
                 .CompareTo(decimal.Parse(right.N, CultureInfo.InvariantCulture)),
-            ({ B: not null }, { B: not null }) => CompareBytes(left.B.ToArray(), right.B.ToArray()),
+            ({ B: not null }, { B: not null }) => GetSpan(left.B).SequenceCompareTo(GetSpan(right.B)),
             _ => throw new ArgumentException("Cannot compare values of different or unsupported types")
         };
-
-    private static int CompareBytes(byte[] left, byte[] right)
-    {
-        var minLength = Math.Min(left.Length, right.Length);
-        for (var i = 0; i < minLength; i++)
-        {
-            var cmp = left[i].CompareTo(right[i]);
-            if (cmp != 0)
-                return cmp;
-        }
-
-        return left.Length.CompareTo(right.Length);
-    }
 
     private static bool ValuesEqual(AttributeValue? left, AttributeValue? right) =>
         (left, right) switch
@@ -100,7 +90,7 @@ internal static class ConditionExpressionEvaluator
             ({ S: not null }, { S: not null }) => left.S == right.S,
             ({ N: not null }, { N: not null }) => decimal.Parse(left.N, CultureInfo.InvariantCulture)
                 == decimal.Parse(right.N, CultureInfo.InvariantCulture),
-            ({ B: not null }, { B: not null }) => left.B.ToArray().AsSpan().SequenceEqual(right.B.ToArray()),
+            ({ B: not null }, { B: not null }) => GetSpan(left.B).SequenceEqual(GetSpan(right.B)),
             ({ BOOL: not null }, { BOOL: not null }) => left.BOOL == right.BOOL,
             ({ NULL: true }, { NULL: true }) => true,
             _ => false
@@ -256,7 +246,10 @@ internal static class ConditionExpressionEvaluator
         if (value.NS is not null && operand.N is not null)
             return value.NS.Contains(operand.N);
         if (value.BS is not null && operand.B is not null)
-            return value.BS.Any(b => b.ToArray().AsSpan().SequenceEqual(operand.B.ToArray()));
+        {
+            var operandBytes = operand.B.ToArray();
+            return value.BS.Any(b => GetSpan(b).SequenceEqual(operandBytes));
+        }
 
         // List contains
         return value.L is not null && value.L.Any(item2 => ValuesEqual(item2, operand));

@@ -6,6 +6,7 @@ using Microsoft.Data.Sqlite;
 using System.Collections.Concurrent;
 using System.Data.Common;
 using System.Globalization;
+using System.Text;
 using System.Text.Json;
 
 namespace DynamoDbLite.SqliteStores;
@@ -472,28 +473,28 @@ internal abstract class SqliteStore
         if (skParams is not null)
             parameters.AddDynamicParams(skParams);
 
-        var sql = "SELECT pk AS Pk, sk AS Sk, item_json AS ItemJson FROM items WHERE table_name = @tableName AND pk = @pk AND (ttl_epoch IS NULL OR ttl_epoch >= @nowEpoch)";
+        var sql = new StringBuilder("SELECT pk AS Pk, sk AS Sk, item_json AS ItemJson FROM items WHERE table_name = @tableName AND pk = @pk AND (ttl_epoch IS NULL OR ttl_epoch >= @nowEpoch)");
 
         if (skWhereSql is not null)
-            sql += $" AND {skWhereSql}";
+            _ = sql.Append(" AND ").Append(skWhereSql);
 
         if (exclusiveStartSk is not null)
         {
             var skOp = ascending ? ">" : "<";
             parameters.Add("@esSk", exclusiveStartSk);
-            sql += $" AND {orderByColumn} {skOp} @esSk";
+            _ = sql.Append(" AND ").Append(orderByColumn).Append(' ').Append(skOp).Append(" @esSk");
         }
 
         var direction = ascending ? "ASC" : "DESC";
-        sql += $" ORDER BY {orderByColumn} {direction}";
+        _ = sql.Append(" ORDER BY ").Append(orderByColumn).Append(' ').Append(direction);
 
         if (limit is not null)
         {
             parameters.Add("@limit", limit.Value);
-            sql += " LIMIT @limit";
+            _ = sql.Append(" LIMIT @limit");
         }
 
-        return (await connection.QueryAsync<ItemRow>(sql, parameters)).AsList();
+        return (await connection.QueryAsync<ItemRow>(sql.ToString(), parameters)).AsList();
     }
 
     internal async Task<List<ItemRow>> ScanItemsAsync(
@@ -510,24 +511,24 @@ internal abstract class SqliteStore
         parameters.Add("@tableName", tableName);
         parameters.Add("@nowEpoch", nowEpoch ?? NowEpoch());
 
-        var sql = "SELECT pk AS Pk, sk AS Sk, item_json AS ItemJson FROM items WHERE table_name = @tableName AND (ttl_epoch IS NULL OR ttl_epoch >= @nowEpoch)";
+        var sql = new StringBuilder("SELECT pk AS Pk, sk AS Sk, item_json AS ItemJson FROM items WHERE table_name = @tableName AND (ttl_epoch IS NULL OR ttl_epoch >= @nowEpoch)");
 
         if (exclusiveStartPk is not null)
         {
             parameters.Add("@esPk", exclusiveStartPk);
             parameters.Add("@esSk", exclusiveStartSk ?? string.Empty);
-            sql += " AND (pk > @esPk OR (pk = @esPk AND sk > @esSk))";
+            _ = sql.Append(" AND (pk > @esPk OR (pk = @esPk AND sk > @esSk))");
         }
 
-        sql += " ORDER BY pk, sk";
+        _ = sql.Append(" ORDER BY pk, sk");
 
         if (limit is not null)
         {
             parameters.Add("@limit", limit.Value);
-            sql += " LIMIT @limit";
+            _ = sql.Append(" LIMIT @limit");
         }
 
-        return (await connection.QueryAsync<ItemRow>(sql, parameters)).AsList();
+        return (await connection.QueryAsync<ItemRow>(sql.ToString(), parameters)).AsList();
     }
 
     internal async Task<List<string>> ListTableNamesAsync(string? exclusiveStartTableName, int limit, CancellationToken cancellationToken = default)
@@ -1028,10 +1029,10 @@ internal abstract class SqliteStore
         if (skParams is not null)
             parameters.AddDynamicParams(skParams);
 
-        var sql = $"""SELECT pk AS Pk, sk AS Sk, table_pk AS TablePk, table_sk AS TableSk, item_json AS ItemJson FROM "{idxTable}" WHERE pk = @pk AND (ttl_epoch IS NULL OR ttl_epoch >= @nowEpoch)""";
+        var sql = new StringBuilder($"""SELECT pk AS Pk, sk AS Sk, table_pk AS TablePk, table_sk AS TableSk, item_json AS ItemJson FROM "{idxTable}" WHERE pk = @pk AND (ttl_epoch IS NULL OR ttl_epoch >= @nowEpoch)""");
 
         if (skWhereSql is not null)
-            sql += $" AND {skWhereSql}";
+            _ = sql.Append(" AND ").Append(skWhereSql);
 
         if (exclusiveStartSk is not null)
         {
@@ -1039,19 +1040,19 @@ internal abstract class SqliteStore
             parameters.Add("@esSk", exclusiveStartSk);
             parameters.Add("@esTablePk", exclusiveStartTablePk ?? string.Empty);
             parameters.Add("@esTableSk", exclusiveStartTableSk ?? string.Empty);
-            sql += $" AND ({orderByColumn} {skOp} @esSk OR ({orderByColumn} = @esSk AND (table_pk > @esTablePk OR (table_pk = @esTablePk AND table_sk > @esTableSk))))";
+            _ = sql.Append(" AND (").Append(orderByColumn).Append(' ').Append(skOp).Append(" @esSk OR (").Append(orderByColumn).Append(" = @esSk AND (table_pk > @esTablePk OR (table_pk = @esTablePk AND table_sk > @esTableSk))))");
         }
 
         var direction = ascending ? "ASC" : "DESC";
-        sql += $" ORDER BY {orderByColumn} {direction}, table_pk {direction}, table_sk {direction}";
+        _ = sql.Append(" ORDER BY ").Append(orderByColumn).Append(' ').Append(direction).Append(", table_pk ").Append(direction).Append(", table_sk ").Append(direction);
 
         if (limit is not null)
         {
             parameters.Add("@limit", limit.Value);
-            sql += " LIMIT @limit";
+            _ = sql.Append(" LIMIT @limit");
         }
 
-        return (await connection.QueryAsync<IndexItemRow>(sql, parameters)).AsList();
+        return (await connection.QueryAsync<IndexItemRow>(sql.ToString(), parameters)).AsList();
     }
 
     internal async Task<List<IndexItemRow>> ScanIndexItemsAsync(
@@ -1071,7 +1072,7 @@ internal abstract class SqliteStore
         var parameters = new DynamicParameters();
         parameters.Add("@nowEpoch", nowEpoch ?? NowEpoch());
 
-        var sql = $"""SELECT pk AS Pk, sk AS Sk, table_pk AS TablePk, table_sk AS TableSk, item_json AS ItemJson FROM "{idxTable}" WHERE (ttl_epoch IS NULL OR ttl_epoch >= @nowEpoch)""";
+        var sql = new StringBuilder($"""SELECT pk AS Pk, sk AS Sk, table_pk AS TablePk, table_sk AS TableSk, item_json AS ItemJson FROM "{idxTable}" WHERE (ttl_epoch IS NULL OR ttl_epoch >= @nowEpoch)""");
 
         if (exclusiveStartPk is not null)
         {
@@ -1079,18 +1080,18 @@ internal abstract class SqliteStore
             parameters.Add("@esSk", exclusiveStartSk ?? string.Empty);
             parameters.Add("@esTablePk", exclusiveStartTablePk ?? string.Empty);
             parameters.Add("@esTableSk", exclusiveStartTableSk ?? string.Empty);
-            sql += " AND (pk > @esPk OR (pk = @esPk AND sk > @esSk) OR (pk = @esPk AND sk = @esSk AND (table_pk > @esTablePk OR (table_pk = @esTablePk AND table_sk > @esTableSk))))";
+            _ = sql.Append(" AND (pk > @esPk OR (pk = @esPk AND sk > @esSk) OR (pk = @esPk AND sk = @esSk AND (table_pk > @esTablePk OR (table_pk = @esTablePk AND table_sk > @esTableSk))))");
         }
 
-        sql += " ORDER BY pk, sk, table_pk, table_sk";
+        _ = sql.Append(" ORDER BY pk, sk, table_pk, table_sk");
 
         if (limit is not null)
         {
             parameters.Add("@limit", limit.Value);
-            sql += " LIMIT @limit";
+            _ = sql.Append(" LIMIT @limit");
         }
 
-        return (await connection.QueryAsync<IndexItemRow>(sql, parameters)).AsList();
+        return (await connection.QueryAsync<IndexItemRow>(sql.ToString(), parameters)).AsList();
     }
 
     // ── Update table metadata (for UpdateTableAsync GSI changes) ───
@@ -1468,7 +1469,7 @@ internal abstract class SqliteStore
         using var @lock = await AcquireReadLockAsync(cancellationToken).ConfigureAwait(false);
         using var connection = await OpenConnectionAsync(cancellationToken);
         var parameters = new DynamicParameters();
-        var sql = "SELECT export_arn AS ExportArn, status AS Status FROM exports";
+        var sql = new StringBuilder("SELECT export_arn AS ExportArn, status AS Status FROM exports");
         var conditions = new List<string>();
 
         if (tableArn is not null)
@@ -1485,17 +1486,17 @@ internal abstract class SqliteStore
         }
 
         if (conditions.Count > 0)
-            sql += " WHERE " + string.Join(" AND ", conditions);
+            _ = sql.Append(" WHERE ").Append(string.Join(" AND ", conditions));
 
-        sql += " ORDER BY start_time DESC";
+        _ = sql.Append(" ORDER BY start_time DESC");
 
         if (maxResults is not null)
         {
             parameters.Add("@maxResults", maxResults.Value);
-            sql += " LIMIT @maxResults";
+            _ = sql.Append(" LIMIT @maxResults");
         }
 
-        return (await connection.QueryAsync<ExportSummaryRow>(sql, parameters)).AsList();
+        return (await connection.QueryAsync<ExportSummaryRow>(sql.ToString(), parameters)).AsList();
     }
 
     // ── Import CRUD ─────────────────────────────────────────────────
@@ -1572,7 +1573,7 @@ internal abstract class SqliteStore
         using var @lock = await AcquireReadLockAsync(cancellationToken).ConfigureAwait(false);
         using var connection = await OpenConnectionAsync(cancellationToken);
         var parameters = new DynamicParameters();
-        var sql = "SELECT import_arn AS ImportArn, table_name AS TableName, status AS Status, s3_bucket AS S3Bucket, s3_key_prefix AS S3KeyPrefix, input_format AS InputFormat, start_time AS StartTime, end_time AS EndTime FROM imports";
+        var sql = new StringBuilder("SELECT import_arn AS ImportArn, table_name AS TableName, status AS Status, s3_bucket AS S3Bucket, s3_key_prefix AS S3KeyPrefix, input_format AS InputFormat, start_time AS StartTime, end_time AS EndTime FROM imports");
         var conditions = new List<string>();
 
         if (tableArn is not null)
@@ -1589,17 +1590,17 @@ internal abstract class SqliteStore
         }
 
         if (conditions.Count > 0)
-            sql += " WHERE " + string.Join(" AND ", conditions);
+            _ = sql.Append(" WHERE ").Append(string.Join(" AND ", conditions));
 
-        sql += " ORDER BY start_time DESC";
+        _ = sql.Append(" ORDER BY start_time DESC");
 
         if (pageSize is not null)
         {
             parameters.Add("@pageSize", pageSize.Value);
-            sql += " LIMIT @pageSize";
+            _ = sql.Append(" LIMIT @pageSize");
         }
 
-        return (await connection.QueryAsync<ImportSummaryRow>(sql, parameters)).AsList();
+        return (await connection.QueryAsync<ImportSummaryRow>(sql.ToString(), parameters)).AsList();
     }
 
     protected virtual void DisposeCore() { }

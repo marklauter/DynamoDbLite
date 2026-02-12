@@ -2,7 +2,7 @@
 
 - **Area:** Core / Expressions
 - **Priority:** High
-- **Status:** Open
+- **Status:** Resolved
 
 ## Problem
 Multiple files call `.ToArray()` on `MemoryStream`, allocating a full copy of the buffer each time. This is especially costly in hot paths like condition evaluation and binary comparisons.

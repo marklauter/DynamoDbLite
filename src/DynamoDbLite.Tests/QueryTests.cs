@@ -218,6 +218,88 @@ public abstract class QueryTestsBase
         Assert.All(response.Items, item => Assert.StartsWith("ORDER#", item["SK"].S));
     }
 
+    [Fact]
+    public async Task QueryAsync_BeginsWith_TrailingMaxChar_ReturnsMatchingItems()
+    {
+        var prefix = "ORDER\uffff";
+        _ = await client.PutItemAsync(new PutItemRequest
+        {
+            TableName = "TestTable",
+            Item = new Dictionary<string, AttributeValue>
+            {
+                ["PK"] = new() { S = "USER#9" },
+                ["SK"] = new() { S = prefix + "A" },
+                ["name"] = new() { S = "Hit" }
+            }
+        }, TestContext.Current.CancellationToken);
+
+        _ = await client.PutItemAsync(new PutItemRequest
+        {
+            TableName = "TestTable",
+            Item = new Dictionary<string, AttributeValue>
+            {
+                ["PK"] = new() { S = "USER#9" },
+                ["SK"] = new() { S = "ORDEZ" },
+                ["name"] = new() { S = "Miss" }
+            }
+        }, TestContext.Current.CancellationToken);
+
+        var response = await client.QueryAsync(new QueryRequest
+        {
+            TableName = "TestTable",
+            KeyConditionExpression = "PK = :pk AND begins_with(SK, :prefix)",
+            ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+            {
+                [":pk"] = new() { S = "USER#9" },
+                [":prefix"] = new() { S = prefix }
+            }
+        }, TestContext.Current.CancellationToken);
+
+        Assert.Equal(1, response.Count);
+        Assert.Equal("Hit", response.Items[0]["name"].S);
+    }
+
+    [Fact]
+    public async Task QueryAsync_BeginsWith_AllMaxChars_ReturnsMatchingItems()
+    {
+        var prefix = "\uffff\uffff";
+        _ = await client.PutItemAsync(new PutItemRequest
+        {
+            TableName = "TestTable",
+            Item = new Dictionary<string, AttributeValue>
+            {
+                ["PK"] = new() { S = "USER#10" },
+                ["SK"] = new() { S = prefix + "X" },
+                ["name"] = new() { S = "Hit" }
+            }
+        }, TestContext.Current.CancellationToken);
+
+        _ = await client.PutItemAsync(new PutItemRequest
+        {
+            TableName = "TestTable",
+            Item = new Dictionary<string, AttributeValue>
+            {
+                ["PK"] = new() { S = "USER#10" },
+                ["SK"] = new() { S = "other" },
+                ["name"] = new() { S = "Miss" }
+            }
+        }, TestContext.Current.CancellationToken);
+
+        var response = await client.QueryAsync(new QueryRequest
+        {
+            TableName = "TestTable",
+            KeyConditionExpression = "PK = :pk AND begins_with(SK, :prefix)",
+            ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+            {
+                [":pk"] = new() { S = "USER#10" },
+                [":prefix"] = new() { S = prefix }
+            }
+        }, TestContext.Current.CancellationToken);
+
+        Assert.Equal(1, response.Count);
+        Assert.Equal("Hit", response.Items[0]["name"].S);
+    }
+
     // ── ScanIndexForward = false ────────────────────────────────────
 
     [Fact]

@@ -2,7 +2,7 @@
 
 - **Area:** SqliteStore
 - **Priority:** High
-- **Status:** Open
+- **Status:** Resolved
 
 ## Problem
 `SqliteStore.cs` builds SQL queries using `+=` on strings, which allocates intermediate strings on every query.

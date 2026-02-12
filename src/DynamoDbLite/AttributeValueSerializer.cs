@@ -6,6 +6,12 @@ namespace DynamoDbLite;
 
 internal static class AttributeValueSerializer
 {
+    private static MemoryStream ReadableStream(byte[] bytes) =>
+        new(bytes, 0, bytes.Length, writable: false, publiclyVisible: true);
+
+    private static ReadOnlySpan<byte> GetSpan(MemoryStream ms) =>
+        ms.TryGetBuffer(out var segment) ? segment.AsSpan() : ms.ToArray();
+
     internal static string Serialize(Dictionary<string, AttributeValue> item)
     {
         var buffer = new ArrayBufferWriter<byte>(256);
@@ -48,7 +54,7 @@ internal static class AttributeValueSerializer
         else if (value.B is not null)
         {
             writer.WritePropertyName("B");
-            writer.WriteBase64StringValue(value.B.ToArray());
+            writer.WriteBase64StringValue(GetSpan(value.B));
         }
         else if (value.BOOL is not null)
         {
@@ -76,7 +82,7 @@ internal static class AttributeValueSerializer
         {
             writer.WriteStartArray("BS");
             foreach (var b in value.BS)
-                writer.WriteBase64StringValue(b.ToArray());
+                writer.WriteBase64StringValue(GetSpan(b));
             writer.WriteEndArray();
         }
         else if (value.L is { Count: > 0 } || IsAlwaysSend(value.L))
@@ -121,7 +127,7 @@ internal static class AttributeValueSerializer
         {
             "S" => new AttributeValue { S = prop.Value.GetString() },
             "N" => new AttributeValue { N = prop.Value.GetString() },
-            "B" => new AttributeValue { B = new MemoryStream(prop.Value.GetBytesFromBase64()) },
+            "B" => new AttributeValue { B = ReadableStream(prop.Value.GetBytesFromBase64()) },
             "BOOL" => new AttributeValue { BOOL = prop.Value.GetBoolean() },
             "NULL" => new AttributeValue { NULL = prop.Value.GetBoolean() },
             "SS" => new AttributeValue { SS = ReadStringList(prop.Value) },
@@ -147,7 +153,7 @@ internal static class AttributeValueSerializer
         var list = new List<MemoryStream>(element.GetArrayLength());
 #pragma warning disable IDISP004 // foreach disposes the ArrayEnumerator
         foreach (var e in element.EnumerateArray())
-            list.Add(new MemoryStream(e.GetBytesFromBase64()));
+            list.Add(ReadableStream(e.GetBytesFromBase64()));
 #pragma warning restore IDISP004
         return list;
     }

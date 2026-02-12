@@ -92,28 +92,42 @@ internal static class KeyConditionSqlBuilder
         var prefix = ResolveValue(beginsWith.Prefix, exprAttrValues);
         parameters.Add("@skPrefix", prefix);
 
-        // Compute exclusive upper bound: increment last character
         var prefixEnd = IncrementPrefix(prefix);
-        parameters.Add("@skPrefixEnd", prefixEnd);
+        if (prefixEnd is null)
+        {
+            parameters.Add("@skPrefixLen", prefix.Length);
+            return "SUBSTR(sk, 1, @skPrefixLen) = @skPrefix";
+        }
 
+        parameters.Add("@skPrefixEnd", prefixEnd);
         return "sk >= @skPrefix AND sk < @skPrefixEnd";
     }
+
+    private static ReadOnlySpan<byte> GetSpan(MemoryStream ms) =>
+        ms.TryGetBuffer(out var segment) ? segment.AsSpan() : ms.ToArray();
 
     private static string ResolveValue(Operand operand, Dictionary<string, AttributeValue>? exprAttrValues) =>
         operand switch
         {
             ValueRefOperand valueRef => exprAttrValues?.TryGetValue(valueRef.ValueRef, out var v) is true
-                ? v.S ?? v.N ?? (v.B is not null ? Convert.ToBase64String(v.B.ToArray()) : throw new ArgumentException($"Unsupported key value type for {valueRef.ValueRef}"))
+                ? v.S ?? v.N ?? (v.B is not null ? Convert.ToBase64String(GetSpan(v.B)) : throw new ArgumentException($"Unsupported key value type for {valueRef.ValueRef}"))
                 : throw new ArgumentException($"Expression attribute value {valueRef.ValueRef} is not defined"),
             _ => throw new ArgumentException($"Expected value reference operand, got: {operand.GetType().Name}")
         };
 
-    private static string IncrementPrefix(string prefix) =>
-        prefix.Length == 0
-            ? "\uffff"
-            : string.Create(prefix.Length, prefix, (span, p) =>
-            {
-                p.AsSpan().CopyTo(span);
-                span[^1]++;
-            });
+    private static string? IncrementPrefix(string prefix)
+    {
+        if (prefix.Length == 0)
+            return "\uffff";
+
+        var trimmed = prefix.AsSpan().TrimEnd('\uffff');
+        if (trimmed.Length == 0)
+            return null;
+
+        return string.Create(trimmed.Length, prefix, (span, p) =>
+        {
+            p.AsSpan()[..span.Length].CopyTo(span);
+            span[^1]++;
+        });
+    }
 }

@@ -5,6 +5,9 @@ namespace DynamoDbLite;
 
 internal static class KeyHelper
 {
+    private static ReadOnlySpan<byte> GetSpan(MemoryStream ms) =>
+        ms.TryGetBuffer(out var segment) ? segment.AsSpan() : ms.ToArray();
+
     internal static (string Pk, string Sk) ExtractKeys(
         Dictionary<string, AttributeValue> item,
         List<KeySchemaElement> keySchema,
@@ -86,7 +89,7 @@ internal static class KeyHelper
         {
             "S" => value.S,
             "N" => value.N,
-            "B" => Convert.ToBase64String(value.B.ToArray()),
+            "B" => Convert.ToBase64String(GetSpan(value.B)),
             _ => throw new AmazonDynamoDBException($"Unsupported key type: {attrDef.AttributeType.Value}")
         };
     }
