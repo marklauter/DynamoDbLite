@@ -49,6 +49,7 @@ C# 14 / .NET 10 — high-performance, functional, zero-allocation.
 - prefer `field` keyword in property accessors over backing fields
 - mark all fields `readonly`
 - avoid mutable classes; if state changes, return a new instance
+- prefer `readonly` fields initialized in constructors over `= null!` fields assigned later; reserve `null!` for cases where async initialization is genuinely required for that specific field
 
 ## Zero-Allocation & Performance
 - use `Span<T>`, `ReadOnlySpan<T>`, `Memory<T>` over arrays
