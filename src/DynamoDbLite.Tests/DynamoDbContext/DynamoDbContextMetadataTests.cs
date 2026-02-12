@@ -4,12 +4,16 @@ using DynamoDbLite.Tests.Models;
 
 namespace DynamoDbLite.Tests.DynamoDbContext;
 
-public abstract class DynamoDbContextMetadataTests
+public class DynamoDbContextMetadataTests
     : DynamoDbContextFixture
 {
-    [Fact]
-    public async Task DynamoDBContext_WithDefaultConfig_WorksWithDisabledMetadata()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task DynamoDBContext_WithDefaultConfig_WorksWithDisabledMetadata(StoreType st)
     {
+        var client = Client(st);
+
         // SDK v4 requires AmazonDynamoDBClient (not IAmazonDynamoDB) for LoadTable
         // when DisableFetchingTableMetadata=false, so we verify the builder path works
         var ct = TestContext.Current.CancellationToken;

@@ -4,12 +4,16 @@ using DynamoDbLite.Tests.Models;
 
 namespace DynamoDbLite.Tests.DynamoDbContext;
 
-public abstract class DynamoDbContextVersioningTests
+public class DynamoDbContextVersioningTests
     : DynamoDbContextFixture
 {
-    [Fact]
-    public async Task SaveAsync_NewVersionedItem_SetsVersionToZero()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task SaveAsync_NewVersionedItem_SetsVersionToZero(StoreType st)
     {
+        var context = Context(st);
+
         var item = new VersionedItem { Id = "v-new", Data = "initial" };
         await context.SaveAsync(item, TestContext.Current.CancellationToken);
 
@@ -18,10 +22,14 @@ public abstract class DynamoDbContextVersioningTests
         Assert.Equal(0, loaded.VersionNumber);
     }
 
-    [Fact]
-    public async Task SaveAsync_ExistingVersionedItem_IncrementsVersion()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task SaveAsync_ExistingVersionedItem_IncrementsVersion(StoreType st)
     {
+        var context = Context(st);
         var ct = TestContext.Current.CancellationToken;
+
         var item = new VersionedItem { Id = "v-inc", Data = "v0" };
         await context.SaveAsync(item, ct);
 
@@ -33,10 +41,14 @@ public abstract class DynamoDbContextVersioningTests
         Assert.Equal(1, loaded2!.VersionNumber);
     }
 
-    [Fact]
-    public async Task SaveAsync_StaleVersion_ThrowsConditionalCheckFailed()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task SaveAsync_StaleVersion_ThrowsConditionalCheckFailed(StoreType st)
     {
+        var context = Context(st);
         var ct = TestContext.Current.CancellationToken;
+
         var item = new VersionedItem { Id = "v-stale", Data = "v0" };
         await context.SaveAsync(item, ct);
 
@@ -50,10 +62,14 @@ public abstract class DynamoDbContextVersioningTests
         _ = await Assert.ThrowsAsync<ConditionalCheckFailedException>(() => context.SaveAsync(copy2, ct));
     }
 
-    [Fact]
-    public async Task LoadAsync_VersionedItem_ReturnsCurrentVersion()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task LoadAsync_VersionedItem_ReturnsCurrentVersion(StoreType st)
     {
+        var context = Context(st);
         var ct = TestContext.Current.CancellationToken;
+
         var item = new VersionedItem { Id = "v-load", Data = "initial" };
         await context.SaveAsync(item, ct);
 

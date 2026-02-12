@@ -165,10 +165,10 @@ internal abstract class DynamoDbContextFactory
             return;
         }
 
+        GC.SuppressFinalize(this);
+
         Client.Dispose();
         Context.Dispose();
-
-        GC.SuppressFinalize(this);
         disposed = true;
     }
 

@@ -3,23 +3,31 @@ using DynamoDbLite.Tests.Models;
 
 namespace DynamoDbLite.Tests.DynamoDbContext;
 
-public abstract class DynamoDbContextEdgeCaseTests
+public class DynamoDbContextEdgeCaseTests
     : DynamoDbContextFixture
 {
-    [Fact]
-    public async Task SaveAsync_EmptyStringProperty_HandledCorrectly()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task SaveAsync_EmptyStringProperty_HandledCorrectly(StoreType st)
     {
+        var context = Context(st);
         var ct = TestContext.Current.CancellationToken;
+
         await context.SaveAsync(new SimpleItem { Id = "empty-str", Name = "" }, ct);
 
         var loaded = await context.LoadAsync<SimpleItem>("empty-str", ct);
         Assert.NotNull(loaded);
     }
 
-    [Fact]
-    public async Task SaveAsync_VeryLargeItem_Succeeds()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task SaveAsync_VeryLargeItem_Succeeds(StoreType st)
     {
+        var context = Context(st);
         var ct = TestContext.Current.CancellationToken;
+
         var largeString = new string('x', 100_000);
         await context.SaveAsync(new SimpleItem { Id = "large-1", Name = largeString }, ct);
 
@@ -27,10 +35,14 @@ public abstract class DynamoDbContextEdgeCaseTests
         Assert.Equal(100_000, loaded!.Name.Length);
     }
 
-    [Fact]
-    public async Task LoadAsync_AfterDelete_ReturnsNull()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task LoadAsync_AfterDelete_ReturnsNull(StoreType st)
     {
+        var context = Context(st);
         var ct = TestContext.Current.CancellationToken;
+
         await context.SaveAsync(new SimpleItem { Id = "del-reload", Name = "Exists" }, ct);
         await context.DeleteAsync<SimpleItem>("del-reload", ct);
 
@@ -38,10 +50,14 @@ public abstract class DynamoDbContextEdgeCaseTests
         Assert.Null(loaded);
     }
 
-    [Fact]
-    public async Task QueryAsync_GetRemainingAsync_ReturnsAll()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task QueryAsync_GetRemainingAsync_ReturnsAll(StoreType st)
     {
+        var context = Context(st);
         var ct = TestContext.Current.CancellationToken;
+
         for (var i = 0; i < 10; i++)
             await context.SaveAsync(new CompositeKeyItem { PK = "q-remaining", SK = $"item-{i:D2}" }, ct);
 

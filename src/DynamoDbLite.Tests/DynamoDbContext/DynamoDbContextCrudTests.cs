@@ -3,12 +3,16 @@ using DynamoDbLite.Tests.Models;
 
 namespace DynamoDbLite.Tests.DynamoDbContext;
 
-public abstract class DynamoDbContextCrudTests
+public class DynamoDbContextCrudTests
     : DynamoDbContextFixture
 {
-    [Fact]
-    public async Task SaveAsync_NewSimpleItem_CanBeLoaded()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task SaveAsync_NewSimpleItem_CanBeLoaded(StoreType st)
     {
+        var context = Context(st);
+
         var item = new SimpleItem { Id = "1", Name = "Alice", Age = 30, Score = 9.5, IsActive = true };
         await context.SaveAsync(item, TestContext.Current.CancellationToken);
 
@@ -21,9 +25,13 @@ public abstract class DynamoDbContextCrudTests
         Assert.True(loaded.IsActive);
     }
 
-    [Fact]
-    public async Task SaveAsync_CompositeKey_CanBeLoadedByKeys()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task SaveAsync_CompositeKey_CanBeLoadedByKeys(StoreType st)
     {
+        var context = Context(st);
+
         var item = new CompositeKeyItem { PK = "user#1", SK = "profile", CreatedAt = new DateTime(2025, 1, 15, 10, 30, 0, DateTimeKind.Utc) };
         await context.SaveAsync(item, TestContext.Current.CancellationToken);
 
@@ -34,9 +42,13 @@ public abstract class DynamoDbContextCrudTests
         Assert.Equal("profile", loaded.SK);
     }
 
-    [Fact]
-    public async Task SaveAsync_Overwrite_UpdatesExistingItem()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task SaveAsync_Overwrite_UpdatesExistingItem(StoreType st)
     {
+        var context = Context(st);
+
         var item = new SimpleItem { Id = "overwrite-1", Name = "Original" };
         await context.SaveAsync(item, TestContext.Current.CancellationToken);
 
@@ -47,16 +59,24 @@ public abstract class DynamoDbContextCrudTests
         Assert.Equal("Updated", loaded!.Name);
     }
 
-    [Fact]
-    public async Task LoadAsync_NonExistentItem_ReturnsNull()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task LoadAsync_NonExistentItem_ReturnsNull(StoreType st)
     {
+        var context = Context(st);
+
         var loaded = await context.LoadAsync<SimpleItem>("nonexistent", TestContext.Current.CancellationToken);
         Assert.Null(loaded);
     }
 
-    [Fact]
-    public async Task LoadAsync_ByHashKeyOnly_ReturnsItem()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task LoadAsync_ByHashKeyOnly_ReturnsItem(StoreType st)
     {
+        var context = Context(st);
+
         await context.SaveAsync(new SimpleItem { Id = "hash-only", Name = "Test" }, TestContext.Current.CancellationToken);
 
         var loaded = await context.LoadAsync<SimpleItem>("hash-only", TestContext.Current.CancellationToken);
@@ -64,9 +84,13 @@ public abstract class DynamoDbContextCrudTests
         Assert.Equal("Test", loaded.Name);
     }
 
-    [Fact]
-    public async Task LoadAsync_ByCompositeKey_ReturnsItem()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task LoadAsync_ByCompositeKey_ReturnsItem(StoreType st)
     {
+        var context = Context(st);
+
         var item = new CompositeKeyItem { PK = "pk-1", SK = "sk-1", CustomNamedProp = "hello" };
         await context.SaveAsync(item, TestContext.Current.CancellationToken);
 
@@ -75,9 +99,13 @@ public abstract class DynamoDbContextCrudTests
         Assert.Equal("hello", loaded.CustomNamedProp);
     }
 
-    [Fact]
-    public async Task SaveAsync_WithNullOptionalProperty_Succeeds()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task SaveAsync_WithNullOptionalProperty_Succeeds(StoreType st)
     {
+        var context = Context(st);
+
         var item = new CompositeKeyItem { PK = "null-opt", SK = "1", OptionalValue = null };
         await context.SaveAsync(item, TestContext.Current.CancellationToken);
 
@@ -86,9 +114,13 @@ public abstract class DynamoDbContextCrudTests
         Assert.Null(loaded.OptionalValue);
     }
 
-    [Fact]
-    public async Task SaveAsync_IgnoredProperty_NotPersisted()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task SaveAsync_IgnoredProperty_NotPersisted(StoreType st)
     {
+        var context = Context(st);
+
         var item = new CompositeKeyItem { PK = "ign", SK = "1", Ignored = "secret" };
         await context.SaveAsync(item, TestContext.Current.CancellationToken);
 

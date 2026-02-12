@@ -3,12 +3,16 @@ using DynamoDbLite.Tests.Models;
 
 namespace DynamoDbLite.Tests.DynamoDbContext;
 
-public abstract class DynamoDbContextNumericSortKeyTests
+public class DynamoDbContextNumericSortKeyTests
     : DynamoDbContextFixture
 {
-    [Fact]
-    public async Task SaveAndLoad_NumericRangeKey_RoundTrips()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task SaveAndLoad_NumericRangeKey_RoundTrips(StoreType st)
     {
+        var context = Context(st);
+
         var item = new NumericKeyItem { Category = "electronics", OrderNumber = 42, Description = "Widget" };
         await context.SaveAsync(item, TestContext.Current.CancellationToken);
 
@@ -17,10 +21,14 @@ public abstract class DynamoDbContextNumericSortKeyTests
         Assert.Equal("Widget", loaded.Description);
     }
 
-    [Fact]
-    public async Task QueryAsync_NumericRangeKey_OrderedCorrectly()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task QueryAsync_NumericRangeKey_OrderedCorrectly(StoreType st)
     {
+        var context = Context(st);
         var ct = TestContext.Current.CancellationToken;
+
         await context.SaveAsync(new NumericKeyItem { Category = "num-order", OrderNumber = 3, Description = "Third" }, ct);
         await context.SaveAsync(new NumericKeyItem { Category = "num-order", OrderNumber = 1, Description = "First" }, ct);
         await context.SaveAsync(new NumericKeyItem { Category = "num-order", OrderNumber = 2, Description = "Second" }, ct);

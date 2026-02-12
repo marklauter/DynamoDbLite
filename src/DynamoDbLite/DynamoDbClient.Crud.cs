@@ -336,6 +336,7 @@ public sealed partial class DynamoDbClient
                         foreach (var s in update.Value.SS)
                             _ = ssVal.SS.Remove(s);
                     }
+
                     break;
                 case "DELETE" when update.Value.NS is { Count: > 0 }:
                     if (result.TryGetValue(attrName, out var nsVal) && nsVal.NS is not null)
@@ -343,6 +344,7 @@ public sealed partial class DynamoDbClient
                         foreach (var n in update.Value.NS)
                             _ = nsVal.NS.Remove(n);
                     }
+
                     break;
                 case "ADD" when update.Value.N is not null:
                     if (result.TryGetValue(attrName, out var numVal) && numVal.N is not null)
@@ -355,6 +357,7 @@ public sealed partial class DynamoDbClient
                     {
                         result[attrName] = update.Value;
                     }
+
                     break;
                 case "ADD" when update.Value.SS is { Count: > 0 }:
                     if (result.TryGetValue(attrName, out var addSsVal) && addSsVal.SS is not null)

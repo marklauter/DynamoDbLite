@@ -1,5 +1,4 @@
 using Amazon.DynamoDBv2.Model;
-using DynamoDbLite.Expressions;
 
 namespace DynamoDbLite.Tests.Expressions;
 

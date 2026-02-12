@@ -3,12 +3,16 @@ using DynamoDbLite.Tests.Models;
 
 namespace DynamoDbLite.Tests.DynamoDbContext;
 
-public abstract class DynamoDbContextCollectionTests
+public class DynamoDbContextCollectionTests
     : DynamoDbContextFixture
 {
-    [Fact]
-    public async Task SaveAndLoad_ListOfStrings_RoundTrips()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task SaveAndLoad_ListOfStrings_RoundTrips(StoreType st)
     {
+        var context = Context(st);
+
         var item = new CollectionItem { Id = "list-1", Tags = ["alpha", "beta", "gamma"] };
         await context.SaveAsync(item, TestContext.Current.CancellationToken);
 
@@ -16,9 +20,13 @@ public abstract class DynamoDbContextCollectionTests
         Assert.Equal(["alpha", "beta", "gamma"], loaded!.Tags);
     }
 
-    [Fact]
-    public async Task SaveAndLoad_DictionaryOfStringInt_RoundTrips()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task SaveAndLoad_DictionaryOfStringInt_RoundTrips(StoreType st)
     {
+        var context = Context(st);
+
         var item = new CollectionItem
         {
             Id = "dict-1",
@@ -31,9 +39,13 @@ public abstract class DynamoDbContextCollectionTests
         Assert.Equal(88, loaded.Scores["science"]);
     }
 
-    [Fact]
-    public async Task SaveAndLoad_HashSetOfStrings_RoundTrips()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task SaveAndLoad_HashSetOfStrings_RoundTrips(StoreType st)
     {
+        var context = Context(st);
+
         var item = new CollectionItem { Id = "ss-1", StringSet = ["a", "b", "c"] };
         await context.SaveAsync(item, TestContext.Current.CancellationToken);
 
@@ -44,9 +56,13 @@ public abstract class DynamoDbContextCollectionTests
         Assert.Contains("c", loaded.StringSet);
     }
 
-    [Fact]
-    public async Task SaveAndLoad_HashSetOfInts_RoundTrips()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task SaveAndLoad_HashSetOfInts_RoundTrips(StoreType st)
     {
+        var context = Context(st);
+
         var item = new CollectionItem { Id = "ns-1", NumberSet = [1, 2, 3] };
         await context.SaveAsync(item, TestContext.Current.CancellationToken);
 
@@ -57,9 +73,13 @@ public abstract class DynamoDbContextCollectionTests
         Assert.Contains(3, loaded.NumberSet);
     }
 
-    [Fact]
-    public async Task SaveAndLoad_EmptyList_RoundTrips()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task SaveAndLoad_EmptyList_RoundTrips(StoreType st)
     {
+        var context = Context(st);
+
         var item = new CollectionItem { Id = "elist-1", Tags = [] };
         await context.SaveAsync(item, TestContext.Current.CancellationToken);
 
@@ -68,9 +88,13 @@ public abstract class DynamoDbContextCollectionTests
         Assert.Empty(loaded.Tags);
     }
 
-    [Fact]
-    public async Task SaveAndLoad_EmptyDictionary_RoundTrips()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task SaveAndLoad_EmptyDictionary_RoundTrips(StoreType st)
     {
+        var context = Context(st);
+
         var item = new CollectionItem { Id = "edict-1", Scores = [] };
         await context.SaveAsync(item, TestContext.Current.CancellationToken);
 

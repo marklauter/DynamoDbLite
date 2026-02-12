@@ -5,13 +5,17 @@ using DynamoDbLite.Tests.Models;
 
 namespace DynamoDbLite.Tests.DynamoDbContext;
 
-public abstract class DynamoDbContextScanTests
+public class DynamoDbContextScanTests
     : DynamoDbContextFixture
 {
-    [Fact]
-    public async Task ScanAsync_NoFilter_ReturnsAllItems()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task ScanAsync_NoFilter_ReturnsAllItems(StoreType st)
     {
+        var context = Context(st);
         var ct = TestContext.Current.CancellationToken;
+
         await context.SaveAsync(new SimpleItem { Id = "scan-1", Name = "A" }, ct);
         await context.SaveAsync(new SimpleItem { Id = "scan-2", Name = "B" }, ct);
 
@@ -21,10 +25,14 @@ public abstract class DynamoDbContextScanTests
         Assert.True(results.Count >= 2);
     }
 
-    [Fact]
-    public async Task ScanAsync_WithCondition_FiltersResults()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task ScanAsync_WithCondition_FiltersResults(StoreType st)
     {
+        var context = Context(st);
         var ct = TestContext.Current.CancellationToken;
+
         await context.SaveAsync(new SimpleItem { Id = "scan-f1", Name = "Match", Age = 25 }, ct);
         await context.SaveAsync(new SimpleItem { Id = "scan-f2", Name = "NoMatch", Age = 50 }, ct);
 
@@ -38,10 +46,14 @@ public abstract class DynamoDbContextScanTests
         Assert.All(results, r => Assert.True(r.Age < 30));
     }
 
-    [Fact]
-    public async Task ScanAsync_AllPages_ReturnsAllItems()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task ScanAsync_AllPages_ReturnsAllItems(StoreType st)
     {
+        var context = Context(st);
         var ct = TestContext.Current.CancellationToken;
+
         for (var i = 0; i < 5; i++)
             await context.SaveAsync(new SimpleItem { Id = $"scan-all-{i}", Name = $"Item{i}" }, ct);
 
@@ -51,10 +63,14 @@ public abstract class DynamoDbContextScanTests
         Assert.True(results.Count >= 5);
     }
 
-    [Fact]
-    public async Task ScanAsync_OnGsi_ReturnsIndexItems()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task ScanAsync_OnGsi_ReturnsIndexItems(StoreType st)
     {
+        var context = Context(st);
         var ct = TestContext.Current.CancellationToken;
+
         await context.SaveAsync(new GsiItem { PK = "scan-gsi-1", SK = "a", GsiPK = "scan-gsi-hash", GsiSK = "x", Data = "d1" }, ct);
 
         var scan = context.ScanAsync<GsiItem>([], new ScanConfig { IndexName = "GsiIndex" });

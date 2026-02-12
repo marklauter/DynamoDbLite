@@ -3,13 +3,17 @@ using DynamoDbLite.Tests.Models;
 
 namespace DynamoDbLite.Tests.DynamoDbContext;
 
-public abstract class DynamoDbContextBatchWriteTests
+public class DynamoDbContextBatchWriteTests
     : DynamoDbContextFixture
 {
-    [Fact]
-    public async Task BatchWrite_MultiplePuts_AllPersisted()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task BatchWrite_MultiplePuts_AllPersisted(StoreType st)
     {
+        var context = Context(st);
         var ct = TestContext.Current.CancellationToken;
+
         var batch = context.CreateBatchWrite<SimpleItem>();
         batch.AddPutItem(new SimpleItem { Id = "bw-1", Name = "One" });
         batch.AddPutItem(new SimpleItem { Id = "bw-2", Name = "Two" });
@@ -21,10 +25,14 @@ public abstract class DynamoDbContextBatchWriteTests
         Assert.NotNull(await context.LoadAsync<SimpleItem>("bw-3", ct));
     }
 
-    [Fact]
-    public async Task BatchWrite_MultipleDeletes_AllRemoved()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task BatchWrite_MultipleDeletes_AllRemoved(StoreType st)
     {
+        var context = Context(st);
         var ct = TestContext.Current.CancellationToken;
+
         await context.SaveAsync(new SimpleItem { Id = "bwd-1", Name = "One" }, ct);
         await context.SaveAsync(new SimpleItem { Id = "bwd-2", Name = "Two" }, ct);
 
@@ -37,10 +45,14 @@ public abstract class DynamoDbContextBatchWriteTests
         Assert.Null(await context.LoadAsync<SimpleItem>("bwd-2", ct));
     }
 
-    [Fact]
-    public async Task BatchWrite_MixedPutAndDelete_Succeeds()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task BatchWrite_MixedPutAndDelete_Succeeds(StoreType st)
     {
+        var context = Context(st);
         var ct = TestContext.Current.CancellationToken;
+
         await context.SaveAsync(new SimpleItem { Id = "bwm-del", Name = "ToDelete" }, ct);
 
         var batch = context.CreateBatchWrite<SimpleItem>();
@@ -52,10 +64,14 @@ public abstract class DynamoDbContextBatchWriteTests
         Assert.Null(await context.LoadAsync<SimpleItem>("bwm-del", ct));
     }
 
-    [Fact]
-    public async Task BatchWrite_MultiTable_Succeeds()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task BatchWrite_MultiTable_Succeeds(StoreType st)
     {
+        var context = Context(st);
         var ct = TestContext.Current.CancellationToken;
+
         var simpleBatch = context.CreateBatchWrite<SimpleItem>();
         simpleBatch.AddPutItem(new SimpleItem { Id = "bwmt-1", Name = "Simple" });
 
