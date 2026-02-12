@@ -2,7 +2,7 @@
 
 - **Area:** DynamoDbClient.TableManagement
 - **Priority:** High
-- **Status:** Open
+- **Status:** Resolved
 
 ## Problem
 `DynamoDbClient.TableManagement.cs` enumerates key schemas 3 times with separate LINQ queries to get hash keys, range keys, and key attribute names.

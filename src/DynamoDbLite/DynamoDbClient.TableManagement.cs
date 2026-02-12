@@ -186,18 +186,30 @@ public sealed partial class DynamoDbClient
             throw new AmazonDynamoDBException(
                 "1 or 2 key schema elements are required.");
 
-        var hashKeys = keySchema.Where(static k => k.KeyType == KeyType.HASH).ToList();
-        if (hashKeys.Count is not 1)
+        var hashCount = 0;
+        var rangeCount = 0;
+        var keyAttributeNames = new HashSet<string>(keySchema.Count);
+
+        foreach (var k in keySchema)
+        {
+            if (k.KeyType == KeyType.HASH)
+                hashCount++;
+            else if (k.KeyType == KeyType.RANGE)
+                rangeCount++;
+            _ = keyAttributeNames.Add(k.AttributeName);
+        }
+
+        if (hashCount is not 1)
             throw new AmazonDynamoDBException(
                 "Exactly one HASH key is required in the key schema.");
 
-        var rangeKeys = keySchema.Where(static k => k.KeyType == KeyType.RANGE).ToList();
-        if (rangeKeys.Count > 1)
+        if (rangeCount > 1)
             throw new AmazonDynamoDBException(
                 "At most one RANGE key is allowed in the key schema.");
 
-        var keyAttributeNames = keySchema.Select(static k => k.AttributeName).ToHashSet();
-        var definedAttributeNames = attributeDefinitions.Select(static a => a.AttributeName).ToHashSet();
+        var definedAttributeNames = new HashSet<string>(attributeDefinitions.Count);
+        foreach (var a in attributeDefinitions)
+            _ = definedAttributeNames.Add(a.AttributeName);
 
         if (!keyAttributeNames.IsSubsetOf(definedAttributeNames))
         {
@@ -300,18 +312,24 @@ public sealed partial class DynamoDbClient
             throw new AmazonDynamoDBException(
                 $"One or more parameter values were invalid: Index {indexName} requires 1 or 2 key schema elements");
 
-        var hashKeys = keySchema.Where(static k => k.KeyType == KeyType.HASH).ToList();
-        if (hashKeys.Count is not 1)
-            throw new AmazonDynamoDBException(
-                $"One or more parameter values were invalid: Index {indexName} requires exactly one HASH key");
+        var hashCount = 0;
+        var definedNames = new HashSet<string>(attributeDefinitions.Count);
+        foreach (var a in attributeDefinitions)
+            _ = definedNames.Add(a.AttributeName);
 
-        var definedNames = attributeDefinitions.Select(static a => a.AttributeName).ToHashSet();
         foreach (var key in keySchema)
         {
+            if (key.KeyType == KeyType.HASH)
+                hashCount++;
+
             if (!definedNames.Contains(key.AttributeName))
                 throw new AmazonDynamoDBException(
                     $"One or more parameter values were invalid: Index key attribute {key.AttributeName} is not defined in AttributeDefinitions");
         }
+
+        if (hashCount is not 1)
+            throw new AmazonDynamoDBException(
+                $"One or more parameter values were invalid: Index {indexName} requires exactly one HASH key");
     }
 
     private static void ValidateAttributeDefinitionsCoverage(

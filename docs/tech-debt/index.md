@@ -9,7 +9,7 @@
 | [005](005-missing-ion-export-format.md) | Missing ION export format | Low | Open |
 | [006](006-memorystream-toarray-copies.md) | MemoryStream .ToArray() avoidable copies | High | Open |
 | [007](007-sql-string-concatenation.md) | SQL string concatenation in query hot paths | High | Open |
-| [008](008-linq-to-loop-validation.md) | LINQ to loop replacements in validation | High | Open |
+| [008](008-linq-to-loop-validation.md) | LINQ to loop replacements in validation | High | Resolved |
 | [009](009-index-table-name-allocation.md) | IndexTableName string allocation | High | Open |
 | [010](010-collection-presizing.md) | Collection pre-sizing | High | Resolved |
 | [011](011-increment-prefix-char-array.md) | IncrementPrefix char array allocation | High | Resolved |
