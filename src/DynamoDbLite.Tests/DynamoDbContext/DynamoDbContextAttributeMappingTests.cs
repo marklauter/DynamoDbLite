@@ -7,9 +7,14 @@ namespace DynamoDbLite.Tests.DynamoDbContext;
 public abstract class DynamoDbContextAttributeMappingTests
     : DynamoDbContextFixture
 {
-    [Fact]
-    public async Task SaveAndLoad_PropertyWithCustomName_UsesAttributeName()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task SaveAndLoad_PropertyWithCustomName_UsesAttributeName(StoreType st)
     {
+        var context = Context(st);
+        var client = Client(st);
+
         var ct = TestContext.Current.CancellationToken;
         var item = new CompositeKeyItem { PK = "cname-1", SK = "a", CustomNamedProp = "custom-value" };
         await context.SaveAsync(item, ct);
@@ -33,9 +38,14 @@ public abstract class DynamoDbContextAttributeMappingTests
         Assert.Equal("custom-value", loaded!.CustomNamedProp);
     }
 
-    [Fact]
-    public async Task SaveAndLoad_IgnoredProperty_NotStoredOrRetrieved()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task SaveAndLoad_IgnoredProperty_NotStoredOrRetrieved(StoreType st)
     {
+        var context = Context(st);
+        var client = Client(st);
+
         var ct = TestContext.Current.CancellationToken;
         var item = new CompositeKeyItem { PK = "ignore-attr", SK = "a", Ignored = "should-vanish" };
         await context.SaveAsync(item, ct);
@@ -53,9 +63,13 @@ public abstract class DynamoDbContextAttributeMappingTests
         Assert.False(lowLevel.Item.ContainsKey("Ignored"));
     }
 
-    [Fact]
-    public async Task SaveAndLoad_GsiKeyProperties_RoundTrip()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task SaveAndLoad_GsiKeyProperties_RoundTrip(StoreType st)
     {
+        var context = Context(st);
+
         var ct = TestContext.Current.CancellationToken;
         var item = new GsiItem { PK = "gsi-rt-1", SK = "a", GsiPK = "gsi-hash-rt", GsiSK = "gsi-sort-rt", Data = "test" };
         await context.SaveAsync(item, ct);
