@@ -4,43 +4,23 @@ using DynamoDbLite.Tests.Fixtures;
 
 namespace DynamoDbLite.Tests;
 
-public abstract class TagTestsBase
-    : IAsyncLifetime
+public sealed class TagTests
+    : DynamoDbClientFixture
 {
-    protected DynamoDbClient client = null!;
-
-    protected abstract DynamoDbClient CreateClient();
-
     private const string TableArn = "arn:aws:dynamodb:us-east-1:000000000000:table/TestTable";
 
-    public async ValueTask InitializeAsync()
+    protected override async ValueTask SetupAsync(CancellationToken ct)
     {
-        client = CreateClient();
-        _ = await client.CreateTableAsync(new CreateTableRequest
-        {
-            TableName = "TestTable",
-            KeySchema =
-                [
-                    new KeySchemaElement { AttributeName = "PK", KeyType = KeyType.HASH },
-                    new KeySchemaElement { AttributeName = "SK", KeyType = KeyType.RANGE }
-                ],
-            AttributeDefinitions =
-                [
-                    new AttributeDefinition { AttributeName = "PK", AttributeType = ScalarAttributeType.S },
-                    new AttributeDefinition { AttributeName = "SK", AttributeType = ScalarAttributeType.S }
-                ]
-        }, TestContext.Current.CancellationToken);
+        await CreateTestTableAsync(Client(StoreType.MemoryBased), ct);
+        await CreateTestTableAsync(Client(StoreType.FileBased), ct);
     }
 
-    public virtual ValueTask DisposeAsync()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task TagResource_Adds_Tags_To_Table(StoreType st)
     {
-        client.Dispose();
-        return ValueTask.CompletedTask;
-    }
-
-    [Fact]
-    public async Task TagResource_Adds_Tags_To_Table()
-    {
+        var client = Client(st);
         var response = await client.TagResourceAsync(new TagResourceRequest
         {
             ResourceArn = TableArn,
@@ -50,9 +30,12 @@ public abstract class TagTestsBase
         Assert.Equal(System.Net.HttpStatusCode.OK, response.HttpStatusCode);
     }
 
-    [Fact]
-    public async Task ListTagsOfResource_Returns_Empty_For_Untagged_Table()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task ListTagsOfResource_Returns_Empty_For_Untagged_Table(StoreType st)
     {
+        var client = Client(st);
         var response = await client.ListTagsOfResourceAsync(new ListTagsOfResourceRequest
         {
             ResourceArn = TableArn
@@ -61,9 +44,12 @@ public abstract class TagTestsBase
         Assert.Empty(response.Tags);
     }
 
-    [Fact]
-    public async Task ListTagsOfResource_Returns_Tags_After_Tagging()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task ListTagsOfResource_Returns_Tags_After_Tagging(StoreType st)
     {
+        var client = Client(st);
         _ = await client.TagResourceAsync(new TagResourceRequest
         {
             ResourceArn = TableArn,
@@ -84,9 +70,12 @@ public abstract class TagTestsBase
         Assert.Contains(response.Tags, t => t.Key == "team" && t.Value == "platform");
     }
 
-    [Fact]
-    public async Task UntagResource_Removes_Specified_Keys()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task UntagResource_Removes_Specified_Keys(StoreType st)
     {
+        var client = Client(st);
         _ = await client.TagResourceAsync(new TagResourceRequest
         {
             ResourceArn = TableArn,
@@ -112,9 +101,12 @@ public abstract class TagTestsBase
         Assert.Equal("team", response.Tags[0].Key);
     }
 
-    [Fact]
-    public async Task TagResource_Overwrites_Existing_Tag_Value()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task TagResource_Overwrites_Existing_Tag_Value(StoreType st)
     {
+        var client = Client(st);
         _ = await client.TagResourceAsync(new TagResourceRequest
         {
             ResourceArn = TableArn,
@@ -136,9 +128,12 @@ public abstract class TagTestsBase
         Assert.Equal("prod", response.Tags[0].Value);
     }
 
-    [Fact]
-    public async Task TagResource_Preserves_Existing_Tags_When_Adding_New()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task TagResource_Preserves_Existing_Tags_When_Adding_New(StoreType st)
     {
+        var client = Client(st);
         _ = await client.TagResourceAsync(new TagResourceRequest
         {
             ResourceArn = TableArn,
@@ -166,9 +161,12 @@ public abstract class TagTestsBase
         Assert.Contains(response.Tags, t => t.Key == "version" && t.Value == "v1");
     }
 
-    [Fact]
-    public async Task TagResource_Validates_Max_50_Tags()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task TagResource_Validates_Max_50_Tags(StoreType st)
     {
+        var client = Client(st);
         var tags = Enumerable.Range(1, 51)
             .Select(i => new Tag { Key = $"key{i}", Value = $"val{i}" })
             .ToList();
@@ -182,9 +180,12 @@ public abstract class TagTestsBase
         Assert.Contains("Too many tags", ex.Message);
     }
 
-    [Fact]
-    public async Task TagResource_Validates_Key_Length()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task TagResource_Validates_Key_Length(StoreType st)
     {
+        var client = Client(st);
         var ex = await Assert.ThrowsAsync<AmazonDynamoDBException>(() =>
             client.TagResourceAsync(new TagResourceRequest
             {
@@ -194,9 +195,12 @@ public abstract class TagTestsBase
         Assert.Contains("Tag key exceeds", ex.Message);
     }
 
-    [Fact]
-    public async Task TagResource_Validates_Value_Length()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task TagResource_Validates_Value_Length(StoreType st)
     {
+        var client = Client(st);
         var ex = await Assert.ThrowsAsync<AmazonDynamoDBException>(() =>
             client.TagResourceAsync(new TagResourceRequest
             {
@@ -206,9 +210,12 @@ public abstract class TagTestsBase
         Assert.Contains("Tag value exceeds", ex.Message);
     }
 
-    [Fact]
-    public async Task TagResource_Throws_For_Nonexistent_Table()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task TagResource_Throws_For_Nonexistent_Table(StoreType st)
     {
+        var client = Client(st);
         var ex = await Assert.ThrowsAsync<ResourceNotFoundException>(() =>
             client.TagResourceAsync(new TagResourceRequest
             {
@@ -218,9 +225,12 @@ public abstract class TagTestsBase
         Assert.Contains("NoSuchTable", ex.Message);
     }
 
-    [Fact]
-    public async Task UntagResource_Throws_For_Nonexistent_Table()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task UntagResource_Throws_For_Nonexistent_Table(StoreType st)
     {
+        var client = Client(st);
         var ex = await Assert.ThrowsAsync<ResourceNotFoundException>(() =>
             client.UntagResourceAsync(new UntagResourceRequest
             {
@@ -230,9 +240,12 @@ public abstract class TagTestsBase
         Assert.Contains("NoSuchTable", ex.Message);
     }
 
-    [Fact]
-    public async Task ListTagsOfResource_Throws_For_Nonexistent_Table()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task ListTagsOfResource_Throws_For_Nonexistent_Table(StoreType st)
     {
+        var client = Client(st);
         var ex = await Assert.ThrowsAsync<ResourceNotFoundException>(() =>
             client.ListTagsOfResourceAsync(new ListTagsOfResourceRequest
             {
@@ -241,9 +254,12 @@ public abstract class TagTestsBase
         Assert.Contains("NoSuchTable", ex.Message);
     }
 
-    [Fact]
-    public async Task CreateTable_Persists_Tags()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task CreateTable_Persists_Tags(StoreType st)
     {
+        var client = Client(st);
         _ = await client.CreateTableAsync(new CreateTableRequest
         {
             TableName = "TaggedTable",
@@ -268,9 +284,12 @@ public abstract class TagTestsBase
         Assert.Contains(response.Tags, t => t.Key == "cost-center" && t.Value == "123");
     }
 
-    [Fact]
-    public async Task DeleteTable_Removes_Tags()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task DeleteTable_Removes_Tags(StoreType st)
     {
+        var client = Client(st);
         _ = await client.TagResourceAsync(new TagResourceRequest
         {
             ResourceArn = TableArn,
@@ -303,30 +322,5 @@ public abstract class TagTestsBase
         }, TestContext.Current.CancellationToken);
 
         Assert.Empty(response.Tags);
-    }
-}
-
-public sealed class InMemoryTagTests : TagTestsBase
-{
-    protected override DynamoDbClient CreateClient() =>
-        new(new DynamoDbLiteOptions($"Data Source=Test_{Guid.NewGuid():N};Mode=Memory;Cache=Shared"));
-}
-
-public sealed class FileBasedTagTests : TagTestsBase
-{
-    private string? dbPath;
-
-    protected override DynamoDbClient CreateClient()
-    {
-        var (c, path) = FileBasedTestHelper.CreateFileBasedClient();
-        dbPath = path;
-        return c;
-    }
-
-    public override ValueTask DisposeAsync()
-    {
-        var result = base.DisposeAsync();
-        FileBasedTestHelper.Cleanup(dbPath);
-        return result;
     }
 }

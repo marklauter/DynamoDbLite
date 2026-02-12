@@ -4,39 +4,16 @@ using DynamoDbLite.Tests.Fixtures;
 
 namespace DynamoDbLite.Tests;
 
-public abstract class TransactionTestsBase
-    : IAsyncLifetime
+public sealed class TransactionTests
+    : DynamoDbClientFixture
 {
-    protected DynamoDbClient client = null!;
-
-    protected abstract DynamoDbClient CreateClient();
-
-    public async ValueTask InitializeAsync()
+    protected override async ValueTask SetupAsync(CancellationToken ct)
     {
-        client = CreateClient();
-        _ = await client.CreateTableAsync(new CreateTableRequest
-        {
-            TableName = "TestTable",
-            KeySchema =
-                [
-                    new KeySchemaElement { AttributeName = "PK", KeyType = KeyType.HASH },
-                    new KeySchemaElement { AttributeName = "SK", KeyType = KeyType.RANGE }
-                ],
-            AttributeDefinitions =
-                [
-                    new AttributeDefinition { AttributeName = "PK", AttributeType = ScalarAttributeType.S },
-                    new AttributeDefinition { AttributeName = "SK", AttributeType = ScalarAttributeType.S }
-                ]
-        }, TestContext.Current.CancellationToken);
+        await CreateTestTableAsync(Client(StoreType.MemoryBased), ct);
+        await CreateTestTableAsync(Client(StoreType.FileBased), ct);
     }
 
-    public virtual ValueTask DisposeAsync()
-    {
-        client.Dispose();
-        return ValueTask.CompletedTask;
-    }
-
-    private async Task PutTestItemAsync(string pk, string sk, string name)
+    private static async Task PutTestItemAsync(DynamoDbClient client, string pk, string sk, string name)
         => _ = await client.PutItemAsync(new PutItemRequest
         {
             TableName = "TestTable",
@@ -48,7 +25,7 @@ public abstract class TransactionTestsBase
             }
         }, TestContext.Current.CancellationToken);
 
-    private async Task<Dictionary<string, AttributeValue>?> GetTestItemAsync(string pk, string sk)
+    private static async Task<Dictionary<string, AttributeValue>?> GetTestItemAsync(DynamoDbClient client, string pk, string sk)
     {
         var response = await client.GetItemAsync(new GetItemRequest
         {
@@ -62,7 +39,7 @@ public abstract class TransactionTestsBase
         return response.IsItemSet ? response.Item : null;
     }
 
-    private async Task CreateSecondTableAsync()
+    private static async Task CreateSecondTableAsync(DynamoDbClient client)
         => _ = await client.CreateTableAsync(new CreateTableRequest
         {
             TableName = "SecondTable",
@@ -78,11 +55,14 @@ public abstract class TransactionTestsBase
                 ]
         }, TestContext.Current.CancellationToken);
 
-    // ── TransactWriteItems — happy path ─────────────────────────────────
+    // -- TransactWriteItems -- happy path ------------------------------------
 
-    [Fact]
-    public async Task TransactWriteItems_PutMultipleItems_AllWritten()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task TransactWriteItems_PutMultipleItems_AllWritten(StoreType st)
     {
+        var client = Client(st);
         var response = await client.TransactWriteItemsAsync(new TransactWriteItemsRequest
         {
             TransactItems =
@@ -118,19 +98,22 @@ public abstract class TransactionTestsBase
 
         Assert.Equal(System.Net.HttpStatusCode.OK, response.HttpStatusCode);
 
-        var alice = await GetTestItemAsync("USER#1", "PROFILE");
-        var bob = await GetTestItemAsync("USER#2", "PROFILE");
+        var alice = await GetTestItemAsync(client, "USER#1", "PROFILE");
+        var bob = await GetTestItemAsync(client, "USER#2", "PROFILE");
         Assert.NotNull(alice);
         Assert.Equal("Alice", alice["name"].S);
         Assert.NotNull(bob);
         Assert.Equal("Bob", bob["name"].S);
     }
 
-    [Fact]
-    public async Task TransactWriteItems_UpdateAndDelete_BothApplied()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task TransactWriteItems_UpdateAndDelete_BothApplied(StoreType st)
     {
-        await PutTestItemAsync("USER#1", "PROFILE", "Alice");
-        await PutTestItemAsync("USER#2", "PROFILE", "Bob");
+        var client = Client(st);
+        await PutTestItemAsync(client, "USER#1", "PROFILE", "Alice");
+        await PutTestItemAsync(client, "USER#2", "PROFILE", "Bob");
 
         _ = await client.TransactWriteItemsAsync(new TransactWriteItemsRequest
         {
@@ -169,17 +152,20 @@ public abstract class TransactionTestsBase
             ]
         }, TestContext.Current.CancellationToken);
 
-        var alice = await GetTestItemAsync("USER#1", "PROFILE");
-        var bob = await GetTestItemAsync("USER#2", "PROFILE");
+        var alice = await GetTestItemAsync(client, "USER#1", "PROFILE");
+        var bob = await GetTestItemAsync(client, "USER#2", "PROFILE");
         Assert.NotNull(alice);
         Assert.Equal("Alice Updated", alice["name"].S);
         Assert.Null(bob);
     }
 
-    [Fact]
-    public async Task TransactWriteItems_ConditionCheckPasses_WritesSucceed()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task TransactWriteItems_ConditionCheckPasses_WritesSucceed(StoreType st)
     {
-        await PutTestItemAsync("USER#1", "PROFILE", "Alice");
+        var client = Client(st);
+        await PutTestItemAsync(client, "USER#1", "PROFILE", "Alice");
 
         _ = await client.TransactWriteItemsAsync(new TransactWriteItemsRequest
         {
@@ -214,15 +200,18 @@ public abstract class TransactionTestsBase
             ]
         }, TestContext.Current.CancellationToken);
 
-        var bob = await GetTestItemAsync("USER#2", "PROFILE");
+        var bob = await GetTestItemAsync(client, "USER#2", "PROFILE");
         Assert.NotNull(bob);
         Assert.Equal("Bob", bob["name"].S);
     }
 
-    [Fact]
-    public async Task TransactWriteItems_MultipleTablesWork()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task TransactWriteItems_MultipleTablesWork(StoreType st)
     {
-        await CreateSecondTableAsync();
+        var client = Client(st);
+        await CreateSecondTableAsync(client);
 
         _ = await client.TransactWriteItemsAsync(new TransactWriteItemsRequest
         {
@@ -257,7 +246,7 @@ public abstract class TransactionTestsBase
             ]
         }, TestContext.Current.CancellationToken);
 
-        var item1 = await GetTestItemAsync("T1#1", "DATA");
+        var item1 = await GetTestItemAsync(client, "T1#1", "DATA");
         Assert.NotNull(item1);
         Assert.Equal("table1", item1["val"].S);
 
@@ -273,12 +262,15 @@ public abstract class TransactionTestsBase
         Assert.Equal("table2", response2.Item["val"].S);
     }
 
-    // ── TransactWriteItems — condition failures ─────────────────────────
+    // -- TransactWriteItems -- condition failures ----------------------------
 
-    [Fact]
-    public async Task TransactWriteItems_ConditionFails_ThrowsTransactionCanceledException()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task TransactWriteItems_ConditionFails_ThrowsTransactionCanceledException(StoreType st)
     {
-        await PutTestItemAsync("USER#1", "PROFILE", "Alice");
+        var client = Client(st);
+        await PutTestItemAsync(client, "USER#1", "PROFILE", "Alice");
 
         var ex = await Assert.ThrowsAsync<TransactionCanceledException>(() =>
             client.TransactWriteItemsAsync(new TransactWriteItemsRequest
@@ -320,16 +312,19 @@ public abstract class TransactionTestsBase
         Assert.Equal("None", ex.CancellationReasons[1].Code);
 
         // No writes should have happened
-        var alice = await GetTestItemAsync("USER#1", "PROFILE");
+        var alice = await GetTestItemAsync(client, "USER#1", "PROFILE");
         Assert.Equal("Alice", alice!["name"].S);
-        var bob = await GetTestItemAsync("USER#2", "PROFILE");
+        var bob = await GetTestItemAsync(client, "USER#2", "PROFILE");
         Assert.Null(bob);
     }
 
-    [Fact]
-    public async Task TransactWriteItems_ConditionFails_ReturnValuesOnFailure_ReturnsOldItem()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task TransactWriteItems_ConditionFails_ReturnValuesOnFailure_ReturnsOldItem(StoreType st)
     {
-        await PutTestItemAsync("USER#1", "PROFILE", "Alice");
+        var client = Client(st);
+        await PutTestItemAsync(client, "USER#1", "PROFILE", "Alice");
 
         var ex = await Assert.ThrowsAsync<TransactionCanceledException>(() =>
             client.TransactWriteItemsAsync(new TransactWriteItemsRequest
@@ -360,10 +355,13 @@ public abstract class TransactionTestsBase
         Assert.Equal("Alice", ex.CancellationReasons[0].Item["name"].S);
     }
 
-    [Fact]
-    public async Task TransactWriteItems_ConditionCheckFails_NoWritesOccur()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task TransactWriteItems_ConditionCheckFails_NoWritesOccur(StoreType st)
     {
-        await PutTestItemAsync("USER#1", "PROFILE", "Alice");
+        var client = Client(st);
+        await PutTestItemAsync(client, "USER#1", "PROFILE", "Alice");
 
         _ = await Assert.ThrowsAsync<TransactionCanceledException>(() =>
             client.TransactWriteItemsAsync(new TransactWriteItemsRequest
@@ -404,15 +402,18 @@ public abstract class TransactionTestsBase
                 ]
             }, TestContext.Current.CancellationToken));
 
-        var shouldNotExist = await GetTestItemAsync("USER#99", "PROFILE");
+        var shouldNotExist = await GetTestItemAsync(client, "USER#99", "PROFILE");
         Assert.Null(shouldNotExist);
     }
 
-    // ── TransactWriteItems — validation errors ──────────────────────────
+    // -- TransactWriteItems -- validation errors -----------------------------
 
-    [Fact]
-    public async Task TransactWriteItems_MoreThan100Actions_Throws()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task TransactWriteItems_MoreThan100Actions_Throws(StoreType st)
     {
+        var client = Client(st);
         var items = Enumerable.Range(1, 101).Select(i => new TransactWriteItem
         {
             Put = new Put
@@ -433,10 +434,12 @@ public abstract class TransactionTestsBase
             }, TestContext.Current.CancellationToken));
     }
 
-    [Fact]
-    public async Task TransactWriteItems_DuplicateKeys_Throws()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task TransactWriteItems_DuplicateKeys_Throws(StoreType st)
         => _ = await Assert.ThrowsAsync<AmazonDynamoDBException>(()
-            => client.TransactWriteItemsAsync(new TransactWriteItemsRequest
+            => Client(st).TransactWriteItemsAsync(new TransactWriteItemsRequest
             {
                 TransactItems =
                 [
@@ -468,10 +471,12 @@ public abstract class TransactionTestsBase
                 ]
             }, TestContext.Current.CancellationToken));
 
-    [Fact]
-    public async Task TransactWriteItems_MissingTable_ThrowsResourceNotFound()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task TransactWriteItems_MissingTable_ThrowsResourceNotFound(StoreType st)
         => _ = await Assert.ThrowsAsync<ResourceNotFoundException>(()
-            => client.TransactWriteItemsAsync(new TransactWriteItemsRequest
+            => Client(st).TransactWriteItemsAsync(new TransactWriteItemsRequest
             {
                 TransactItems =
                 [
@@ -490,19 +495,24 @@ public abstract class TransactionTestsBase
                 ]
             }, TestContext.Current.CancellationToken));
 
-    [Fact]
-    public async Task TransactWriteItems_EmptyTransactItems_Throws()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task TransactWriteItems_EmptyTransactItems_Throws(StoreType st)
         => _ = await Assert.ThrowsAsync<AmazonDynamoDBException>(()
-            => client.TransactWriteItemsAsync(new TransactWriteItemsRequest
+            => Client(st).TransactWriteItemsAsync(new TransactWriteItemsRequest
             {
                 TransactItems = []
             }, TestContext.Current.CancellationToken));
 
-    // ── TransactWriteItems — idempotency ────────────────────────────────
+    // -- TransactWriteItems -- idempotency -----------------------------------
 
-    [Fact]
-    public async Task TransactWriteItems_SameClientRequestToken_ReturnsCachedResponse()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task TransactWriteItems_SameClientRequestToken_ReturnsCachedResponse(StoreType st)
     {
+        var client = Client(st);
         var token = Guid.NewGuid().ToString();
         var request = new TransactWriteItemsRequest
         {
@@ -528,19 +538,22 @@ public abstract class TransactionTestsBase
         var response1 = await client.TransactWriteItemsAsync(request, TestContext.Current.CancellationToken);
 
         // Modify the item directly, then replay the same token
-        await PutTestItemAsync("IDEMPOTENT#1", "DATA", "modified");
+        await PutTestItemAsync(client, "IDEMPOTENT#1", "DATA", "modified");
 
         var response2 = await client.TransactWriteItemsAsync(request, TestContext.Current.CancellationToken);
 
         // Should return same cached response, not re-execute (item should still be "modified")
         Assert.Same(response1, response2);
-        var item = await GetTestItemAsync("IDEMPOTENT#1", "DATA");
+        var item = await GetTestItemAsync(client, "IDEMPOTENT#1", "DATA");
         Assert.Equal("modified", item!["name"].S);
     }
 
-    [Fact]
-    public async Task TransactWriteItems_DifferentToken_ExecutesNormally()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task TransactWriteItems_DifferentToken_ExecutesNormally(StoreType st)
     {
+        var client = Client(st);
         _ = await client.TransactWriteItemsAsync(new TransactWriteItemsRequest
         {
             ClientRequestToken = "token-1",
@@ -583,17 +596,20 @@ public abstract class TransactionTestsBase
             ]
         }, TestContext.Current.CancellationToken);
 
-        var item = await GetTestItemAsync("TOKEN#1", "DATA");
+        var item = await GetTestItemAsync(client, "TOKEN#1", "DATA");
         Assert.Equal("second", item!["val"].S);
     }
 
-    // ── TransactGetItems ────────────────────────────────────────────────
+    // -- TransactGetItems ----------------------------------------------------
 
-    [Fact]
-    public async Task TransactGetItems_MultipleItems_ReturnsAll()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task TransactGetItems_MultipleItems_ReturnsAll(StoreType st)
     {
-        await PutTestItemAsync("USER#1", "PROFILE", "Alice");
-        await PutTestItemAsync("USER#2", "PROFILE", "Bob");
+        var client = Client(st);
+        await PutTestItemAsync(client, "USER#1", "PROFILE", "Alice");
+        await PutTestItemAsync(client, "USER#2", "PROFILE", "Bob");
 
         var response = await client.TransactGetItemsAsync(new TransactGetItemsRequest
         {
@@ -632,10 +648,13 @@ public abstract class TransactionTestsBase
         Assert.Equal("Bob", response.Responses[1].Item["name"].S);
     }
 
-    [Fact]
-    public async Task TransactGetItems_WithProjectionExpression_FiltersAttributes()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task TransactGetItems_WithProjectionExpression_FiltersAttributes(StoreType st)
     {
-        await PutTestItemAsync("USER#1", "PROFILE", "Alice");
+        var client = Client(st);
+        await PutTestItemAsync(client, "USER#1", "PROFILE", "Alice");
 
         var response = await client.TransactGetItemsAsync(new TransactGetItemsRequest
         {
@@ -663,9 +682,12 @@ public abstract class TransactionTestsBase
         Assert.False(response.Responses[0].Item.ContainsKey("PK"));
     }
 
-    [Fact]
-    public async Task TransactGetItems_NonexistentItem_ReturnsNullItem()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task TransactGetItems_NonexistentItem_ReturnsNullItem(StoreType st)
     {
+        var client = Client(st);
         var response = await client.TransactGetItemsAsync(new TransactGetItemsRequest
         {
             TransactItems =
@@ -689,9 +711,12 @@ public abstract class TransactionTestsBase
         Assert.Null(response.Responses[0].Item);
     }
 
-    [Fact]
-    public async Task TransactGetItems_MoreThan100Items_Throws()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task TransactGetItems_MoreThan100Items_Throws(StoreType st)
     {
+        var client = Client(st);
         var items = Enumerable.Range(1, 101).Select(i => new TransactGetItem
         {
             Get = new Get
@@ -712,11 +737,15 @@ public abstract class TransactionTestsBase
             }, TestContext.Current.CancellationToken));
     }
 
-    // ── TransactWriteItems — index maintenance ──────────────────────────
+    // -- TransactWriteItems -- index maintenance -----------------------------
 
-    [Fact]
-    public async Task TransactWriteItems_WithGSI_IndexMaintained()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task TransactWriteItems_WithGSI_IndexMaintained(StoreType st)
     {
+        var client = Client(st);
+
         // Create a table with a GSI
         _ = await client.CreateTableAsync(new CreateTableRequest
         {
@@ -783,11 +812,14 @@ public abstract class TransactionTestsBase
         Assert.Equal("indexed", queryResponse.Items[0]["val"].S);
     }
 
-    // ── TransactWriteItems — Update creates new item ────────────────────
+    // -- TransactWriteItems -- Update creates new item -----------------------
 
-    [Fact]
-    public async Task TransactWriteItems_UpdateNonexistentItem_CreatesIt()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task TransactWriteItems_UpdateNonexistentItem_CreatesIt(StoreType st)
     {
+        var client = Client(st);
         _ = await client.TransactWriteItemsAsync(new TransactWriteItemsRequest
         {
             TransactItems =
@@ -813,17 +845,20 @@ public abstract class TransactionTestsBase
             ]
         }, TestContext.Current.CancellationToken);
 
-        var item = await GetTestItemAsync("NEW#1", "DATA");
+        var item = await GetTestItemAsync(client, "NEW#1", "DATA");
         Assert.NotNull(item);
         Assert.Equal("Created", item["name"].S);
     }
 
-    // ── TransactWriteItems — Update with failing condition ───────────────
+    // -- TransactWriteItems -- Update with failing condition ------------------
 
-    [Fact]
-    public async Task TransactWriteItems_UpdateWithFailingCondition_Throws()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task TransactWriteItems_UpdateWithFailingCondition_Throws(StoreType st)
     {
-        await PutTestItemAsync("USER#1", "PROFILE", "Alice");
+        var client = Client(st);
+        await PutTestItemAsync(client, "USER#1", "PROFILE", "Alice");
 
         var ex = await Assert.ThrowsAsync<TransactionCanceledException>(() =>
             client.TransactWriteItemsAsync(new TransactWriteItemsRequest
@@ -857,16 +892,18 @@ public abstract class TransactionTestsBase
         Assert.Equal("ConditionalCheckFailed", ex.CancellationReasons[0].Code);
 
         // Item should be unchanged
-        var item = await GetTestItemAsync("USER#1", "PROFILE");
+        var item = await GetTestItemAsync(client, "USER#1", "PROFILE");
         Assert.Equal("Alice", item!["name"].S);
     }
 
-    // ── TransactWriteItems — Update without UpdateExpression ─────────────
+    // -- TransactWriteItems -- Update without UpdateExpression ----------------
 
-    [Fact]
-    public async Task TransactWriteItems_UpdateWithoutUpdateExpression_Throws()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task TransactWriteItems_UpdateWithoutUpdateExpression_Throws(StoreType st)
         => _ = await Assert.ThrowsAsync<AmazonDynamoDBException>(()
-            => client.TransactWriteItemsAsync(new TransactWriteItemsRequest
+            => Client(st).TransactWriteItemsAsync(new TransactWriteItemsRequest
             {
                 TransactItems =
                 [
@@ -885,12 +922,14 @@ public abstract class TransactionTestsBase
                 ]
             }, TestContext.Current.CancellationToken));
 
-    // ── TransactGetItems — missing table ─────────────────────────────────
+    // -- TransactGetItems -- missing table ------------------------------------
 
-    [Fact]
-    public async Task TransactGetItems_MissingTable_ThrowsResourceNotFound()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task TransactGetItems_MissingTable_ThrowsResourceNotFound(StoreType st)
         => _ = await Assert.ThrowsAsync<ResourceNotFoundException>(()
-            => client.TransactGetItemsAsync(new TransactGetItemsRequest
+            => Client(st).TransactGetItemsAsync(new TransactGetItemsRequest
             {
                 TransactItems =
                 [
@@ -908,29 +947,4 @@ public abstract class TransactionTestsBase
                     }
                 ]
             }, TestContext.Current.CancellationToken));
-}
-
-public sealed class InMemoryTransactionTests : TransactionTestsBase
-{
-    protected override DynamoDbClient CreateClient() =>
-        new(new DynamoDbLiteOptions($"Data Source=Test_{Guid.NewGuid():N};Mode=Memory;Cache=Shared"));
-}
-
-public sealed class FileBasedTransactionTests : TransactionTestsBase
-{
-    private string? dbPath;
-
-    protected override DynamoDbClient CreateClient()
-    {
-        var (c, path) = FileBasedTestHelper.CreateFileBasedClient();
-        dbPath = path;
-        return c;
-    }
-
-    public override ValueTask DisposeAsync()
-    {
-        var result = base.DisposeAsync();
-        FileBasedTestHelper.Cleanup(dbPath);
-        return result;
-    }
 }

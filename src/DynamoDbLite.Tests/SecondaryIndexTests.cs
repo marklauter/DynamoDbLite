@@ -4,26 +4,10 @@ using DynamoDbLite.Tests.Fixtures;
 
 namespace DynamoDbLite.Tests;
 
-public abstract class SecondaryIndexTestsBase
-    : IAsyncLifetime
+public sealed class SecondaryIndexTests
+    : DynamoDbClientFixture
 {
-    protected DynamoDbClient client = null!;
-
-    protected abstract DynamoDbClient CreateClient();
-
-    public ValueTask InitializeAsync()
-    {
-        client = CreateClient();
-        return ValueTask.CompletedTask;
-    }
-
-    public virtual ValueTask DisposeAsync()
-    {
-        client.Dispose();
-        return ValueTask.CompletedTask;
-    }
-
-    private async Task CreateTableWithGsiAsync(string tableName = "TestTable")
+    private static async Task CreateTableWithGsiAsync(DynamoDbClient client, string tableName = "TestTable")
         => _ = await client.CreateTableAsync(new CreateTableRequest
         {
             TableName = tableName,
@@ -54,7 +38,7 @@ public abstract class SecondaryIndexTestsBase
             ]
         }, TestContext.Current.CancellationToken);
 
-    private async Task CreateTableWithLsiAsync(string tableName = "TestTable") => _ = await client.CreateTableAsync(new CreateTableRequest
+    private static async Task CreateTableWithLsiAsync(DynamoDbClient client, string tableName = "TestTable") => _ = await client.CreateTableAsync(new CreateTableRequest
     {
         TableName = tableName,
         KeySchema =
@@ -83,12 +67,15 @@ public abstract class SecondaryIndexTestsBase
             ]
     }, TestContext.Current.CancellationToken);
 
-    // ── GSI Creation ────────────────────────────────────────────────
+    // -- GSI Creation ----------------------------------------------------
 
-    [Fact]
-    public async Task CreateTable_WithGsi_DescribeShowsGsi()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task CreateTable_WithGsi_DescribeShowsGsi(StoreType st)
     {
-        await CreateTableWithGsiAsync();
+        var client = Client(st);
+        await CreateTableWithGsiAsync(client);
 
         var response = await client.DescribeTableAsync("TestTable", TestContext.Current.CancellationToken);
 
@@ -103,12 +90,15 @@ public abstract class SecondaryIndexTestsBase
         Assert.Equal(ProjectionType.ALL, gsi.Projection.ProjectionType);
     }
 
-    // ── LSI Creation ────────────────────────────────────────────────
+    // -- LSI Creation ----------------------------------------------------
 
-    [Fact]
-    public async Task CreateTable_WithLsi_DescribeShowsLsi()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task CreateTable_WithLsi_DescribeShowsLsi(StoreType st)
     {
-        await CreateTableWithLsiAsync();
+        var client = Client(st);
+        await CreateTableWithLsiAsync(client);
 
         var response = await client.DescribeTableAsync("TestTable", TestContext.Current.CancellationToken);
 
@@ -121,11 +111,14 @@ public abstract class SecondaryIndexTestsBase
         Assert.Equal("LSI_SK", lsi.KeySchema.First(k => k.KeyType == KeyType.RANGE).AttributeName);
     }
 
-    // ── Validation: Too many GSIs ───────────────────────────────────
+    // -- Validation: Too many GSIs ---------------------------------------
 
-    [Fact]
-    public async Task CreateTable_TooManyGsis_Throws()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task CreateTable_TooManyGsis_Throws(StoreType st)
     {
+        var client = Client(st);
         var gsis = Enumerable.Range(1, 6).Select(i => new GlobalSecondaryIndex
         {
             IndexName = $"GSI{i}",
@@ -150,11 +143,14 @@ public abstract class SecondaryIndexTestsBase
             }, TestContext.Current.CancellationToken));
     }
 
-    // ── Validation: Too many LSIs ───────────────────────────────────
+    // -- Validation: Too many LSIs ---------------------------------------
 
-    [Fact]
-    public async Task CreateTable_TooManyLsis_Throws()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task CreateTable_TooManyLsis_Throws(StoreType st)
     {
+        var client = Client(st);
         var lsis = Enumerable.Range(1, 6).Select(i => new LocalSecondaryIndex
         {
             IndexName = $"LSI{i}",
@@ -188,12 +184,14 @@ public abstract class SecondaryIndexTestsBase
             }, TestContext.Current.CancellationToken));
     }
 
-    // ── Validation: LSI must share table PK ─────────────────────────
+    // -- Validation: LSI must share table PK -----------------------------
 
-    [Fact]
-    public async Task CreateTable_LsiDifferentPk_Throws()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task CreateTable_LsiDifferentPk_Throws(StoreType st)
         => _ = await Assert.ThrowsAsync<AmazonDynamoDBException>(() =>
-            client.CreateTableAsync(new CreateTableRequest
+            Client(st).CreateTableAsync(new CreateTableRequest
             {
                 TableName = "TestTable",
                 KeySchema =
@@ -222,12 +220,14 @@ public abstract class SecondaryIndexTestsBase
                 ]
             }, TestContext.Current.CancellationToken));
 
-    // ── Validation: Missing attribute definition ────────────────────
+    // -- Validation: Missing attribute definition ------------------------
 
-    [Fact]
-    public async Task CreateTable_GsiKeyNotInAttributeDefinitions_Throws()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task CreateTable_GsiKeyNotInAttributeDefinitions_Throws(StoreType st)
         => _ = await Assert.ThrowsAsync<AmazonDynamoDBException>(() =>
-            client.CreateTableAsync(new CreateTableRequest
+            Client(st).CreateTableAsync(new CreateTableRequest
             {
                 TableName = "TestTable",
                 KeySchema = [new KeySchemaElement { AttributeName = "PK", KeyType = KeyType.HASH }],
@@ -246,12 +246,14 @@ public abstract class SecondaryIndexTestsBase
                 ]
             }, TestContext.Current.CancellationToken));
 
-    // ── Validation: Unused attribute definitions ────────────────────
+    // -- Validation: Unused attribute definitions ------------------------
 
-    [Fact]
-    public async Task CreateTable_UnusedAttributeDefinitions_Throws()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task CreateTable_UnusedAttributeDefinitions_Throws(StoreType st)
         => _ = await Assert.ThrowsAsync<AmazonDynamoDBException>(() =>
-            client.CreateTableAsync(new CreateTableRequest
+            Client(st).CreateTableAsync(new CreateTableRequest
             {
                 TableName = "TestTable",
                 KeySchema = [new KeySchemaElement { AttributeName = "PK", KeyType = KeyType.HASH }],
@@ -262,12 +264,14 @@ public abstract class SecondaryIndexTestsBase
                 ]
             }, TestContext.Current.CancellationToken));
 
-    // ── Validation: Duplicate index names ───────────────────────────
+    // -- Validation: Duplicate index names -------------------------------
 
-    [Fact]
-    public async Task CreateTable_DuplicateGsiNames_Throws()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task CreateTable_DuplicateGsiNames_Throws(StoreType st)
         => _ = await Assert.ThrowsAsync<AmazonDynamoDBException>(() =>
-            client.CreateTableAsync(new CreateTableRequest
+            Client(st).CreateTableAsync(new CreateTableRequest
             {
                 TableName = "TestTable",
                 KeySchema = [new KeySchemaElement { AttributeName = "PK", KeyType = KeyType.HASH }],
@@ -293,12 +297,15 @@ public abstract class SecondaryIndexTestsBase
                 ]
             }, TestContext.Current.CancellationToken));
 
-    // ── GSI Query ───────────────────────────────────────────────────
+    // -- GSI Query -------------------------------------------------------
 
-    [Fact]
-    public async Task QueryAsync_GsiIndex_ReturnsCorrectResults()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task QueryAsync_GsiIndex_ReturnsCorrectResults(StoreType st)
     {
-        await CreateTableWithGsiAsync();
+        var client = Client(st);
+        await CreateTableWithGsiAsync(client);
 
         _ = await client.PutItemAsync(new PutItemRequest
         {
@@ -355,12 +362,15 @@ public abstract class SecondaryIndexTestsBase
         Assert.Equal("gsi_sk_B", response.Items[1]["GSI_SK"].S);
     }
 
-    // ── GSI Scan ────────────────────────────────────────────────────
+    // -- GSI Scan --------------------------------------------------------
 
-    [Fact]
-    public async Task ScanAsync_GsiIndex_ReturnsAllIndexItems()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task ScanAsync_GsiIndex_ReturnsAllIndexItems(StoreType st)
     {
-        await CreateTableWithGsiAsync();
+        var client = Client(st);
+        await CreateTableWithGsiAsync(client);
 
         _ = await client.PutItemAsync(new PutItemRequest
         {
@@ -395,12 +405,15 @@ public abstract class SecondaryIndexTestsBase
         Assert.Equal(2, response.Count);
     }
 
-    // ── LSI Query ───────────────────────────────────────────────────
+    // -- LSI Query -------------------------------------------------------
 
-    [Fact]
-    public async Task QueryAsync_LsiIndex_ReturnsCorrectResults()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task QueryAsync_LsiIndex_ReturnsCorrectResults(StoreType st)
     {
-        await CreateTableWithLsiAsync();
+        var client = Client(st);
+        await CreateTableWithLsiAsync(client);
 
         _ = await client.PutItemAsync(new PutItemRequest
         {
@@ -443,12 +456,15 @@ public abstract class SecondaryIndexTestsBase
         Assert.Equal("Z", response.Items[1]["LSI_SK"].S);
     }
 
-    // ── Sparse indexes ──────────────────────────────────────────────
+    // -- Sparse indexes --------------------------------------------------
 
-    [Fact]
-    public async Task QueryAsync_SparseIndex_ExcludesItemsMissingKeys()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task QueryAsync_SparseIndex_ExcludesItemsMissingKeys(StoreType st)
     {
-        await CreateTableWithGsiAsync();
+        var client = Client(st);
+        await CreateTableWithGsiAsync(client);
 
         // Item with GSI keys
         _ = await client.PutItemAsync(new PutItemRequest
@@ -486,11 +502,14 @@ public abstract class SecondaryIndexTestsBase
         Assert.Equal("indexed", response.Items[0]["data"].S);
     }
 
-    // ── Projection: KEYS_ONLY ───────────────────────────────────────
+    // -- Projection: KEYS_ONLY ------------------------------------------
 
-    [Fact]
-    public async Task QueryAsync_KeysOnlyProjection_ReturnsOnlyKeys()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task QueryAsync_KeysOnlyProjection_ReturnsOnlyKeys(StoreType st)
     {
+        var client = Client(st);
         _ = await client.CreateTableAsync(new CreateTableRequest
         {
             TableName = "TestTable",
@@ -548,11 +567,14 @@ public abstract class SecondaryIndexTestsBase
         Assert.False(item.ContainsKey("data"));
     }
 
-    // ── Projection: INCLUDE ─────────────────────────────────────────
+    // -- Projection: INCLUDE --------------------------------------------
 
-    [Fact]
-    public async Task QueryAsync_IncludeProjection_ReturnsKeysAndIncludedAttributes()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task QueryAsync_IncludeProjection_ReturnsKeysAndIncludedAttributes(StoreType st)
     {
+        var client = Client(st);
         _ = await client.CreateTableAsync(new CreateTableRequest
         {
             TableName = "TestTable",
@@ -615,12 +637,15 @@ public abstract class SecondaryIndexTestsBase
         Assert.False(item.ContainsKey("secret"));
     }
 
-    // ── Index maintenance: update ───────────────────────────────────
+    // -- Index maintenance: update ---------------------------------------
 
-    [Fact]
-    public async Task UpdateItem_ChangesIndexKey_UpdatesIndex()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task UpdateItem_ChangesIndexKey_UpdatesIndex(StoreType st)
     {
-        await CreateTableWithGsiAsync();
+        var client = Client(st);
+        await CreateTableWithGsiAsync(client);
 
         _ = await client.PutItemAsync(new PutItemRequest
         {
@@ -677,12 +702,15 @@ public abstract class SecondaryIndexTestsBase
         Assert.Equal(1, newResponse.Count);
     }
 
-    // ── Index maintenance: delete ───────────────────────────────────
+    // -- Index maintenance: delete ---------------------------------------
 
-    [Fact]
-    public async Task DeleteItem_RemovesFromIndex()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task DeleteItem_RemovesFromIndex(StoreType st)
     {
-        await CreateTableWithGsiAsync();
+        var client = Client(st);
+        await CreateTableWithGsiAsync(client);
 
         _ = await client.PutItemAsync(new PutItemRequest
         {
@@ -720,12 +748,15 @@ public abstract class SecondaryIndexTestsBase
         Assert.Equal(0, response.Count);
     }
 
-    // ── Batch write with indexes ────────────────────────────────────
+    // -- Batch write with indexes ----------------------------------------
 
-    [Fact]
-    public async Task BatchWriteItem_UpdatesIndexes()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task BatchWriteItem_UpdatesIndexes(StoreType st)
     {
-        await CreateTableWithGsiAsync();
+        var client = Client(st);
+        await CreateTableWithGsiAsync(client);
 
         _ = await client.BatchWriteItemAsync(new BatchWriteItemRequest
         {
@@ -777,12 +808,15 @@ public abstract class SecondaryIndexTestsBase
         Assert.Equal(2, response.Count);
     }
 
-    // ── GSI Query with FilterExpression ─────────────────────────────
+    // -- GSI Query with FilterExpression ---------------------------------
 
-    [Fact]
-    public async Task QueryAsync_GsiWithFilter_FiltersResults()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task QueryAsync_GsiWithFilter_FiltersResults(StoreType st)
     {
-        await CreateTableWithGsiAsync();
+        var client = Client(st);
+        await CreateTableWithGsiAsync(client);
 
         _ = await client.PutItemAsync(new PutItemRequest
         {
@@ -828,12 +862,15 @@ public abstract class SecondaryIndexTestsBase
         Assert.Equal("pk1", response.Items[0]["PK"].S);
     }
 
-    // ── Pagination on index ─────────────────────────────────────────
+    // -- Pagination on index ---------------------------------------------
 
-    [Fact]
-    public async Task QueryAsync_GsiPagination_WorksCorrectly()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task QueryAsync_GsiPagination_WorksCorrectly(StoreType st)
     {
-        await CreateTableWithGsiAsync();
+        var client = Client(st);
+        await CreateTableWithGsiAsync(client);
 
         for (var i = 0; i < 5; i++)
         {
@@ -876,12 +913,15 @@ public abstract class SecondaryIndexTestsBase
         Assert.Equal(5, allItems.Count);
     }
 
-    // ── ConsistentRead on GSI throws ────────────────────────────────
+    // -- ConsistentRead on GSI throws ------------------------------------
 
-    [Fact]
-    public async Task QueryAsync_ConsistentReadOnGsi_Throws()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task QueryAsync_ConsistentReadOnGsi_Throws(StoreType st)
     {
-        await CreateTableWithGsiAsync();
+        var client = Client(st);
+        await CreateTableWithGsiAsync(client);
 
         _ = await Assert.ThrowsAsync<AmazonDynamoDBException>(() =>
             client.QueryAsync(new QueryRequest
@@ -897,11 +937,15 @@ public abstract class SecondaryIndexTestsBase
             }, TestContext.Current.CancellationToken));
     }
 
-    // ── UpdateTable: Create GSI with backfill ───────────────────────
+    // -- UpdateTable: Create GSI with backfill ---------------------------
 
-    [Fact]
-    public async Task UpdateTableAsync_CreateGsi_BackfillsExistingItems()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task UpdateTableAsync_CreateGsi_BackfillsExistingItems(StoreType st)
     {
+        var client = Client(st);
+
         // Create table without GSI
         _ = await client.CreateTableAsync(new CreateTableRequest
         {
@@ -994,12 +1038,15 @@ public abstract class SecondaryIndexTestsBase
         Assert.Equal("GSI1", desc.Table.GlobalSecondaryIndexes[0].IndexName);
     }
 
-    // ── UpdateTable: Delete GSI ─────────────────────────────────────
+    // -- UpdateTable: Delete GSI -----------------------------------------
 
-    [Fact]
-    public async Task UpdateTableAsync_DeleteGsi_RemovesIndex()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task UpdateTableAsync_DeleteGsi_RemovesIndex(StoreType st)
     {
-        await CreateTableWithGsiAsync();
+        var client = Client(st);
+        await CreateTableWithGsiAsync(client);
 
         _ = await client.UpdateTableAsync(new UpdateTableRequest
         {
@@ -1020,12 +1067,15 @@ public abstract class SecondaryIndexTestsBase
         Assert.True(desc.Table.GlobalSecondaryIndexes is null or { Count: 0 });
     }
 
-    // ── DeleteTable drops index tables ──────────────────────────────
+    // -- DeleteTable drops index tables ----------------------------------
 
-    [Fact]
-    public async Task DeleteTable_WithIndexes_Succeeds()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task DeleteTable_WithIndexes_Succeeds(StoreType st)
     {
-        await CreateTableWithGsiAsync();
+        var client = Client(st);
+        await CreateTableWithGsiAsync(client);
 
         _ = await client.PutItemAsync(new PutItemRequest
         {
@@ -1045,12 +1095,15 @@ public abstract class SecondaryIndexTestsBase
             client.DescribeTableAsync("TestTable", TestContext.Current.CancellationToken));
     }
 
-    // ── GSI Query with SK condition ─────────────────────────────────
+    // -- GSI Query with SK condition -------------------------------------
 
-    [Fact]
-    public async Task QueryAsync_GsiWithSkCondition_FiltersCorrectly()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task QueryAsync_GsiWithSkCondition_FiltersCorrectly(StoreType st)
     {
-        await CreateTableWithGsiAsync();
+        var client = Client(st);
+        await CreateTableWithGsiAsync(client);
 
         for (var i = 0; i < 5; i++)
         {
@@ -1084,11 +1137,14 @@ public abstract class SecondaryIndexTestsBase
         Assert.Equal("B", response.Items[1]["GSI_SK"].S);
     }
 
-    // ── Select.ALL_PROJECTED_ATTRIBUTES ─────────────────────────────
+    // -- Select.ALL_PROJECTED_ATTRIBUTES ---------------------------------
 
-    [Fact]
-    public async Task QueryAsync_SelectAllProjectedAttributes_ReturnsProjectedOnly()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task QueryAsync_SelectAllProjectedAttributes_ReturnsProjectedOnly(StoreType st)
     {
+        var client = Client(st);
         _ = await client.CreateTableAsync(new CreateTableRequest
         {
             TableName = "TestTable",
@@ -1152,12 +1208,15 @@ public abstract class SecondaryIndexTestsBase
         Assert.False(item.ContainsKey("secret"));
     }
 
-    // ── ScanIndexForward on GSI ─────────────────────────────────────
+    // -- ScanIndexForward on GSI -----------------------------------------
 
-    [Fact]
-    public async Task QueryAsync_GsiDescending_ReturnsReverseOrder()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task QueryAsync_GsiDescending_ReturnsReverseOrder(StoreType st)
     {
-        await CreateTableWithGsiAsync();
+        var client = Client(st);
+        await CreateTableWithGsiAsync(client);
 
         for (var i = 0; i < 3; i++)
         {
@@ -1192,12 +1251,15 @@ public abstract class SecondaryIndexTestsBase
         Assert.Equal("A", response.Items[2]["GSI_SK"].S);
     }
 
-    // ── Non-existent index ──────────────────────────────────────────
+    // -- Non-existent index ----------------------------------------------
 
-    [Fact]
-    public async Task QueryAsync_NonExistentIndex_Throws()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task QueryAsync_NonExistentIndex_Throws(StoreType st)
     {
-        await CreateTableWithGsiAsync();
+        var client = Client(st);
+        await CreateTableWithGsiAsync(client);
 
         _ = await Assert.ThrowsAsync<AmazonDynamoDBException>(() =>
             client.QueryAsync(new QueryRequest
@@ -1212,12 +1274,15 @@ public abstract class SecondaryIndexTestsBase
             }, TestContext.Current.CancellationToken));
     }
 
-    // ── UpdateTable: legacy throughput overload ──────────────────────
+    // -- UpdateTable: legacy throughput overload --------------------------
 
-    [Fact]
-    public async Task UpdateTableAsync_LegacyThroughput_ReturnsDescription()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task UpdateTableAsync_LegacyThroughput_ReturnsDescription(StoreType st)
     {
-        await CreateTableWithGsiAsync();
+        var client = Client(st);
+        await CreateTableWithGsiAsync(client);
 
         var response = await client.UpdateTableAsync(
             "TestTable",
@@ -1228,12 +1293,15 @@ public abstract class SecondaryIndexTestsBase
         Assert.Equal("TestTable", response.TableDescription.TableName);
     }
 
-    // ── Scan pagination on index ────────────────────────────────────
+    // -- Scan pagination on index ----------------------------------------
 
-    [Fact]
-    public async Task ScanAsync_GsiPagination_WorksCorrectly()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task ScanAsync_GsiPagination_WorksCorrectly(StoreType st)
     {
-        await CreateTableWithGsiAsync();
+        var client = Client(st);
+        await CreateTableWithGsiAsync(client);
 
         for (var i = 0; i < 5; i++)
         {
@@ -1271,12 +1339,15 @@ public abstract class SecondaryIndexTestsBase
         Assert.Equal(5, allItems.Count);
     }
 
-    // ── GSI with ProjectionExpression ───────────────────────────────
+    // -- GSI with ProjectionExpression -----------------------------------
 
-    [Fact]
-    public async Task QueryAsync_GsiWithProjectionExpression_AppliesProjection()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task QueryAsync_GsiWithProjectionExpression_AppliesProjection(StoreType st)
     {
-        await CreateTableWithGsiAsync();
+        var client = Client(st);
+        await CreateTableWithGsiAsync(client);
 
         _ = await client.PutItemAsync(new PutItemRequest
         {
@@ -1313,12 +1384,15 @@ public abstract class SecondaryIndexTestsBase
         Assert.Equal("Alice", response.Items[0]["name"].S);
     }
 
-    // ── PutItem overwrites updates index correctly ──────────────────
+    // -- PutItem overwrites updates index correctly ----------------------
 
-    [Fact]
-    public async Task PutItem_Overwrite_UpdatesIndex()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task PutItem_Overwrite_UpdatesIndex(StoreType st)
     {
-        await CreateTableWithGsiAsync();
+        var client = Client(st);
+        await CreateTableWithGsiAsync(client);
 
         _ = await client.PutItemAsync(new PutItemRequest
         {
@@ -1370,30 +1444,5 @@ public abstract class SecondaryIndexTestsBase
             }
         }, TestContext.Current.CancellationToken);
         Assert.Equal(1, newResp.Count);
-    }
-}
-
-public sealed class InMemorySecondaryIndexTests : SecondaryIndexTestsBase
-{
-    protected override DynamoDbClient CreateClient() =>
-        new(new DynamoDbLiteOptions($"Data Source=Test_{Guid.NewGuid():N};Mode=Memory;Cache=Shared"));
-}
-
-public sealed class FileBasedSecondaryIndexTests : SecondaryIndexTestsBase
-{
-    private string? dbPath;
-
-    protected override DynamoDbClient CreateClient()
-    {
-        var (c, path) = FileBasedTestHelper.CreateFileBasedClient();
-        dbPath = path;
-        return c;
-    }
-
-    public override ValueTask DisposeAsync()
-    {
-        var result = base.DisposeAsync();
-        FileBasedTestHelper.Cleanup(dbPath);
-        return result;
     }
 }

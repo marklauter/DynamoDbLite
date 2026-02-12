@@ -191,10 +191,7 @@ internal static class ConditionExpressionEvaluator
         var value = ResolveOperand(node.Arguments[0], item, expressionAttributeNames, expressionAttributeValues);
         var typeVal = ResolveOperand(node.Arguments[1], item, expressionAttributeNames, expressionAttributeValues);
 
-        if (value is null || typeVal?.S is null)
-            return false;
-
-        return ExpressionHelper.GetAttributeType(value) == typeVal.S;
+        return value is not null && typeVal?.S is not null && ExpressionHelper.GetAttributeType(value) == typeVal.S;
     }
 
     private static bool EvaluateBeginsWith(

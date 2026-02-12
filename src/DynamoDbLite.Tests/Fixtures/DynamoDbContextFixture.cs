@@ -12,6 +12,14 @@ public class DynamoDbContextFixture
     private readonly InMemoryDynamoFactory imf = new();
     private readonly FileBasedDynamoFactory fbf = new();
 
+    public DynamoDbClient Client(StoreType st)
+        => st switch
+        {
+            StoreType.FileBased => fbf.Client,
+            StoreType.MemoryBased => imf.Client,
+            _ => throw new ArgumentOutOfRangeException(nameof(st), st, null)
+        };
+
     public DynamoDBContext Context(StoreType st)
         => st switch
         {
@@ -19,14 +27,6 @@ public class DynamoDbContextFixture
             StoreType.MemoryBased => imf.Context,
             _ => throw new ArgumentOutOfRangeException(nameof(st), st, null)
         };
-
-    public DynamoDbClient Client(StoreType st)
-    => st switch
-    {
-        StoreType.FileBased => fbf.Client,
-        StoreType.MemoryBased => imf.Client,
-        _ => throw new ArgumentOutOfRangeException(nameof(st), st, null)
-    };
 
     public async ValueTask InitializeAsync()
     {
@@ -138,67 +138,5 @@ public class DynamoDbContextFixture
         imf.Dispose();
         fbf.Dispose();
         return ValueTask.CompletedTask;
-    }
-}
-
-internal abstract class DynamoDbContextFactory
-    : IDisposable
-{
-    public DynamoDbClient Client { get; }
-    public DynamoDBContext Context { get; }
-    private bool disposed;
-
-    public DynamoDbContextFactory()
-    {
-        Client = CreateClient();
-        Context = CreateContext(Client);
-    }
-
-    public virtual void Dispose()
-    {
-        if (disposed)
-        {
-            return;
-        }
-
-        GC.SuppressFinalize(this);
-
-        Client.Dispose();
-        Context.Dispose();
-        disposed = true;
-    }
-
-    protected abstract DynamoDbClient CreateClient();
-
-    private static DynamoDBContext CreateContext(DynamoDbClient c) =>
-        new DynamoDBContextBuilder()
-            .ConfigureContext(cfg => cfg.DisableFetchingTableMetadata = true)
-            .WithDynamoDBClient(() => c)
-            .Build();
-}
-
-internal sealed class InMemoryDynamoFactory
-    : DynamoDbContextFactory
-{
-    protected override DynamoDbClient CreateClient() =>
-        new(new DynamoDbLiteOptions($"Data Source=Test_{Guid.NewGuid():N};Mode=Memory;Cache=Shared"));
-}
-
-internal sealed class FileBasedDynamoFactory
-    : DynamoDbContextFactory
-{
-    private string? dbPath;
-
-    protected override DynamoDbClient CreateClient()
-    {
-        var (c, path) = FileBasedTestHelper.CreateFileBasedClient();
-        dbPath = path;
-        return c;
-    }
-
-    public override void Dispose()
-    {
-        base.Dispose();
-        FileBasedTestHelper.Cleanup(dbPath);
     }
 }

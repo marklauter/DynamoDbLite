@@ -1,45 +1,27 @@
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
+using DynamoDbLite.Tests.Fixtures;
 
 namespace DynamoDbLite.Tests;
 
-public abstract class ItemCrudTestsBase
-    : IAsyncLifetime
+public sealed class ItemCrudTests
+    : DynamoDbClientFixture
 {
-    protected DynamoDbClient client = null!;
-
-    protected abstract DynamoDbClient CreateClient();
-
-    public async ValueTask InitializeAsync()
+    protected override async ValueTask SetupAsync(CancellationToken ct)
     {
-        client = CreateClient();
-        _ = await client.CreateTableAsync(new CreateTableRequest
-        {
-            TableName = "TestTable",
-            KeySchema =
-                [
-                    new KeySchemaElement { AttributeName = "PK", KeyType = KeyType.HASH },
-                    new KeySchemaElement { AttributeName = "SK", KeyType = KeyType.RANGE }
-                ],
-            AttributeDefinitions =
-                [
-                    new AttributeDefinition { AttributeName = "PK", AttributeType = ScalarAttributeType.S },
-                    new AttributeDefinition { AttributeName = "SK", AttributeType = ScalarAttributeType.S }
-                ]
-        }, TestContext.Current.CancellationToken);
-    }
-
-    public virtual ValueTask DisposeAsync()
-    {
-        client.Dispose();
-        return ValueTask.CompletedTask;
+        await CreateTestTableAsync(Client(StoreType.MemoryBased), ct);
+        await CreateTestTableAsync(Client(StoreType.FileBased), ct);
     }
 
     // ── PutItemAsync ───────────────────────────────────────────────────
 
-    [Fact]
-    public async Task PutItemAsync_NewItem_Succeeds()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task PutItemAsync_NewItem_Succeeds(StoreType st)
     {
+        var client = Client(st);
+
         var response = await client.PutItemAsync(new PutItemRequest
         {
             TableName = "TestTable",
@@ -54,9 +36,13 @@ public abstract class ItemCrudTestsBase
         Assert.Equal(System.Net.HttpStatusCode.OK, response.HttpStatusCode);
     }
 
-    [Fact]
-    public async Task PutItemAsync_SimpleOverload_Succeeds()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task PutItemAsync_SimpleOverload_Succeeds(StoreType st)
     {
+        var client = Client(st);
+
         var response = await client.PutItemAsync(
             "TestTable",
             new Dictionary<string, AttributeValue>
@@ -70,10 +56,13 @@ public abstract class ItemCrudTestsBase
         Assert.Equal(System.Net.HttpStatusCode.OK, response.HttpStatusCode);
     }
 
-    [Fact]
-    public async Task PutItemAsync_ReturnValues_AllOld_ReturnsOldItem()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task PutItemAsync_ReturnValues_AllOld_ReturnsOldItem(StoreType st)
     {
-        _ = await PutTestItemAsync("USER#1", "PROFILE", "Alice");
+        var client = Client(st);
+        _ = await PutTestItemAsync(client, "USER#1", "PROFILE", "Alice");
 
         var response = await client.PutItemAsync(new PutItemRequest
         {
@@ -91,10 +80,13 @@ public abstract class ItemCrudTestsBase
         Assert.Equal("Alice", response.Attributes["name"].S);
     }
 
-    [Fact]
-    public async Task PutItemAsync_ReturnValues_None_ReturnsNoAttributes()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task PutItemAsync_ReturnValues_None_ReturnsNoAttributes(StoreType st)
     {
-        _ = await PutTestItemAsync("USER#1", "PROFILE", "Alice");
+        var client = Client(st);
+        _ = await PutTestItemAsync(client, "USER#1", "PROFILE", "Alice");
 
         var response = await client.PutItemAsync(new PutItemRequest
         {
@@ -111,10 +103,12 @@ public abstract class ItemCrudTestsBase
         Assert.Null(response.Attributes);
     }
 
-    [Fact]
-    public async Task PutItemAsync_NonExistentTable_ThrowsResourceNotFoundException()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task PutItemAsync_NonExistentTable_ThrowsResourceNotFoundException(StoreType st)
         => _ = await Assert.ThrowsAsync<ResourceNotFoundException>(() =>
-            client.PutItemAsync(new PutItemRequest
+            Client(st).PutItemAsync(new PutItemRequest
             {
                 TableName = "DoesNotExist",
                 Item = new Dictionary<string, AttributeValue>
@@ -124,10 +118,12 @@ public abstract class ItemCrudTestsBase
                 }
             }, TestContext.Current.CancellationToken));
 
-    [Fact]
-    public async Task PutItemAsync_MissingKeyAttribute_ThrowsException()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task PutItemAsync_MissingKeyAttribute_ThrowsException(StoreType st)
         => _ = await Assert.ThrowsAsync<AmazonDynamoDBException>(() =>
-            client.PutItemAsync(new PutItemRequest
+            Client(st).PutItemAsync(new PutItemRequest
             {
                 TableName = "TestTable",
                 Item = new Dictionary<string, AttributeValue>
@@ -137,10 +133,12 @@ public abstract class ItemCrudTestsBase
                 }
             }, TestContext.Current.CancellationToken));
 
-    [Fact]
-    public async Task PutItemAsync_WrongKeyType_ThrowsException()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task PutItemAsync_WrongKeyType_ThrowsException(StoreType st)
         => _ = await Assert.ThrowsAsync<AmazonDynamoDBException>(() =>
-            client.PutItemAsync(new PutItemRequest
+            Client(st).PutItemAsync(new PutItemRequest
             {
                 TableName = "TestTable",
                 Item = new Dictionary<string, AttributeValue>
@@ -150,9 +148,13 @@ public abstract class ItemCrudTestsBase
                 }
             }, TestContext.Current.CancellationToken));
 
-    [Fact]
-    public async Task PutItemAsync_ConditionExpression_Passes()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task PutItemAsync_ConditionExpression_Passes(StoreType st)
     {
+        var client = Client(st);
+
         var response = await client.PutItemAsync(new PutItemRequest
         {
             TableName = "TestTable",
@@ -168,10 +170,13 @@ public abstract class ItemCrudTestsBase
         Assert.Equal(System.Net.HttpStatusCode.OK, response.HttpStatusCode);
     }
 
-    [Fact]
-    public async Task PutItemAsync_ConditionExpression_Fails_ThrowsConditionalCheckFailedException()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task PutItemAsync_ConditionExpression_Fails_ThrowsConditionalCheckFailedException(StoreType st)
     {
-        _ = await PutTestItemAsync("USER#100", "PROFILE", "Existing");
+        var client = Client(st);
+        _ = await PutTestItemAsync(client, "USER#100", "PROFILE", "Existing");
 
         _ = await Assert.ThrowsAsync<ConditionalCheckFailedException>(() =>
             client.PutItemAsync(new PutItemRequest
@@ -189,10 +194,13 @@ public abstract class ItemCrudTestsBase
 
     // ── GetItemAsync ───────────────────────────────────────────────────
 
-    [Fact]
-    public async Task GetItemAsync_ExistingItem_ReturnsItem()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task GetItemAsync_ExistingItem_ReturnsItem(StoreType st)
     {
-        _ = await PutTestItemAsync("USER#1", "PROFILE", "Alice");
+        var client = Client(st);
+        _ = await PutTestItemAsync(client, "USER#1", "PROFILE", "Alice");
 
         var response = await client.GetItemAsync(new GetItemRequest
         {
@@ -209,10 +217,13 @@ public abstract class ItemCrudTestsBase
         Assert.Equal("USER#1", response.Item["PK"].S);
     }
 
-    [Fact]
-    public async Task GetItemAsync_SimpleOverload_ReturnsItem()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task GetItemAsync_SimpleOverload_ReturnsItem(StoreType st)
     {
-        _ = await PutTestItemAsync("USER#1", "PROFILE", "Alice");
+        var client = Client(st);
+        _ = await PutTestItemAsync(client, "USER#1", "PROFILE", "Alice");
 
         var response = await client.GetItemAsync(
             "TestTable",
@@ -226,9 +237,13 @@ public abstract class ItemCrudTestsBase
         Assert.Equal("Alice", response.Item["name"].S);
     }
 
-    [Fact]
-    public async Task GetItemAsync_NonExistentItem_ReturnsEmptyResponse()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task GetItemAsync_NonExistentItem_ReturnsEmptyResponse(StoreType st)
     {
+        var client = Client(st);
+
         var response = await client.GetItemAsync(new GetItemRequest
         {
             TableName = "TestTable",
@@ -242,10 +257,13 @@ public abstract class ItemCrudTestsBase
         Assert.False(response.IsItemSet);
     }
 
-    [Fact]
-    public async Task GetItemAsync_WithProjectionExpression_ReturnsSubset()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task GetItemAsync_WithProjectionExpression_ReturnsSubset(StoreType st)
     {
-        _ = await PutTestItemAsync("USER#1", "PROFILE", "Alice");
+        var client = Client(st);
+        _ = await PutTestItemAsync(client, "USER#1", "PROFILE", "Alice");
 
         var response = await client.GetItemAsync(new GetItemRequest
         {
@@ -267,10 +285,13 @@ public abstract class ItemCrudTestsBase
         Assert.Equal("Alice", response.Item["name"].S);
     }
 
-    [Fact]
-    public async Task GetItemAsync_ConsistentRead_AcceptedAsNoOp()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task GetItemAsync_ConsistentRead_AcceptedAsNoOp(StoreType st)
     {
-        _ = await PutTestItemAsync("USER#1", "PROFILE", "Alice");
+        var client = Client(st);
+        _ = await PutTestItemAsync(client, "USER#1", "PROFILE", "Alice");
 
         var response = await client.GetItemAsync(
             "TestTable",
@@ -287,10 +308,13 @@ public abstract class ItemCrudTestsBase
 
     // ── DeleteItemAsync ────────────────────────────────────────────────
 
-    [Fact]
-    public async Task DeleteItemAsync_ExistingItem_RemovesItem()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task DeleteItemAsync_ExistingItem_RemovesItem(StoreType st)
     {
-        _ = await PutTestItemAsync("USER#1", "PROFILE", "Alice");
+        var client = Client(st);
+        _ = await PutTestItemAsync(client, "USER#1", "PROFILE", "Alice");
 
         _ = await client.DeleteItemAsync(new DeleteItemRequest
         {
@@ -315,10 +339,13 @@ public abstract class ItemCrudTestsBase
         Assert.False(getResponse.IsItemSet);
     }
 
-    [Fact]
-    public async Task DeleteItemAsync_SimpleOverload_RemovesItem()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task DeleteItemAsync_SimpleOverload_RemovesItem(StoreType st)
     {
-        _ = await PutTestItemAsync("USER#1", "PROFILE", "Alice");
+        var client = Client(st);
+        _ = await PutTestItemAsync(client, "USER#1", "PROFILE", "Alice");
 
         _ = await client.DeleteItemAsync(
             "TestTable",
@@ -341,10 +368,13 @@ public abstract class ItemCrudTestsBase
         Assert.False(getResponse.IsItemSet);
     }
 
-    [Fact]
-    public async Task DeleteItemAsync_ReturnValues_AllOld_ReturnsOldItem()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task DeleteItemAsync_ReturnValues_AllOld_ReturnsOldItem(StoreType st)
     {
-        _ = await PutTestItemAsync("USER#1", "PROFILE", "Alice");
+        var client = Client(st);
+        _ = await PutTestItemAsync(client, "USER#1", "PROFILE", "Alice");
 
         var response = await client.DeleteItemAsync(new DeleteItemRequest
         {
@@ -361,9 +391,13 @@ public abstract class ItemCrudTestsBase
         Assert.Equal("Alice", response.Attributes["name"].S);
     }
 
-    [Fact]
-    public async Task DeleteItemAsync_NonExistentItem_Succeeds()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task DeleteItemAsync_NonExistentItem_Succeeds(StoreType st)
     {
+        var client = Client(st);
+
         var response = await client.DeleteItemAsync(new DeleteItemRequest
         {
             TableName = "TestTable",
@@ -377,10 +411,13 @@ public abstract class ItemCrudTestsBase
         Assert.Equal(System.Net.HttpStatusCode.OK, response.HttpStatusCode);
     }
 
-    [Fact]
-    public async Task DeleteItemAsync_ConditionExpression_Passes()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task DeleteItemAsync_ConditionExpression_Passes(StoreType st)
     {
-        _ = await PutTestItemAsync("USER#1", "PROFILE", "Alice");
+        var client = Client(st);
+        _ = await PutTestItemAsync(client, "USER#1", "PROFILE", "Alice");
 
         var response = await client.DeleteItemAsync(new DeleteItemRequest
         {
@@ -396,10 +433,12 @@ public abstract class ItemCrudTestsBase
         Assert.Equal(System.Net.HttpStatusCode.OK, response.HttpStatusCode);
     }
 
-    [Fact]
-    public async Task DeleteItemAsync_ConditionExpression_Fails_ThrowsConditionalCheckFailedException()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task DeleteItemAsync_ConditionExpression_Fails_ThrowsConditionalCheckFailedException(StoreType st)
         => _ = await Assert.ThrowsAsync<ConditionalCheckFailedException>(() =>
-            client.DeleteItemAsync(new DeleteItemRequest
+            Client(st).DeleteItemAsync(new DeleteItemRequest
             {
                 TableName = "TestTable",
                 Key = new Dictionary<string, AttributeValue>
@@ -412,10 +451,13 @@ public abstract class ItemCrudTestsBase
 
     // ── UpdateItemAsync ────────────────────────────────────────────────
 
-    [Fact]
-    public async Task UpdateItemAsync_SetAttribute_UpdatesValue()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task UpdateItemAsync_SetAttribute_UpdatesValue(StoreType st)
     {
-        _ = await PutTestItemAsync("USER#1", "PROFILE", "Alice");
+        var client = Client(st);
+        _ = await PutTestItemAsync(client, "USER#1", "PROFILE", "Alice");
 
         _ = await client.UpdateItemAsync(new UpdateItemRequest
         {
@@ -446,10 +488,13 @@ public abstract class ItemCrudTestsBase
         Assert.Equal("Alice Updated", getResponse.Item["name"].S);
     }
 
-    [Fact]
-    public async Task UpdateItemAsync_ReturnValues_AllNew_ReturnsUpdatedItem()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task UpdateItemAsync_ReturnValues_AllNew_ReturnsUpdatedItem(StoreType st)
     {
-        _ = await PutTestItemAsync("USER#1", "PROFILE", "Alice");
+        var client = Client(st);
+        _ = await PutTestItemAsync(client, "USER#1", "PROFILE", "Alice");
 
         var response = await client.UpdateItemAsync(new UpdateItemRequest
         {
@@ -473,10 +518,13 @@ public abstract class ItemCrudTestsBase
         Assert.Equal("USER#1", response.Attributes["PK"].S);
     }
 
-    [Fact]
-    public async Task UpdateItemAsync_ReturnValues_AllOld_ReturnsOldItem()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task UpdateItemAsync_ReturnValues_AllOld_ReturnsOldItem(StoreType st)
     {
-        _ = await PutTestItemAsync("USER#1", "PROFILE", "Alice");
+        var client = Client(st);
+        _ = await PutTestItemAsync(client, "USER#1", "PROFILE", "Alice");
 
         var response = await client.UpdateItemAsync(new UpdateItemRequest
         {
@@ -499,9 +547,13 @@ public abstract class ItemCrudTestsBase
         Assert.Equal("Alice", response.Attributes["name"].S);
     }
 
-    [Fact]
-    public async Task UpdateItemAsync_RemoveAttribute_RemovesFromItem()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task UpdateItemAsync_RemoveAttribute_RemovesFromItem(StoreType st)
     {
+        var client = Client(st);
+
         _ = await client.PutItemAsync(new PutItemRequest
         {
             TableName = "TestTable",
@@ -539,9 +591,13 @@ public abstract class ItemCrudTestsBase
         Assert.Equal("Alice", getResponse.Item["name"].S);
     }
 
-    [Fact]
-    public async Task UpdateItemAsync_ArithmeticAdd_IncrementsNumber()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task UpdateItemAsync_ArithmeticAdd_IncrementsNumber(StoreType st)
     {
+        var client = Client(st);
+
         _ = await client.PutItemAsync(new PutItemRequest
         {
             TableName = "TestTable",
@@ -582,10 +638,13 @@ public abstract class ItemCrudTestsBase
         Assert.Equal("15", getResponse.Item["count"].N);
     }
 
-    [Fact]
-    public async Task UpdateItemAsync_IfNotExists_SetsDefault()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task UpdateItemAsync_IfNotExists_SetsDefault(StoreType st)
     {
-        _ = await PutTestItemAsync("USER#1", "PROFILE", "Alice");
+        var client = Client(st);
+        _ = await PutTestItemAsync(client, "USER#1", "PROFILE", "Alice");
 
         _ = await client.UpdateItemAsync(new UpdateItemRequest
         {
@@ -615,9 +674,13 @@ public abstract class ItemCrudTestsBase
         Assert.Equal("0", getResponse.Item["score"].N);
     }
 
-    [Fact]
-    public async Task UpdateItemAsync_NonExistentItem_CreatesNewItem()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task UpdateItemAsync_NonExistentItem_CreatesNewItem(StoreType st)
     {
+        var client = Client(st);
+
         _ = await client.UpdateItemAsync(new UpdateItemRequest
         {
             TableName = "TestTable",
@@ -648,10 +711,12 @@ public abstract class ItemCrudTestsBase
         Assert.Equal("Created", getResponse.Item["name"].S);
     }
 
-    [Fact]
-    public async Task UpdateItemAsync_ConditionExpression_Fails_ThrowsConditionalCheckFailedException()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task UpdateItemAsync_ConditionExpression_Fails_ThrowsConditionalCheckFailedException(StoreType st)
         => _ = await Assert.ThrowsAsync<ConditionalCheckFailedException>(() =>
-            client.UpdateItemAsync(new UpdateItemRequest
+            Client(st).UpdateItemAsync(new UpdateItemRequest
             {
                 TableName = "TestTable",
                 Key = new Dictionary<string, AttributeValue>
@@ -668,10 +733,13 @@ public abstract class ItemCrudTestsBase
                 ConditionExpression = "attribute_exists(PK)"
             }, TestContext.Current.CancellationToken));
 
-    [Fact]
-    public async Task UpdateItemAsync_ModifyKeyAttribute_ThrowsException()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task UpdateItemAsync_ModifyKeyAttribute_ThrowsException(StoreType st)
     {
-        _ = await PutTestItemAsync("USER#1", "PROFILE", "Alice");
+        var client = Client(st);
+        _ = await PutTestItemAsync(client, "USER#1", "PROFILE", "Alice");
 
         _ = await Assert.ThrowsAsync<AmazonDynamoDBException>(() =>
             client.UpdateItemAsync(new UpdateItemRequest
@@ -690,10 +758,13 @@ public abstract class ItemCrudTestsBase
             }, TestContext.Current.CancellationToken));
     }
 
-    [Fact]
-    public async Task UpdateItemAsync_ReturnValues_UpdatedOld_ReturnsModifiedAttributes()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task UpdateItemAsync_ReturnValues_UpdatedOld_ReturnsModifiedAttributes(StoreType st)
     {
-        _ = await PutTestItemAsync("USER#1", "PROFILE", "Alice");
+        var client = Client(st);
+        _ = await PutTestItemAsync(client, "USER#1", "PROFILE", "Alice");
 
         var response = await client.UpdateItemAsync(new UpdateItemRequest
         {
@@ -717,10 +788,13 @@ public abstract class ItemCrudTestsBase
         Assert.Equal("Alice", response.Attributes["name"].S);
     }
 
-    [Fact]
-    public async Task UpdateItemAsync_ReturnValues_UpdatedNew_ReturnsModifiedAttributes()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task UpdateItemAsync_ReturnValues_UpdatedNew_ReturnsModifiedAttributes(StoreType st)
     {
-        _ = await PutTestItemAsync("USER#1", "PROFILE", "Alice");
+        var client = Client(st);
+        _ = await PutTestItemAsync(client, "USER#1", "PROFILE", "Alice");
 
         var response = await client.UpdateItemAsync(new UpdateItemRequest
         {
@@ -746,22 +820,28 @@ public abstract class ItemCrudTestsBase
 
     // ── Item count tracking ────────────────────────────────────────────
 
-    [Fact]
-    public async Task PutItem_UpdatesItemCount()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task PutItem_UpdatesItemCount(StoreType st)
     {
-        _ = await PutTestItemAsync("USER#1", "PROFILE", "Alice");
-        _ = await PutTestItemAsync("USER#2", "PROFILE", "Bob");
+        var client = Client(st);
+        _ = await PutTestItemAsync(client, "USER#1", "PROFILE", "Alice");
+        _ = await PutTestItemAsync(client, "USER#2", "PROFILE", "Bob");
 
         var describeResponse = await client.DescribeTableAsync("TestTable", TestContext.Current.CancellationToken);
 
         Assert.Equal(2, describeResponse.Table.ItemCount);
     }
 
-    [Fact]
-    public async Task DeleteItem_UpdatesItemCount()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task DeleteItem_UpdatesItemCount(StoreType st)
     {
-        _ = await PutTestItemAsync("USER#1", "PROFILE", "Alice");
-        _ = await PutTestItemAsync("USER#2", "PROFILE", "Bob");
+        var client = Client(st);
+        _ = await PutTestItemAsync(client, "USER#1", "PROFILE", "Alice");
+        _ = await PutTestItemAsync(client, "USER#2", "PROFILE", "Bob");
 
         _ = await client.DeleteItemAsync(new DeleteItemRequest
         {
@@ -780,9 +860,13 @@ public abstract class ItemCrudTestsBase
 
     // ── Disposal ───────────────────────────────────────────────────────
 
-    [Fact]
-    public async Task PutItem_AfterDispose_ThrowsObjectDisposedException()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task PutItem_AfterDispose_ThrowsObjectDisposedException(StoreType st)
     {
+#pragma warning disable IDISP016, IDISP017
+        var client = Client(st);
         client.Dispose();
         _ = await Assert.ThrowsAsync<ObjectDisposedException>(() =>
             client.PutItemAsync(new PutItemRequest
@@ -794,11 +878,12 @@ public abstract class ItemCrudTestsBase
                     ["SK"] = new() { S = "Y" }
                 }
             }, TestContext.Current.CancellationToken));
+#pragma warning restore IDISP016, IDISP017
     }
 
     // ── Helpers ─────────────────────────────────────────────────────────
 
-    private Task<PutItemResponse> PutTestItemAsync(string pk, string sk, string name) =>
+    private static Task<PutItemResponse> PutTestItemAsync(DynamoDbClient client, string pk, string sk, string name) =>
         client.PutItemAsync(new PutItemRequest
         {
             TableName = "TestTable",
@@ -809,29 +894,4 @@ public abstract class ItemCrudTestsBase
                 ["name"] = new() { S = name }
             }
         }, TestContext.Current.CancellationToken);
-}
-
-public sealed class InMemoryItemCrudTests : ItemCrudTestsBase
-{
-    protected override DynamoDbClient CreateClient() =>
-        new(new DynamoDbLiteOptions($"Data Source=Test_{Guid.NewGuid():N};Mode=Memory;Cache=Shared"));
-}
-
-public sealed class FileBasedItemCrudTests : ItemCrudTestsBase
-{
-    private string? dbPath;
-
-    protected override DynamoDbClient CreateClient()
-    {
-        var (c, path) = Fixtures.FileBasedTestHelper.CreateFileBasedClient();
-        dbPath = path;
-        return c;
-    }
-
-    public override ValueTask DisposeAsync()
-    {
-        var result = base.DisposeAsync();
-        Fixtures.FileBasedTestHelper.Cleanup(dbPath);
-        return result;
-    }
 }

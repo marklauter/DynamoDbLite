@@ -1,34 +1,21 @@
-using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
 using DynamoDbLite.Tests.Fixtures;
 
 namespace DynamoDbLite.Tests;
 
-public abstract class QueryNumericSortKeyTestsBase
-    : IAsyncLifetime
+public sealed class QueryNumericSortKeyTests
+    : DynamoDbClientFixture
 {
-    protected DynamoDbClient client = null!;
-
-    protected abstract DynamoDbClient CreateClient();
-
-    public async ValueTask InitializeAsync()
+    protected override async ValueTask SetupAsync(CancellationToken ct)
     {
-        client = CreateClient();
-        _ = await client.CreateTableAsync(new CreateTableRequest
-        {
-            TableName = "NumericTable",
-            KeySchema =
-            [
-                new KeySchemaElement { AttributeName = "PK", KeyType = KeyType.HASH },
-                new KeySchemaElement { AttributeName = "SK", KeyType = KeyType.RANGE }
-            ],
-            AttributeDefinitions =
-            [
-                new AttributeDefinition { AttributeName = "PK", AttributeType = ScalarAttributeType.S },
-                new AttributeDefinition { AttributeName = "SK", AttributeType = ScalarAttributeType.N }
-            ]
-        }, TestContext.Current.CancellationToken);
+        await CreateNumericSortKeyTableAsync(Client(StoreType.MemoryBased), "NumericTable", ct);
+        await CreateNumericSortKeyTableAsync(Client(StoreType.FileBased), "NumericTable", ct);
+        await SeedDataAsync(Client(StoreType.MemoryBased), ct);
+        await SeedDataAsync(Client(StoreType.FileBased), ct);
+    }
 
+    private static async Task SeedDataAsync(DynamoDbClient client, CancellationToken ct)
+    {
         // Seed items with numeric SK values that would sort differently as strings vs numbers
         // String order: "1", "10", "2", "20"
         // Numeric order: 1, 2, 10, 20
@@ -44,21 +31,19 @@ public abstract class QueryNumericSortKeyTestsBase
                     ["SK"] = new() { N = sk },
                     ["value"] = new() { S = $"val_{sk}" }
                 }
-            }, TestContext.Current.CancellationToken);
+            }, ct);
         }
     }
 
-    public virtual ValueTask DisposeAsync()
-    {
-        client.Dispose();
-        return ValueTask.CompletedTask;
-    }
+    // -- Numeric ordering --------------------------------------------------
 
-    // ── Numeric ordering ────────────────────────────────────────────
-
-    [Fact]
-    public async Task QueryAsync_NumericSk_SortsNumerically()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task QueryAsync_NumericSk_SortsNumerically(StoreType st)
     {
+        var client = Client(st);
+
         var response = await client.QueryAsync(new QueryRequest
         {
             TableName = "NumericTable",
@@ -76,11 +61,15 @@ public abstract class QueryNumericSortKeyTestsBase
         Assert.Equal("20", response.Items[3]["SK"].N);
     }
 
-    // ── Numeric comparison ──────────────────────────────────────────
+    // -- Numeric comparison ------------------------------------------------
 
-    [Fact]
-    public async Task QueryAsync_NumericSk_LessThan_ComparesNumerically()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task QueryAsync_NumericSk_LessThan_ComparesNumerically(StoreType st)
     {
+        var client = Client(st);
+
         var response = await client.QueryAsync(new QueryRequest
         {
             TableName = "NumericTable",
@@ -97,11 +86,15 @@ public abstract class QueryNumericSortKeyTestsBase
         Assert.Equal("2", response.Items[1]["SK"].N);
     }
 
-    // ── Numeric BETWEEN ─────────────────────────────────────────────
+    // -- Numeric BETWEEN ---------------------------------------------------
 
-    [Fact]
-    public async Task QueryAsync_NumericSk_Between_ComparesNumerically()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task QueryAsync_NumericSk_Between_ComparesNumerically(StoreType st)
     {
+        var client = Client(st);
+
         var response = await client.QueryAsync(new QueryRequest
         {
             TableName = "NumericTable",
@@ -119,11 +112,15 @@ public abstract class QueryNumericSortKeyTestsBase
         Assert.Equal("10", response.Items[1]["SK"].N);
     }
 
-    // ── Descending ──────────────────────────────────────────────────
+    // -- Descending --------------------------------------------------------
 
-    [Fact]
-    public async Task QueryAsync_NumericSk_Descending_SortsNumericallyReversed()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task QueryAsync_NumericSk_Descending_SortsNumericallyReversed(StoreType st)
     {
+        var client = Client(st);
+
         var response = await client.QueryAsync(new QueryRequest
         {
             TableName = "NumericTable",
@@ -142,11 +139,15 @@ public abstract class QueryNumericSortKeyTestsBase
         Assert.Equal("1", response.Items[3]["SK"].N);
     }
 
-    // ── Pagination with numeric SK ──────────────────────────────────
+    // -- Pagination with numeric SK ----------------------------------------
 
-    [Fact]
-    public async Task QueryAsync_NumericSk_Pagination_WorksCorrectly()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task QueryAsync_NumericSk_Pagination_WorksCorrectly(StoreType st)
     {
+        var client = Client(st);
+
         var allItems = new List<Dictionary<string, AttributeValue>>();
         Dictionary<string, AttributeValue>? lastKey = null;
 
@@ -176,9 +177,13 @@ public abstract class QueryNumericSortKeyTestsBase
         Assert.Equal("20", allItems[3]["SK"].N);
     }
 
-    [Fact]
-    public async Task QueryAsync_NumericSk_LastEvaluatedKey_HasNumericSk()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task QueryAsync_NumericSk_LastEvaluatedKey_HasNumericSk(StoreType st)
     {
+        var client = Client(st);
+
         var response = await client.QueryAsync(new QueryRequest
         {
             TableName = "NumericTable",
@@ -193,30 +198,5 @@ public abstract class QueryNumericSortKeyTestsBase
         Assert.NotNull(response.LastEvaluatedKey);
         Assert.Equal("ITEM#1", response.LastEvaluatedKey["PK"].S);
         Assert.Equal("2", response.LastEvaluatedKey["SK"].N);
-    }
-}
-
-public sealed class InMemoryQueryNumericSortKeyTests : QueryNumericSortKeyTestsBase
-{
-    protected override DynamoDbClient CreateClient() =>
-        new(new DynamoDbLiteOptions($"Data Source=Test_{Guid.NewGuid():N};Mode=Memory;Cache=Shared"));
-}
-
-public sealed class FileBasedQueryNumericSortKeyTests : QueryNumericSortKeyTestsBase
-{
-    private string? dbPath;
-
-    protected override DynamoDbClient CreateClient()
-    {
-        var (c, path) = FileBasedTestHelper.CreateFileBasedClient();
-        dbPath = path;
-        return c;
-    }
-
-    public override ValueTask DisposeAsync()
-    {
-        var result = base.DisposeAsync();
-        FileBasedTestHelper.Cleanup(dbPath);
-        return result;
     }
 }

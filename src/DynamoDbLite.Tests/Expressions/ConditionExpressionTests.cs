@@ -379,7 +379,7 @@ public sealed class ConditionExpressionTests
         var item = new Dictionary<string, AttributeValue>
         {
             ["PK"] = new() { S = "USER#1" },
-            ["a"] = new() { M = new Dictionary<string, AttributeValue>() },
+            ["a"] = new() { M = [] },
         };
 
         var ast = ConditionExpressionParser.Parse("attribute_exists(a.b)");

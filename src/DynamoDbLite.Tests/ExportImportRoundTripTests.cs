@@ -5,45 +5,19 @@ using DynamoDbLite.Tests.Fixtures;
 namespace DynamoDbLite.Tests;
 
 public sealed class ExportImportRoundTripTests
-    : IAsyncLifetime
+    : DynamoDbClientFixture
 {
-    private readonly DynamoDbClient memoryClient =
-        new(new DynamoDbLiteOptions($"Data Source=Test_{Guid.NewGuid():N};Mode=Memory;Cache=Shared"));
-
-    private readonly DynamoDbClient fileClient;
-    private readonly string? dbPath;
-
     private readonly string tempDir = Path.Combine(Path.GetTempPath(), $"dynamo_roundtrip_test_{Guid.NewGuid():N}");
 
     private const string SourceTable = "RoundTripSource";
     private const string SourceTableArn = "arn:aws:dynamodb:local:000000000000:table/RoundTripSource";
     private const string TargetTable = "RoundTripTarget";
 
-    public ExportImportRoundTripTests()
+    public override ValueTask DisposeAsync()
     {
-        var (c, path) = FileBasedTestHelper.CreateFileBasedClient();
-        fileClient = c;
-        dbPath = path;
-    }
-
-    private DynamoDbClient Client(StoreType st) =>
-        st switch
-        {
-            StoreType.FileBased => fileClient,
-            StoreType.MemoryBased => memoryClient,
-            _ => throw new ArgumentOutOfRangeException(nameof(st), st, null),
-        };
-
-    public ValueTask InitializeAsync() => ValueTask.CompletedTask;
-
-    public ValueTask DisposeAsync()
-    {
-        memoryClient.Dispose();
-        fileClient.Dispose();
-        FileBasedTestHelper.Cleanup(dbPath);
         if (Directory.Exists(tempDir))
             Directory.Delete(tempDir, true);
-        return ValueTask.CompletedTask;
+        return base.DisposeAsync();
     }
 
     [Theory]

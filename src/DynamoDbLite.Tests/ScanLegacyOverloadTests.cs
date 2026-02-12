@@ -1,35 +1,23 @@
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
+using DynamoDbLite.Tests.Fixtures;
 using System.Globalization;
 
 namespace DynamoDbLite.Tests;
 
-public abstract class ScanLegacyOverloadTestsBase
-    : IAsyncLifetime
+public sealed class ScanLegacyOverloadTests
+    : DynamoDbClientFixture
 {
-    protected DynamoDbClient client = null!;
-
-    protected abstract DynamoDbClient CreateClient();
-
-    public async ValueTask InitializeAsync()
+    protected override async ValueTask SetupAsync(CancellationToken ct)
     {
-        client = CreateClient();
-        _ = await client.CreateTableAsync(new CreateTableRequest
-        {
-            TableName = "TestTable",
-            KeySchema =
-            [
-                new KeySchemaElement { AttributeName = "PK", KeyType = KeyType.HASH },
-                new KeySchemaElement { AttributeName = "SK", KeyType = KeyType.RANGE }
-            ],
-            AttributeDefinitions =
-            [
-                new AttributeDefinition { AttributeName = "PK", AttributeType = ScalarAttributeType.S },
-                new AttributeDefinition { AttributeName = "SK", AttributeType = ScalarAttributeType.S }
-            ]
-        }, TestContext.Current.CancellationToken);
+        await CreateTestTableAsync(Client(StoreType.MemoryBased), ct);
+        await CreateTestTableAsync(Client(StoreType.FileBased), ct);
+        await SeedDataAsync(Client(StoreType.MemoryBased), ct);
+        await SeedDataAsync(Client(StoreType.FileBased), ct);
+    }
 
-        // Seed test data
+    private static async Task SeedDataAsync(DynamoDbClient client, CancellationToken ct)
+    {
         var items = new (string Pk, string Sk, string Name, int Age)[]
         {
             ("USER#1", "PROFILE", "Alice", 30),
@@ -49,21 +37,19 @@ public abstract class ScanLegacyOverloadTestsBase
                     ["name"] = new() { S = name },
                     ["age"] = new() { N = age.ToString(CultureInfo.InvariantCulture) },
                 }
-            }, TestContext.Current.CancellationToken);
+            }, ct);
         }
     }
 
-    public virtual ValueTask DisposeAsync()
-    {
-        client.Dispose();
-        return ValueTask.CompletedTask;
-    }
+    // -- attributesToGet overload ------------------------------------------
 
-    // ── attributesToGet overload ─────────────────────────────────────
-
-    [Fact]
-    public async Task ScanAsync_AttributesToGet_ProjectsAttributes()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task ScanAsync_AttributesToGet_ProjectsAttributes(StoreType st)
     {
+        var client = Client(st);
+
         var response = await client.ScanAsync(
             "TestTable",
             ["name"],
@@ -77,11 +63,15 @@ public abstract class ScanLegacyOverloadTestsBase
         });
     }
 
-    // ── scanFilter overload ─────────────────────────────────────────
+    // -- scanFilter overload -----------------------------------------------
 
-    [Fact]
-    public async Task ScanAsync_ScanFilter_EQ_FiltersResults()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task ScanAsync_ScanFilter_EQ_FiltersResults(StoreType st)
     {
+        var client = Client(st);
+
         var response = await client.ScanAsync(
             "TestTable",
             new Dictionary<string, Condition>
@@ -98,9 +88,13 @@ public abstract class ScanLegacyOverloadTestsBase
         Assert.Equal("Alice", response.Items[0]["name"].S);
     }
 
-    [Fact]
-    public async Task ScanAsync_ScanFilter_GT_FiltersResults()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task ScanAsync_ScanFilter_GT_FiltersResults(StoreType st)
     {
+        var client = Client(st);
+
         var response = await client.ScanAsync(
             "TestTable",
             new Dictionary<string, Condition>
@@ -116,9 +110,13 @@ public abstract class ScanLegacyOverloadTestsBase
         Assert.Equal(2, response.Count);
     }
 
-    [Fact]
-    public async Task ScanAsync_ScanFilter_BEGINS_WITH_FiltersResults()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task ScanAsync_ScanFilter_BEGINS_WITH_FiltersResults(StoreType st)
     {
+        var client = Client(st);
+
         var response = await client.ScanAsync(
             "TestTable",
             new Dictionary<string, Condition>
@@ -135,9 +133,13 @@ public abstract class ScanLegacyOverloadTestsBase
         Assert.Equal("Alice", response.Items[0]["name"].S);
     }
 
-    [Fact]
-    public async Task ScanAsync_ScanFilter_BETWEEN_FiltersResults()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task ScanAsync_ScanFilter_BETWEEN_FiltersResults(StoreType st)
     {
+        var client = Client(st);
+
         var response = await client.ScanAsync(
             "TestTable",
             new Dictionary<string, Condition>
@@ -157,9 +159,13 @@ public abstract class ScanLegacyOverloadTestsBase
         Assert.Equal(2, response.Count);
     }
 
-    [Fact]
-    public async Task ScanAsync_ScanFilter_NOT_NULL_FiltersResults()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task ScanAsync_ScanFilter_NOT_NULL_FiltersResults(StoreType st)
     {
+        var client = Client(st);
+
         var response = await client.ScanAsync(
             "TestTable",
             new Dictionary<string, Condition>
@@ -174,11 +180,15 @@ public abstract class ScanLegacyOverloadTestsBase
         Assert.Equal(3, response.Count);
     }
 
-    // ── attributesToGet + scanFilter combined overload ───────────────
+    // -- attributesToGet + scanFilter combined overload ---------------------
 
-    [Fact]
-    public async Task ScanAsync_AttributesToGetAndScanFilter_BothApplied()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task ScanAsync_AttributesToGetAndScanFilter_BothApplied(StoreType st)
     {
+        var client = Client(st);
+
         var response = await client.ScanAsync(
             "TestTable",
             ["name"],
@@ -198,30 +208,5 @@ public abstract class ScanLegacyOverloadTestsBase
             _ = Assert.Single(item);
             Assert.Contains("name", item.Keys);
         });
-    }
-}
-
-public sealed class InMemoryScanLegacyOverloadTests : ScanLegacyOverloadTestsBase
-{
-    protected override DynamoDbClient CreateClient() =>
-        new(new DynamoDbLiteOptions($"Data Source=Test_{Guid.NewGuid():N};Mode=Memory;Cache=Shared"));
-}
-
-public sealed class FileBasedScanLegacyOverloadTests : ScanLegacyOverloadTestsBase
-{
-    private string? dbPath;
-
-    protected override DynamoDbClient CreateClient()
-    {
-        var (c, path) = Fixtures.FileBasedTestHelper.CreateFileBasedClient();
-        dbPath = path;
-        return c;
-    }
-
-    public override ValueTask DisposeAsync()
-    {
-        var result = base.DisposeAsync();
-        Fixtures.FileBasedTestHelper.Cleanup(dbPath);
-        return result;
     }
 }

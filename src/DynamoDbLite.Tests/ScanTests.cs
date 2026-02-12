@@ -1,43 +1,19 @@
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
+using DynamoDbLite.Tests.Fixtures;
 
 namespace DynamoDbLite.Tests;
 
-public abstract class ScanTestsBase
-    : IAsyncLifetime
+public sealed class ScanTests
+    : DynamoDbClientFixture
 {
-    protected DynamoDbClient client = null!;
-
-    protected abstract DynamoDbClient CreateClient();
-
-    public async ValueTask InitializeAsync()
+    protected override async ValueTask SetupAsync(CancellationToken ct)
     {
-        client = CreateClient();
-        _ = await client.CreateTableAsync(
-            new CreateTableRequest
-            {
-                TableName = "TestTable",
-                KeySchema =
-                    [
-                        new KeySchemaElement { AttributeName = "PK", KeyType = KeyType.HASH },
-                        new KeySchemaElement { AttributeName = "SK", KeyType = KeyType.RANGE }
-                    ],
-                AttributeDefinitions =
-                    [
-                        new AttributeDefinition { AttributeName = "PK", AttributeType = ScalarAttributeType.S },
-                        new AttributeDefinition { AttributeName = "SK", AttributeType = ScalarAttributeType.S }
-                    ]
-            },
-            TestContext.Current.CancellationToken);
+        await CreateTestTableAsync(Client(StoreType.MemoryBased), ct);
+        await CreateTestTableAsync(Client(StoreType.FileBased), ct);
     }
 
-    public virtual ValueTask DisposeAsync()
-    {
-        client.Dispose();
-        return ValueTask.CompletedTask;
-    }
-
-    private async Task SeedItemsAsync(int count)
+    private static async Task SeedItemsAsync(DynamoDbClient client, int count)
     {
         for (var i = 0; i < count; i++)
         {
@@ -57,9 +33,12 @@ public abstract class ScanTestsBase
 
     // ── Empty table ─────────────────────────────────────────────────
 
-    [Fact]
-    public async Task ScanAsync_EmptyTable_ReturnsEmptyResult()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task ScanAsync_EmptyTable_ReturnsEmptyResult(StoreType st)
     {
+        var client = Client(st);
         var response = await client.ScanAsync(new ScanRequest
         {
             TableName = "TestTable"
@@ -71,10 +50,13 @@ public abstract class ScanTestsBase
 
     // ── All items returned ──────────────────────────────────────────
 
-    [Fact]
-    public async Task ScanAsync_AllItems_ReturnsAll()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task ScanAsync_AllItems_ReturnsAll(StoreType st)
     {
-        await SeedItemsAsync(5);
+        var client = Client(st);
+        await SeedItemsAsync(client, 5);
 
         var response = await client.ScanAsync(new ScanRequest
         {
@@ -87,10 +69,13 @@ public abstract class ScanTestsBase
 
     // ── Limit + pagination ──────────────────────────────────────────
 
-    [Fact]
-    public async Task ScanAsync_Limit_ReturnsLimitedResults()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task ScanAsync_Limit_ReturnsLimitedResults(StoreType st)
     {
-        await SeedItemsAsync(5);
+        var client = Client(st);
+        await SeedItemsAsync(client, 5);
 
         var response = await client.ScanAsync(new ScanRequest
         {
@@ -102,10 +87,13 @@ public abstract class ScanTestsBase
         Assert.NotNull(response.LastEvaluatedKey);
     }
 
-    [Fact]
-    public async Task ScanAsync_PaginationLoop_ReturnsAllItems()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task ScanAsync_PaginationLoop_ReturnsAllItems(StoreType st)
     {
-        await SeedItemsAsync(5);
+        var client = Client(st);
+        await SeedItemsAsync(client, 5);
 
         var allItems = new List<Dictionary<string, AttributeValue>>();
         Dictionary<string, AttributeValue>? lastKey = null;
@@ -129,10 +117,13 @@ public abstract class ScanTestsBase
 
     // ── FilterExpression ────────────────────────────────────────────
 
-    [Fact]
-    public async Task ScanAsync_FilterExpression_FiltersResults()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task ScanAsync_FilterExpression_FiltersResults(StoreType st)
     {
-        await SeedItemsAsync(6);
+        var client = Client(st);
+        await SeedItemsAsync(client, 6);
 
         var response = await client.ScanAsync(new ScanRequest
         {
@@ -150,10 +141,13 @@ public abstract class ScanTestsBase
 
     // ── ProjectionExpression ────────────────────────────────────────
 
-    [Fact]
-    public async Task ScanAsync_ProjectionExpression_ReturnsOnlyRequestedAttributes()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task ScanAsync_ProjectionExpression_ReturnsOnlyRequestedAttributes(StoreType st)
     {
-        await SeedItemsAsync(3);
+        var client = Client(st);
+        await SeedItemsAsync(client, 3);
 
         var response = await client.ScanAsync(new ScanRequest
         {
@@ -175,10 +169,13 @@ public abstract class ScanTestsBase
 
     // ── Select.COUNT ────────────────────────────────────────────────
 
-    [Fact]
-    public async Task ScanAsync_SelectCount_ReturnsCountOnly()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task ScanAsync_SelectCount_ReturnsCountOnly(StoreType st)
     {
-        await SeedItemsAsync(5);
+        var client = Client(st);
+        await SeedItemsAsync(client, 5);
 
         var response = await client.ScanAsync(new ScanRequest
         {
@@ -192,36 +189,13 @@ public abstract class ScanTestsBase
 
     // ── Non-existent table ──────────────────────────────────────────
 
-    [Fact]
-    public async Task ScanAsync_NonExistentTable_ThrowsResourceNotFoundException()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task ScanAsync_NonExistentTable_ThrowsResourceNotFoundException(StoreType st)
         => _ = await Assert.ThrowsAsync<ResourceNotFoundException>(()
-            => client.ScanAsync(new ScanRequest
+            => Client(st).ScanAsync(new ScanRequest
             {
                 TableName = "NonExistent"
             }, TestContext.Current.CancellationToken));
-}
-
-public sealed class InMemoryScanTests : ScanTestsBase
-{
-    protected override DynamoDbClient CreateClient() =>
-        new(new DynamoDbLiteOptions($"Data Source=Test_{Guid.NewGuid():N};Mode=Memory;Cache=Shared"));
-}
-
-public sealed class FileBasedScanTests : ScanTestsBase
-{
-    private string? dbPath;
-
-    protected override DynamoDbClient CreateClient()
-    {
-        var (c, path) = Fixtures.FileBasedTestHelper.CreateFileBasedClient();
-        dbPath = path;
-        return c;
-    }
-
-    public override ValueTask DisposeAsync()
-    {
-        var result = base.DisposeAsync();
-        Fixtures.FileBasedTestHelper.Cleanup(dbPath);
-        return result;
-    }
 }

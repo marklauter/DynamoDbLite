@@ -1,32 +1,21 @@
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
+using DynamoDbLite.Tests.Fixtures;
 
 namespace DynamoDbLite.Tests;
 
-public abstract class TableManagementTestsBase
-    : IAsyncLifetime
+public sealed class TableManagementTests
+    : DynamoDbClientFixture
 {
-    protected DynamoDbClient client = null!;
-
-    protected abstract DynamoDbClient CreateClient();
-
-    public virtual ValueTask InitializeAsync()
-    {
-        client = CreateClient();
-        return ValueTask.CompletedTask;
-    }
-
-    public virtual ValueTask DisposeAsync()
-    {
-        client.Dispose();
-        return ValueTask.CompletedTask;
-    }
-
     // ── CreateTableAsync ───────────────────────────────────────────────
 
-    [Fact]
-    public async Task CreateTableAsync_WithHashKey_ReturnsActiveTable()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task CreateTableAsync_WithHashKey_ReturnsActiveTable(StoreType st)
     {
+        var client = Client(st);
+
         var response = await client.CreateTableAsync(new CreateTableRequest
         {
             TableName = "Users",
@@ -40,9 +29,13 @@ public abstract class TableManagementTestsBase
         Assert.Equal(System.Net.HttpStatusCode.OK, response.HttpStatusCode);
     }
 
-    [Fact]
-    public async Task CreateTableAsync_WithHashAndRangeKey_ReturnsCorrectKeySchema()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task CreateTableAsync_WithHashAndRangeKey_ReturnsCorrectKeySchema(StoreType st)
     {
+        var client = Client(st);
+
         var response = await client.CreateTableAsync(new CreateTableRequest
         {
             TableName = "Orders",
@@ -64,9 +57,13 @@ public abstract class TableManagementTestsBase
         Assert.Contains(response.TableDescription.KeySchema, k => k.AttributeName == "SK" && k.KeyType == KeyType.RANGE);
     }
 
-    [Fact]
-    public async Task CreateTableAsync_WithSimpleOverload_Succeeds()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task CreateTableAsync_WithSimpleOverload_Succeeds(StoreType st)
     {
+        var client = Client(st);
+
         var response = await client.CreateTableAsync(
             "Products",
             [new KeySchemaElement { AttributeName = "Id", KeyType = KeyType.HASH }],
@@ -78,10 +75,13 @@ public abstract class TableManagementTestsBase
         Assert.Equal(TableStatus.ACTIVE, response.TableDescription.TableStatus);
     }
 
-    [Fact]
-    public async Task CreateTableAsync_DuplicateTable_ThrowsResourceInUseException()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task CreateTableAsync_DuplicateTable_ThrowsResourceInUseException(StoreType st)
     {
-        _ = await CreateSimpleTableAsync("Dupes");
+        var client = Client(st);
+        _ = await CreateSimpleTableAsync(client, "Dupes");
 
         _ = await Assert.ThrowsAsync<ResourceInUseException>(() =>
             client.CreateTableAsync(new CreateTableRequest
@@ -92,29 +92,37 @@ public abstract class TableManagementTestsBase
             }, TestContext.Current.CancellationToken));
     }
 
-    [Fact]
-    public async Task CreateTableAsync_NoHashKey_ThrowsAmazonDynamoDBException()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task CreateTableAsync_NoHashKey_ThrowsAmazonDynamoDBException(StoreType st)
         => _ = await Assert.ThrowsAsync<AmazonDynamoDBException>(() =>
-            client.CreateTableAsync(new CreateTableRequest
+            Client(st).CreateTableAsync(new CreateTableRequest
             {
                 TableName = "Bad",
                 KeySchema = [new KeySchemaElement { AttributeName = "SK", KeyType = KeyType.RANGE }],
                 AttributeDefinitions = [new AttributeDefinition { AttributeName = "SK", AttributeType = ScalarAttributeType.S }]
             }, TestContext.Current.CancellationToken));
 
-    [Fact]
-    public async Task CreateTableAsync_KeyNotInAttributeDefinitions_ThrowsAmazonDynamoDBException()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task CreateTableAsync_KeyNotInAttributeDefinitions_ThrowsAmazonDynamoDBException(StoreType st)
         => _ = await Assert.ThrowsAsync<AmazonDynamoDBException>(() =>
-            client.CreateTableAsync(new CreateTableRequest
+            Client(st).CreateTableAsync(new CreateTableRequest
             {
                 TableName = "Bad",
                 KeySchema = [new KeySchemaElement { AttributeName = "PK", KeyType = KeyType.HASH }],
                 AttributeDefinitions = [new AttributeDefinition { AttributeName = "Other", AttributeType = ScalarAttributeType.S }]
             }, TestContext.Current.CancellationToken));
 
-    [Fact]
-    public async Task CreateTableAsync_SetsProvisionedThroughput()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task CreateTableAsync_SetsProvisionedThroughput(StoreType st)
     {
+        var client = Client(st);
+
         var response = await client.CreateTableAsync(new CreateTableRequest
         {
             TableName = "Throughput",
@@ -127,9 +135,13 @@ public abstract class TableManagementTestsBase
         Assert.Equal(20, response.TableDescription.ProvisionedThroughput.WriteCapacityUnits);
     }
 
-    [Fact]
-    public async Task CreateTableAsync_SetsTableArn()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task CreateTableAsync_SetsTableArn(StoreType st)
     {
+        var client = Client(st);
+
         var response = await client.CreateTableAsync(new CreateTableRequest
         {
             TableName = "ArnTest",
@@ -142,10 +154,13 @@ public abstract class TableManagementTestsBase
 
     // ── DeleteTableAsync ───────────────────────────────────────────────
 
-    [Fact]
-    public async Task DeleteTableAsync_ExistingTable_ReturnsDeletingStatus()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task DeleteTableAsync_ExistingTable_ReturnsDeletingStatus(StoreType st)
     {
-        _ = await CreateSimpleTableAsync("ToDelete");
+        var client = Client(st);
+        _ = await CreateSimpleTableAsync(client, "ToDelete");
 
         var response = await client.DeleteTableAsync("ToDelete", TestContext.Current.CancellationToken);
 
@@ -153,10 +168,13 @@ public abstract class TableManagementTestsBase
         Assert.Equal(TableStatus.DELETING, response.TableDescription.TableStatus);
     }
 
-    [Fact]
-    public async Task DeleteTableAsync_ExistingTable_RemovesFromStore()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task DeleteTableAsync_ExistingTable_RemovesFromStore(StoreType st)
     {
-        _ = await CreateSimpleTableAsync("ToRemove");
+        var client = Client(st);
+        _ = await CreateSimpleTableAsync(client, "ToRemove");
 
         _ = await client.DeleteTableAsync("ToRemove", TestContext.Current.CancellationToken);
 
@@ -164,17 +182,22 @@ public abstract class TableManagementTestsBase
             client.DescribeTableAsync("ToRemove", TestContext.Current.CancellationToken));
     }
 
-    [Fact]
-    public async Task DeleteTableAsync_NonExistentTable_ThrowsResourceNotFoundException()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task DeleteTableAsync_NonExistentTable_ThrowsResourceNotFoundException(StoreType st)
         => _ = await Assert.ThrowsAsync<ResourceNotFoundException>(() =>
-            client.DeleteTableAsync("DoesNotExist", TestContext.Current.CancellationToken));
+            Client(st).DeleteTableAsync("DoesNotExist", TestContext.Current.CancellationToken));
 
     // ── DescribeTableAsync ─────────────────────────────────────────────
 
-    [Fact]
-    public async Task DescribeTableAsync_ExistingTable_ReturnsDescription()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task DescribeTableAsync_ExistingTable_ReturnsDescription(StoreType st)
     {
-        _ = await CreateSimpleTableAsync("Described");
+        var client = Client(st);
+        _ = await CreateSimpleTableAsync(client, "Described");
 
         var response = await client.DescribeTableAsync("Described", TestContext.Current.CancellationToken);
 
@@ -185,39 +208,51 @@ public abstract class TableManagementTestsBase
         Assert.True(response.Table.CreationDateTime > DateTime.MinValue);
     }
 
-    [Fact]
-    public async Task DescribeTableAsync_NonExistentTable_ThrowsResourceNotFoundException()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task DescribeTableAsync_NonExistentTable_ThrowsResourceNotFoundException(StoreType st)
         => _ = await Assert.ThrowsAsync<ResourceNotFoundException>(() =>
-            client.DescribeTableAsync("Ghost", TestContext.Current.CancellationToken));
+            Client(st).DescribeTableAsync("Ghost", TestContext.Current.CancellationToken));
 
     // ── ListTablesAsync ────────────────────────────────────────────────
 
-    [Fact]
-    public async Task ListTablesAsync_NoTables_ReturnsEmptyList()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task ListTablesAsync_NoTables_ReturnsEmptyList(StoreType st)
     {
+        var client = Client(st);
+
         var response = await client.ListTablesAsync(TestContext.Current.CancellationToken);
 
         Assert.Empty(response.TableNames);
     }
 
-    [Fact]
-    public async Task ListTablesAsync_MultipleTables_ReturnsAlphabeticalOrder()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task ListTablesAsync_MultipleTables_ReturnsAlphabeticalOrder(StoreType st)
     {
-        _ = await CreateSimpleTableAsync("Charlie");
-        _ = await CreateSimpleTableAsync("Alpha");
-        _ = await CreateSimpleTableAsync("Bravo");
+        var client = Client(st);
+        _ = await CreateSimpleTableAsync(client, "Charlie");
+        _ = await CreateSimpleTableAsync(client, "Alpha");
+        _ = await CreateSimpleTableAsync(client, "Bravo");
 
         var response = await client.ListTablesAsync(TestContext.Current.CancellationToken);
 
         Assert.Equal(["Alpha", "Bravo", "Charlie"], response.TableNames);
     }
 
-    [Fact]
-    public async Task ListTablesAsync_WithLimit_RespectsLimit()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task ListTablesAsync_WithLimit_RespectsLimit(StoreType st)
     {
-        _ = await CreateSimpleTableAsync("A");
-        _ = await CreateSimpleTableAsync("B");
-        _ = await CreateSimpleTableAsync("C");
+        var client = Client(st);
+        _ = await CreateSimpleTableAsync(client, "A");
+        _ = await CreateSimpleTableAsync(client, "B");
+        _ = await CreateSimpleTableAsync(client, "C");
 
         var response = await client.ListTablesAsync(2, TestContext.Current.CancellationToken);
 
@@ -226,12 +261,15 @@ public abstract class TableManagementTestsBase
         Assert.NotNull(response.LastEvaluatedTableName);
     }
 
-    [Fact]
-    public async Task ListTablesAsync_Pagination_ReturnsNextPage()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task ListTablesAsync_Pagination_ReturnsNextPage(StoreType st)
     {
-        _ = await CreateSimpleTableAsync("A");
-        _ = await CreateSimpleTableAsync("B");
-        _ = await CreateSimpleTableAsync("C");
+        var client = Client(st);
+        _ = await CreateSimpleTableAsync(client, "A");
+        _ = await CreateSimpleTableAsync(client, "B");
+        _ = await CreateSimpleTableAsync(client, "C");
 
         var firstPage = await client.ListTablesAsync(2, TestContext.Current.CancellationToken);
         var secondPage = await client.ListTablesAsync(firstPage.LastEvaluatedTableName!, 2, TestContext.Current.CancellationToken);
@@ -240,10 +278,13 @@ public abstract class TableManagementTestsBase
         Assert.Null(secondPage.LastEvaluatedTableName);
     }
 
-    [Fact]
-    public async Task ListTablesAsync_AllFitInOnePage_NoLastEvaluatedTableName()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task ListTablesAsync_AllFitInOnePage_NoLastEvaluatedTableName(StoreType st)
     {
-        _ = await CreateSimpleTableAsync("Only");
+        var client = Client(st);
+        _ = await CreateSimpleTableAsync(client, "Only");
 
         var response = await client.ListTablesAsync(TestContext.Current.CancellationToken);
 
@@ -253,9 +294,13 @@ public abstract class TableManagementTestsBase
 
     // ── Disposal ───────────────────────────────────────────────────────
 
-    [Fact]
-    public async Task Operations_AfterDispose_ThrowObjectDisposedException()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task Operations_AfterDispose_ThrowObjectDisposedException(StoreType st)
     {
+#pragma warning disable IDISP016, IDISP017
+        var client = Client(st);
         client.Dispose();
 
         _ = await Assert.ThrowsAsync<ObjectDisposedException>(() =>
@@ -269,40 +314,16 @@ public abstract class TableManagementTestsBase
 
         _ = await Assert.ThrowsAsync<ObjectDisposedException>(() =>
             client.ListTablesAsync(TestContext.Current.CancellationToken));
+#pragma warning restore IDISP016, IDISP017
     }
 
     // ── Helpers ─────────────────────────────────────────────────────────
 
-    private Task<CreateTableResponse> CreateSimpleTableAsync(string tableName) =>
+    private static Task<CreateTableResponse> CreateSimpleTableAsync(DynamoDbClient client, string tableName) =>
         client.CreateTableAsync(new CreateTableRequest
         {
             TableName = tableName,
             KeySchema = [new KeySchemaElement { AttributeName = "PK", KeyType = KeyType.HASH }],
             AttributeDefinitions = [new AttributeDefinition { AttributeName = "PK", AttributeType = ScalarAttributeType.S }]
         }, TestContext.Current.CancellationToken);
-}
-
-public sealed class InMemoryTableManagementTests : TableManagementTestsBase
-{
-    protected override DynamoDbClient CreateClient() =>
-        new(new DynamoDbLiteOptions($"Data Source=Test_{Guid.NewGuid():N};Mode=Memory;Cache=Shared"));
-}
-
-public sealed class FileBasedTableManagementTests : TableManagementTestsBase
-{
-    private string? dbPath;
-
-    protected override DynamoDbClient CreateClient()
-    {
-        var (c, path) = Fixtures.FileBasedTestHelper.CreateFileBasedClient();
-        dbPath = path;
-        return c;
-    }
-
-    public override ValueTask DisposeAsync()
-    {
-        var result = base.DisposeAsync();
-        Fixtures.FileBasedTestHelper.Cleanup(dbPath);
-        return result;
-    }
 }

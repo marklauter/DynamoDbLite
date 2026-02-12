@@ -1,33 +1,22 @@
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
+using DynamoDbLite.Tests.Fixtures;
 
 namespace DynamoDbLite.Tests;
 
-public abstract class QueryTestsBase
-    : IAsyncLifetime
+public sealed class QueryTests
+    : DynamoDbClientFixture
 {
-    protected DynamoDbClient client = null!;
-
-    protected abstract DynamoDbClient CreateClient();
-
-    public async ValueTask InitializeAsync()
+    protected override async ValueTask SetupAsync(CancellationToken ct)
     {
-        client = CreateClient();
-        _ = await client.CreateTableAsync(new CreateTableRequest
-        {
-            TableName = "TestTable",
-            KeySchema =
-            [
-                new KeySchemaElement { AttributeName = "PK", KeyType = KeyType.HASH },
-                new KeySchemaElement { AttributeName = "SK", KeyType = KeyType.RANGE }
-            ],
-            AttributeDefinitions =
-            [
-                new AttributeDefinition { AttributeName = "PK", AttributeType = ScalarAttributeType.S },
-                new AttributeDefinition { AttributeName = "SK", AttributeType = ScalarAttributeType.S }
-            ]
-        }, TestContext.Current.CancellationToken);
+        await CreateTestTableAsync(Client(StoreType.MemoryBased), ct);
+        await CreateTestTableAsync(Client(StoreType.FileBased), ct);
+        await SeedTestDataAsync(Client(StoreType.MemoryBased), ct);
+        await SeedTestDataAsync(Client(StoreType.FileBased), ct);
+    }
 
+    private static async Task SeedTestDataAsync(DynamoDbClient client, CancellationToken ct)
+    {
         // Seed test data: USER#1 has 5 items, USER#2 has 2 items
         var items = new (string Pk, string Sk, string Name)[]
         {
@@ -52,21 +41,18 @@ public abstract class QueryTestsBase
                     ["name"] = new() { S = name },
                     ["active"] = new() { BOOL = name != "Carol" },
                 }
-            }, TestContext.Current.CancellationToken);
+            }, ct);
         }
-    }
-
-    public virtual ValueTask DisposeAsync()
-    {
-        client.Dispose();
-        return ValueTask.CompletedTask;
     }
 
     // ── PK-only query ───────────────────────────────────────────────
 
-    [Fact]
-    public async Task QueryAsync_PkOnly_ReturnsAllItemsForPartition()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task QueryAsync_PkOnly_ReturnsAllItemsForPartition(StoreType st)
     {
+        var client = Client(st);
         var response = await client.QueryAsync(new QueryRequest
         {
             TableName = "TestTable",
@@ -83,9 +69,12 @@ public abstract class QueryTestsBase
 
     // ── SK equality ─────────────────────────────────────────────────
 
-    [Fact]
-    public async Task QueryAsync_SkEquality_ReturnsSingleItem()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task QueryAsync_SkEquality_ReturnsSingleItem(StoreType st)
     {
+        var client = Client(st);
         var response = await client.QueryAsync(new QueryRequest
         {
             TableName = "TestTable",
@@ -103,9 +92,12 @@ public abstract class QueryTestsBase
 
     // ── SK comparison operators ─────────────────────────────────────
 
-    [Fact]
-    public async Task QueryAsync_SkLessThan_ReturnsCorrectItems()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task QueryAsync_SkLessThan_ReturnsCorrectItems(StoreType st)
     {
+        var client = Client(st);
         var response = await client.QueryAsync(new QueryRequest
         {
             TableName = "TestTable",
@@ -122,9 +114,12 @@ public abstract class QueryTestsBase
         Assert.Equal("B", response.Items[1]["SK"].S);
     }
 
-    [Fact]
-    public async Task QueryAsync_SkGreaterThanOrEqual_ReturnsCorrectItems()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task QueryAsync_SkGreaterThanOrEqual_ReturnsCorrectItems(StoreType st)
     {
+        var client = Client(st);
         var response = await client.QueryAsync(new QueryRequest
         {
             TableName = "TestTable",
@@ -143,9 +138,12 @@ public abstract class QueryTestsBase
 
     // ── SK BETWEEN ──────────────────────────────────────────────────
 
-    [Fact]
-    public async Task QueryAsync_SkBetween_ReturnsItemsInRange()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task QueryAsync_SkBetween_ReturnsItemsInRange(StoreType st)
     {
+        var client = Client(st);
         var response = await client.QueryAsync(new QueryRequest
         {
             TableName = "TestTable",
@@ -166,9 +164,12 @@ public abstract class QueryTestsBase
 
     // ── begins_with ─────────────────────────────────────────────────
 
-    [Fact]
-    public async Task QueryAsync_BeginsWith_ReturnsMatchingItems()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task QueryAsync_BeginsWith_ReturnsMatchingItems(StoreType st)
     {
+        var client = Client(st);
         // Add items with longer SKs for begins_with testing
         _ = await client.PutItemAsync(new PutItemRequest
         {
@@ -218,9 +219,12 @@ public abstract class QueryTestsBase
         Assert.All(response.Items, item => Assert.StartsWith("ORDER#", item["SK"].S));
     }
 
-    [Fact]
-    public async Task QueryAsync_BeginsWith_TrailingMaxChar_ReturnsMatchingItems()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task QueryAsync_BeginsWith_TrailingMaxChar_ReturnsMatchingItems(StoreType st)
     {
+        var client = Client(st);
         var prefix = "ORDER\uffff";
         _ = await client.PutItemAsync(new PutItemRequest
         {
@@ -259,9 +263,12 @@ public abstract class QueryTestsBase
         Assert.Equal("Hit", response.Items[0]["name"].S);
     }
 
-    [Fact]
-    public async Task QueryAsync_BeginsWith_AllMaxChars_ReturnsMatchingItems()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task QueryAsync_BeginsWith_AllMaxChars_ReturnsMatchingItems(StoreType st)
     {
+        var client = Client(st);
         var prefix = "\uffff\uffff";
         _ = await client.PutItemAsync(new PutItemRequest
         {
@@ -302,9 +309,12 @@ public abstract class QueryTestsBase
 
     // ── ScanIndexForward = false ────────────────────────────────────
 
-    [Fact]
-    public async Task QueryAsync_ScanIndexForwardFalse_ReturnsDescending()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task QueryAsync_ScanIndexForwardFalse_ReturnsDescending(StoreType st)
     {
+        var client = Client(st);
         var response = await client.QueryAsync(new QueryRequest
         {
             TableName = "TestTable",
@@ -326,9 +336,12 @@ public abstract class QueryTestsBase
 
     // ── Limit + LastEvaluatedKey pagination ─────────────────────────
 
-    [Fact]
-    public async Task QueryAsync_Limit_ReturnsLimitedResultsWithLastEvaluatedKey()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task QueryAsync_Limit_ReturnsLimitedResultsWithLastEvaluatedKey(StoreType st)
     {
+        var client = Client(st);
         var response = await client.QueryAsync(new QueryRequest
         {
             TableName = "TestTable",
@@ -346,9 +359,12 @@ public abstract class QueryTestsBase
         Assert.Equal("B", response.LastEvaluatedKey["SK"].S);
     }
 
-    [Fact]
-    public async Task QueryAsync_PaginationLoop_ReturnsAllItems()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task QueryAsync_PaginationLoop_ReturnsAllItems(StoreType st)
     {
+        var client = Client(st);
         var allItems = new List<Dictionary<string, AttributeValue>>();
         Dictionary<string, AttributeValue>? lastKey = null;
 
@@ -378,9 +394,12 @@ public abstract class QueryTestsBase
 
     // ── FilterExpression ────────────────────────────────────────────
 
-    [Fact]
-    public async Task QueryAsync_FilterExpression_FiltersResults()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task QueryAsync_FilterExpression_FiltersResults(StoreType st)
     {
+        var client = Client(st);
         var response = await client.QueryAsync(new QueryRequest
         {
             TableName = "TestTable",
@@ -400,9 +419,12 @@ public abstract class QueryTestsBase
 
     // ── ProjectionExpression ────────────────────────────────────────
 
-    [Fact]
-    public async Task QueryAsync_ProjectionExpression_ReturnsOnlyRequestedAttributes()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task QueryAsync_ProjectionExpression_ReturnsOnlyRequestedAttributes(StoreType st)
     {
+        var client = Client(st);
         var response = await client.QueryAsync(new QueryRequest
         {
             TableName = "TestTable",
@@ -426,9 +448,12 @@ public abstract class QueryTestsBase
 
     // ── Select.COUNT ────────────────────────────────────────────────
 
-    [Fact]
-    public async Task QueryAsync_SelectCount_ReturnsCountOnly()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task QueryAsync_SelectCount_ReturnsCountOnly(StoreType st)
     {
+        var client = Client(st);
         var response = await client.QueryAsync(new QueryRequest
         {
             TableName = "TestTable",
@@ -446,10 +471,12 @@ public abstract class QueryTestsBase
 
     // ── Non-existent table ──────────────────────────────────────────
 
-    [Fact]
-    public async Task QueryAsync_NonExistentTable_ThrowsResourceNotFoundException()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task QueryAsync_NonExistentTable_ThrowsResourceNotFoundException(StoreType st)
         => _ = await Assert.ThrowsAsync<ResourceNotFoundException>(()
-            => client.QueryAsync(new QueryRequest
+            => Client(st).QueryAsync(new QueryRequest
             {
                 TableName = "NonExistent",
                 KeyConditionExpression = "PK = :pk",
@@ -461,9 +488,12 @@ public abstract class QueryTestsBase
 
     // ── Empty results ───────────────────────────────────────────────
 
-    [Fact]
-    public async Task QueryAsync_NoMatchingItems_ReturnsEmptyResult()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task QueryAsync_NoMatchingItems_ReturnsEmptyResult(StoreType st)
     {
+        var client = Client(st);
         var response = await client.QueryAsync(new QueryRequest
         {
             TableName = "TestTable",
@@ -477,30 +507,5 @@ public abstract class QueryTestsBase
         Assert.Equal(0, response.Count);
         Assert.Empty(response.Items);
         Assert.Null(response.LastEvaluatedKey);
-    }
-}
-
-public sealed class InMemoryQueryTests : QueryTestsBase
-{
-    protected override DynamoDbClient CreateClient() =>
-        new(new DynamoDbLiteOptions($"Data Source=Test_{Guid.NewGuid():N};Mode=Memory;Cache=Shared"));
-}
-
-public sealed class FileBasedQueryTests : QueryTestsBase
-{
-    private string? dbPath;
-
-    protected override DynamoDbClient CreateClient()
-    {
-        var (c, path) = Fixtures.FileBasedTestHelper.CreateFileBasedClient();
-        dbPath = path;
-        return c;
-    }
-
-    public override ValueTask DisposeAsync()
-    {
-        var result = base.DisposeAsync();
-        Fixtures.FileBasedTestHelper.Cleanup(dbPath);
-        return result;
     }
 }

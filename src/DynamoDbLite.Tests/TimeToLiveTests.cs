@@ -5,49 +5,26 @@ using System.Globalization;
 
 namespace DynamoDbLite.Tests;
 
-public abstract class TimeToLiveTestsBase
-    : IAsyncLifetime
+public sealed class TimeToLiveTests
+    : DynamoDbClientFixture
 {
-    protected DynamoDbClient client = null!;
-
-    protected abstract DynamoDbClient CreateClient();
-
-    public async ValueTask InitializeAsync()
+    protected override async ValueTask SetupAsync(CancellationToken ct)
     {
-        client = CreateClient();
-        _ = await client.CreateTableAsync(new CreateTableRequest
-        {
-            TableName = "TestTable",
-            KeySchema =
-                [
-                    new KeySchemaElement { AttributeName = "PK", KeyType = KeyType.HASH },
-                    new KeySchemaElement { AttributeName = "SK", KeyType = KeyType.RANGE }
-                ],
-            AttributeDefinitions =
-                [
-                    new AttributeDefinition { AttributeName = "PK", AttributeType = ScalarAttributeType.S },
-                    new AttributeDefinition { AttributeName = "SK", AttributeType = ScalarAttributeType.S }
-                ]
-        }, TestContext.Current.CancellationToken);
-    }
-
-    public virtual ValueTask DisposeAsync()
-    {
-        client.Dispose();
-        return ValueTask.CompletedTask;
+        await CreateTestTableAsync(Client(StoreType.MemoryBased), ct);
+        await CreateTestTableAsync(Client(StoreType.FileBased), ct);
     }
 
     private static long FutureEpoch() => DateTimeOffset.UtcNow.ToUnixTimeSeconds() + 86400;
     private static long PastEpoch() => DateTimeOffset.UtcNow.ToUnixTimeSeconds() - 86400;
 
-    private async Task EnableTtlAsync() =>
+    private static async Task EnableTtlAsync(DynamoDbClient client) =>
         _ = await client.UpdateTimeToLiveAsync(new UpdateTimeToLiveRequest
         {
             TableName = "TestTable",
             TimeToLiveSpecification = new TimeToLiveSpecification { Enabled = true, AttributeName = "ttl" }
         }, TestContext.Current.CancellationToken);
 
-    private async Task PutItemWithTtlAsync(string pk, string sk, long ttlValue) =>
+    private static async Task PutItemWithTtlAsync(DynamoDbClient client, string pk, string sk, long ttlValue) =>
         _ = await client.PutItemAsync(new PutItemRequest
         {
             TableName = "TestTable",
@@ -59,7 +36,7 @@ public abstract class TimeToLiveTestsBase
             }
         }, TestContext.Current.CancellationToken);
 
-    private async Task PutItemWithoutTtlAsync(string pk, string sk) =>
+    private static async Task PutItemWithoutTtlAsync(DynamoDbClient client, string pk, string sk) =>
         _ = await client.PutItemAsync(new PutItemRequest
         {
             TableName = "TestTable",
@@ -70,7 +47,7 @@ public abstract class TimeToLiveTestsBase
             }
         }, TestContext.Current.CancellationToken);
 
-    private async Task<Dictionary<string, AttributeValue>?> GetItemAsync(string pk, string sk)
+    private static async Task<Dictionary<string, AttributeValue>?> GetItemAsync(DynamoDbClient client, string pk, string sk)
     {
         var response = await client.GetItemAsync(new GetItemRequest
         {
@@ -84,28 +61,40 @@ public abstract class TimeToLiveTestsBase
         return response.IsItemSet ? response.Item : null;
     }
 
-    // ── TTL Config API ──────────────────────────────────────────────
+    // -- TTL Config API ----------------------------------------------------
 
-    [Fact]
-    public async Task DescribeTimeToLive_Disabled_By_Default()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task DescribeTimeToLive_Disabled_By_Default(StoreType st)
     {
+        var client = Client(st);
+
         var response = await client.DescribeTimeToLiveAsync("TestTable", TestContext.Current.CancellationToken);
 
         Assert.Equal(TimeToLiveStatus.DISABLED, response.TimeToLiveDescription.TimeToLiveStatus);
         Assert.Null(response.TimeToLiveDescription.AttributeName);
     }
 
-    [Fact]
-    public async Task DescribeTimeToLive_Missing_Table_Throws()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task DescribeTimeToLive_Missing_Table_Throws(StoreType st)
     {
+        var client = Client(st);
+
         var ex = await Assert.ThrowsAsync<ResourceNotFoundException>(() =>
             client.DescribeTimeToLiveAsync("NoSuchTable", TestContext.Current.CancellationToken));
         Assert.Contains("NoSuchTable", ex.Message);
     }
 
-    [Fact]
-    public async Task Enable_Disable_Roundtrip()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task Enable_Disable_Roundtrip(StoreType st)
     {
+        var client = Client(st);
+
         var enableResponse = await client.UpdateTimeToLiveAsync(new UpdateTimeToLiveRequest
         {
             TableName = "TestTable",
@@ -131,10 +120,13 @@ public abstract class TimeToLiveTestsBase
         Assert.Equal(TimeToLiveStatus.DISABLED, describe2.TimeToLiveDescription.TimeToLiveStatus);
     }
 
-    [Fact]
-    public async Task Enable_When_Already_Enabled_Throws()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task Enable_When_Already_Enabled_Throws(StoreType st)
     {
-        await EnableTtlAsync();
+        var client = Client(st);
+        await EnableTtlAsync(client);
 
         var ex = await Assert.ThrowsAsync<AmazonDynamoDBException>(() =>
             client.UpdateTimeToLiveAsync(new UpdateTimeToLiveRequest
@@ -145,9 +137,13 @@ public abstract class TimeToLiveTestsBase
         Assert.Contains("already enabled", ex.Message);
     }
 
-    [Fact]
-    public async Task Disable_When_Already_Disabled_Throws()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task Disable_When_Already_Disabled_Throws(StoreType st)
     {
+        var client = Client(st);
+
         var ex = await Assert.ThrowsAsync<AmazonDynamoDBException>(() =>
             client.UpdateTimeToLiveAsync(new UpdateTimeToLiveRequest
             {
@@ -157,9 +153,13 @@ public abstract class TimeToLiveTestsBase
         Assert.Contains("already disabled", ex.Message);
     }
 
-    [Fact]
-    public async Task Enable_On_Missing_Table_Throws()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task Enable_On_Missing_Table_Throws(StoreType st)
     {
+        var client = Client(st);
+
         var ex = await Assert.ThrowsAsync<ResourceNotFoundException>(() =>
             client.UpdateTimeToLiveAsync(new UpdateTimeToLiveRequest
             {
@@ -169,10 +169,13 @@ public abstract class TimeToLiveTestsBase
         Assert.Contains("NoSuchTable", ex.Message);
     }
 
-    [Fact]
-    public async Task DescribeTimeToLive_With_Request_Object()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task DescribeTimeToLive_With_Request_Object(StoreType st)
     {
-        await EnableTtlAsync();
+        var client = Client(st);
+        await EnableTtlAsync(client);
 
         var response = await client.DescribeTimeToLiveAsync(new DescribeTimeToLiveRequest
         {
@@ -183,43 +186,55 @@ public abstract class TimeToLiveTestsBase
         Assert.Equal("ttl", response.TimeToLiveDescription.AttributeName);
     }
 
-    // ── Read Filtering ──────────────────────────────────────────────
+    // -- Read Filtering ----------------------------------------------------
 
-    [Fact]
-    public async Task GetItem_Expired_Item_Returns_Null()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task GetItem_Expired_Item_Returns_Null(StoreType st)
     {
-        await EnableTtlAsync();
-        await PutItemWithTtlAsync("pk1", "sk1", PastEpoch());
+        var client = Client(st);
+        await EnableTtlAsync(client);
+        await PutItemWithTtlAsync(client, "pk1", "sk1", PastEpoch());
 
-        var result = await GetItemAsync("pk1", "sk1");
+        var result = await GetItemAsync(client, "pk1", "sk1");
         Assert.Null(result);
     }
 
-    [Fact]
-    public async Task GetItem_NonExpired_Item_Returns_Item()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task GetItem_NonExpired_Item_Returns_Item(StoreType st)
     {
-        await EnableTtlAsync();
-        await PutItemWithTtlAsync("pk1", "sk1", FutureEpoch());
+        var client = Client(st);
+        await EnableTtlAsync(client);
+        await PutItemWithTtlAsync(client, "pk1", "sk1", FutureEpoch());
 
-        var result = await GetItemAsync("pk1", "sk1");
+        var result = await GetItemAsync(client, "pk1", "sk1");
         Assert.NotNull(result);
         Assert.Equal("pk1", result["PK"].S);
     }
 
-    [Fact]
-    public async Task GetItem_Missing_Ttl_Attribute_Returns_Item()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task GetItem_Missing_Ttl_Attribute_Returns_Item(StoreType st)
     {
-        await EnableTtlAsync();
-        await PutItemWithoutTtlAsync("pk1", "sk1");
+        var client = Client(st);
+        await EnableTtlAsync(client);
+        await PutItemWithoutTtlAsync(client, "pk1", "sk1");
 
-        var result = await GetItemAsync("pk1", "sk1");
+        var result = await GetItemAsync(client, "pk1", "sk1");
         Assert.NotNull(result);
     }
 
-    [Fact]
-    public async Task GetItem_NonNumeric_Ttl_Attribute_Returns_Item()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task GetItem_NonNumeric_Ttl_Attribute_Returns_Item(StoreType st)
     {
-        await EnableTtlAsync();
+        var client = Client(st);
+        await EnableTtlAsync(client);
         _ = await client.PutItemAsync(new PutItemRequest
         {
             TableName = "TestTable",
@@ -231,17 +246,20 @@ public abstract class TimeToLiveTestsBase
             }
         }, TestContext.Current.CancellationToken);
 
-        var result = await GetItemAsync("pk1", "sk1");
+        var result = await GetItemAsync(client, "pk1", "sk1");
         Assert.NotNull(result);
     }
 
-    [Fact]
-    public async Task Query_Excludes_Expired_Items()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task Query_Excludes_Expired_Items(StoreType st)
     {
-        await EnableTtlAsync();
-        await PutItemWithTtlAsync("pk1", "sk1", FutureEpoch());
-        await PutItemWithTtlAsync("pk1", "sk2", PastEpoch());
-        await PutItemWithTtlAsync("pk1", "sk3", FutureEpoch());
+        var client = Client(st);
+        await EnableTtlAsync(client);
+        await PutItemWithTtlAsync(client, "pk1", "sk1", FutureEpoch());
+        await PutItemWithTtlAsync(client, "pk1", "sk2", PastEpoch());
+        await PutItemWithTtlAsync(client, "pk1", "sk3", FutureEpoch());
 
         var response = await client.QueryAsync(new QueryRequest
         {
@@ -257,12 +275,15 @@ public abstract class TimeToLiveTestsBase
         Assert.All(response.Items, item => Assert.NotEqual("sk2", item["SK"].S));
     }
 
-    [Fact]
-    public async Task Scan_Excludes_Expired_Items()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task Scan_Excludes_Expired_Items(StoreType st)
     {
-        await EnableTtlAsync();
-        await PutItemWithTtlAsync("pk1", "sk1", FutureEpoch());
-        await PutItemWithTtlAsync("pk2", "sk1", PastEpoch());
+        var client = Client(st);
+        await EnableTtlAsync(client);
+        await PutItemWithTtlAsync(client, "pk1", "sk1", FutureEpoch());
+        await PutItemWithTtlAsync(client, "pk2", "sk1", PastEpoch());
 
         var response = await client.ScanAsync(new ScanRequest
         {
@@ -273,12 +294,15 @@ public abstract class TimeToLiveTestsBase
         Assert.Equal("pk1", response.Items[0]["PK"].S);
     }
 
-    [Fact]
-    public async Task BatchGetItem_Excludes_Expired_Items()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task BatchGetItem_Excludes_Expired_Items(StoreType st)
     {
-        await EnableTtlAsync();
-        await PutItemWithTtlAsync("pk1", "sk1", PastEpoch());
-        await PutItemWithTtlAsync("pk2", "sk1", FutureEpoch());
+        var client = Client(st);
+        await EnableTtlAsync(client);
+        await PutItemWithTtlAsync(client, "pk1", "sk1", PastEpoch());
+        await PutItemWithTtlAsync(client, "pk2", "sk1", FutureEpoch());
 
         var response = await client.BatchGetItemAsync(new BatchGetItemRequest
         {
@@ -307,12 +331,15 @@ public abstract class TimeToLiveTestsBase
         Assert.Equal("pk2", response.Responses["TestTable"][0]["PK"].S);
     }
 
-    [Fact]
-    public async Task TransactGetItems_Excludes_Expired_Items()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task TransactGetItems_Excludes_Expired_Items(StoreType st)
     {
-        await EnableTtlAsync();
-        await PutItemWithTtlAsync("pk1", "sk1", PastEpoch());
-        await PutItemWithTtlAsync("pk2", "sk1", FutureEpoch());
+        var client = Client(st);
+        await EnableTtlAsync(client);
+        await PutItemWithTtlAsync(client, "pk1", "sk1", PastEpoch());
+        await PutItemWithTtlAsync(client, "pk2", "sk1", FutureEpoch());
 
         var response = await client.TransactGetItemsAsync(new TransactGetItemsRequest
         {
@@ -349,25 +376,31 @@ public abstract class TimeToLiveTestsBase
         Assert.NotNull(response.Responses[1].Item);
     }
 
-    // ── Write Path ──────────────────────────────────────────────────
+    // -- Write Path --------------------------------------------------------
 
-    [Fact]
-    public async Task PutItem_With_Ttl_Stores_TtlEpoch()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task PutItem_With_Ttl_Stores_TtlEpoch(StoreType st)
     {
-        await EnableTtlAsync();
+        var client = Client(st);
+        await EnableTtlAsync(client);
         var futureEpoch = FutureEpoch();
-        await PutItemWithTtlAsync("pk1", "sk1", futureEpoch);
+        await PutItemWithTtlAsync(client, "pk1", "sk1", futureEpoch);
 
-        var result = await GetItemAsync("pk1", "sk1");
+        var result = await GetItemAsync(client, "pk1", "sk1");
         Assert.NotNull(result);
         Assert.Equal(futureEpoch.ToString(CultureInfo.InvariantCulture), result["ttl"].N);
     }
 
-    [Fact]
-    public async Task UpdateItem_With_Ttl_Stores_TtlEpoch()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task UpdateItem_With_Ttl_Stores_TtlEpoch(StoreType st)
     {
-        await EnableTtlAsync();
-        await PutItemWithoutTtlAsync("pk1", "sk1");
+        var client = Client(st);
+        await EnableTtlAsync(client);
+        await PutItemWithoutTtlAsync(client, "pk1", "sk1");
 
         var futureEpoch = FutureEpoch();
         _ = await client.UpdateItemAsync(new UpdateItemRequest
@@ -386,15 +419,18 @@ public abstract class TimeToLiveTestsBase
             }
         }, TestContext.Current.CancellationToken);
 
-        var result = await GetItemAsync("pk1", "sk1");
+        var result = await GetItemAsync(client, "pk1", "sk1");
         Assert.NotNull(result);
         Assert.Equal(futureEpoch.ToString(CultureInfo.InvariantCulture), result["ttl"].N);
     }
 
-    [Fact]
-    public async Task BatchWrite_With_Ttl_Stores_TtlEpoch()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task BatchWrite_With_Ttl_Stores_TtlEpoch(StoreType st)
     {
-        await EnableTtlAsync();
+        var client = Client(st);
+        await EnableTtlAsync(client);
         var futureEpoch = FutureEpoch();
 
         _ = await client.BatchWriteItemAsync(new BatchWriteItemRequest
@@ -419,15 +455,18 @@ public abstract class TimeToLiveTestsBase
             }
         }, TestContext.Current.CancellationToken);
 
-        var result = await GetItemAsync("pk1", "sk1");
+        var result = await GetItemAsync(client, "pk1", "sk1");
         Assert.NotNull(result);
         Assert.Equal(futureEpoch.ToString(CultureInfo.InvariantCulture), result["ttl"].N);
     }
 
-    [Fact]
-    public async Task TransactWrite_With_Ttl_Stores_TtlEpoch()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task TransactWrite_With_Ttl_Stores_TtlEpoch(StoreType st)
     {
-        await EnableTtlAsync();
+        var client = Client(st);
+        await EnableTtlAsync(client);
         var futureEpoch = FutureEpoch();
 
         _ = await client.TransactWriteItemsAsync(new TransactWriteItemsRequest
@@ -450,19 +489,22 @@ public abstract class TimeToLiveTestsBase
             ]
         }, TestContext.Current.CancellationToken);
 
-        var result = await GetItemAsync("pk1", "sk1");
+        var result = await GetItemAsync(client, "pk1", "sk1");
         Assert.NotNull(result);
     }
 
-    // ── Config Changes ──────────────────────────────────────────────
+    // -- Config Changes ----------------------------------------------------
 
-    [Fact]
-    public async Task Disable_Ttl_Makes_Expired_Items_Visible_Again()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task Disable_Ttl_Makes_Expired_Items_Visible_Again(StoreType st)
     {
-        await EnableTtlAsync();
-        await PutItemWithTtlAsync("pk1", "sk1", PastEpoch());
+        var client = Client(st);
+        await EnableTtlAsync(client);
+        await PutItemWithTtlAsync(client, "pk1", "sk1", PastEpoch());
 
-        // Don't read the item while TTL is enabled — reading triggers background cleanup
+        // Don't read the item while TTL is enabled -- reading triggers background cleanup
         // that could physically delete the expired row before we disable TTL.
 
         // Disable TTL (clears ttl_epoch to NULL for all items)
@@ -473,36 +515,43 @@ public abstract class TimeToLiveTestsBase
         }, TestContext.Current.CancellationToken);
 
         // Item should be visible again since ttl_epoch is now NULL
-        var result = await GetItemAsync("pk1", "sk1");
+        var result = await GetItemAsync(client, "pk1", "sk1");
         Assert.NotNull(result);
     }
 
-    [Fact]
-    public async Task Enable_Ttl_Backfills_Existing_Items()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task Enable_Ttl_Backfills_Existing_Items(StoreType st)
     {
+        var client = Client(st);
+
         // Put items before enabling TTL
-        await PutItemWithTtlAsync("pk1", "sk1", PastEpoch());
-        await PutItemWithTtlAsync("pk2", "sk1", FutureEpoch());
+        await PutItemWithTtlAsync(client, "pk1", "sk1", PastEpoch());
+        await PutItemWithTtlAsync(client, "pk2", "sk1", FutureEpoch());
 
         // Enable TTL - should backfill ttl_epoch
-        await EnableTtlAsync();
+        await EnableTtlAsync(client);
 
         // Expired item should now be invisible
-        var result = await GetItemAsync("pk1", "sk1");
+        var result = await GetItemAsync(client, "pk1", "sk1");
         Assert.Null(result);
 
         // Non-expired item should still be visible
-        var result2 = await GetItemAsync("pk2", "sk1");
+        var result2 = await GetItemAsync(client, "pk2", "sk1");
         Assert.NotNull(result2);
     }
 
-    // ── Condition Expressions ───────────────────────────────────────
+    // -- Condition Expressions ---------------------------------------------
 
-    [Fact]
-    public async Task Condition_On_Expired_Item_Treats_As_NonExistent()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task Condition_On_Expired_Item_Treats_As_NonExistent(StoreType st)
     {
-        await EnableTtlAsync();
-        await PutItemWithTtlAsync("pk1", "sk1", PastEpoch());
+        var client = Client(st);
+        await EnableTtlAsync(client);
+        await PutItemWithTtlAsync(client, "pk1", "sk1", PastEpoch());
 
         // attribute_not_exists should succeed because the expired item is treated as non-existent
         var response = await client.PutItemAsync(new PutItemRequest
@@ -520,16 +569,19 @@ public abstract class TimeToLiveTestsBase
 
         Assert.Equal(System.Net.HttpStatusCode.OK, response.HttpStatusCode);
 
-        var result = await GetItemAsync("pk1", "sk1");
+        var result = await GetItemAsync(client, "pk1", "sk1");
         Assert.NotNull(result);
         Assert.Equal("new", result["data"].S);
     }
 
-    [Fact]
-    public async Task Update_On_Expired_Item_Behaves_Like_New_Item()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task Update_On_Expired_Item_Behaves_Like_New_Item(StoreType st)
     {
-        await EnableTtlAsync();
-        await PutItemWithTtlAsync("pk1", "sk1", PastEpoch());
+        var client = Client(st);
+        await EnableTtlAsync(client);
+        await PutItemWithTtlAsync(client, "pk1", "sk1", PastEpoch());
 
         var futureEpoch = FutureEpoch();
         _ = await client.UpdateItemAsync(new UpdateItemRequest
@@ -554,16 +606,20 @@ public abstract class TimeToLiveTestsBase
             ReturnValues = ReturnValue.ALL_OLD
         }, TestContext.Current.CancellationToken);
 
-        var result = await GetItemAsync("pk1", "sk1");
+        var result = await GetItemAsync(client, "pk1", "sk1");
         Assert.NotNull(result);
         Assert.Equal("updated", result["data"].S);
     }
 
-    // ── Index Integration ───────────────────────────────────────────
+    // -- Index Integration -------------------------------------------------
 
-    [Fact]
-    public async Task Query_On_Gsi_Filters_Expired_Items()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task Query_On_Gsi_Filters_Expired_Items(StoreType st)
     {
+        var client = Client(st);
+
         // Create table with GSI
         _ = await client.CreateTableAsync(new CreateTableRequest
         {
@@ -635,9 +691,13 @@ public abstract class TimeToLiveTestsBase
         Assert.Equal("pk2", response.Items[0]["PK"].S);
     }
 
-    [Fact]
-    public async Task Scan_On_Gsi_Filters_Expired_Items()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task Scan_On_Gsi_Filters_Expired_Items(StoreType st)
     {
+        var client = Client(st);
+
         // Create table with GSI
         _ = await client.CreateTableAsync(new CreateTableRequest
         {
@@ -704,10 +764,14 @@ public abstract class TimeToLiveTestsBase
         Assert.Equal("pk2", response.Items[0]["PK"].S);
     }
 
-    [Fact]
-    public async Task Gsi_Created_After_Ttl_Enabled_Backfills_TtlEpoch()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task Gsi_Created_After_Ttl_Enabled_Backfills_TtlEpoch(StoreType st)
     {
-        // Create table, enable TTL, put items — then add a GSI
+        var client = Client(st);
+
+        // Create table, enable TTL, put items -- then add a GSI
         _ = await client.CreateTableAsync(new CreateTableRequest
         {
             TableName = "GsiBackfillTtlTable",
@@ -754,7 +818,7 @@ public abstract class TimeToLiveTestsBase
             }
         }, TestContext.Current.CancellationToken);
 
-        // Now create the GSI — backfill should propagate ttlEpoch
+        // Now create the GSI -- backfill should propagate ttlEpoch
         _ = await client.UpdateTableAsync(new UpdateTableRequest
         {
             TableName = "GsiBackfillTtlTable",
@@ -778,7 +842,7 @@ public abstract class TimeToLiveTestsBase
             ]
         }, TestContext.Current.CancellationToken);
 
-        // Query the GSI — expired item should be filtered out
+        // Query the GSI -- expired item should be filtered out
         var response = await client.QueryAsync(new QueryRequest
         {
             TableName = "GsiBackfillTtlTable",
@@ -794,9 +858,13 @@ public abstract class TimeToLiveTestsBase
         Assert.Equal("pk2", response.Items[0]["PK"].S);
     }
 
-    [Fact]
-    public async Task Query_On_Lsi_Filters_Expired_Items()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task Query_On_Lsi_Filters_Expired_Items(StoreType st)
     {
+        var client = Client(st);
+
         _ = await client.CreateTableAsync(new CreateTableRequest
         {
             TableName = "LsiTtlTable",
@@ -871,12 +939,15 @@ public abstract class TimeToLiveTestsBase
         Assert.Equal("lsi_b", response.Items[0]["LSI_SK"].S);
     }
 
-    // ── Cleanup ─────────────────────────────────────────────────────
+    // -- Cleanup -----------------------------------------------------------
 
-    [Fact]
-    public async Task DeleteTable_Cleans_Up_TtlConfig()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task DeleteTable_Cleans_Up_TtlConfig(StoreType st)
     {
-        await EnableTtlAsync();
+        var client = Client(st);
+        await EnableTtlAsync(client);
 
         _ = await client.DeleteTableAsync(new DeleteTableRequest { TableName = "TestTable" },
             TestContext.Current.CancellationToken);
@@ -902,12 +973,15 @@ public abstract class TimeToLiveTestsBase
         Assert.Equal(TimeToLiveStatus.DISABLED, response.TimeToLiveDescription.TimeToLiveStatus);
     }
 
-    [Fact]
-    public async Task Background_Cleanup_Removes_Expired_Rows()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task Background_Cleanup_Removes_Expired_Rows(StoreType st)
     {
-        await EnableTtlAsync();
-        await PutItemWithTtlAsync("pk1", "sk1", PastEpoch());
-        await PutItemWithTtlAsync("pk2", "sk1", FutureEpoch());
+        var client = Client(st);
+        await EnableTtlAsync(client);
+        await PutItemWithTtlAsync(client, "pk1", "sk1", PastEpoch());
+        await PutItemWithTtlAsync(client, "pk2", "sk1", FutureEpoch());
 
         // Scan to see only non-expired items
         var scanBefore = await client.ScanAsync(new ScanRequest { TableName = "TestTable" },
@@ -922,30 +996,5 @@ public abstract class TimeToLiveTestsBase
         // After cleanup, the table stats should reflect only the non-expired item
         var description = await client.DescribeTableAsync("TestTable", TestContext.Current.CancellationToken);
         Assert.Equal(1, description.Table.ItemCount);
-    }
-}
-
-public sealed class InMemoryTimeToLiveTests : TimeToLiveTestsBase
-{
-    protected override DynamoDbClient CreateClient() =>
-        new(new DynamoDbLiteOptions($"Data Source=Test_{Guid.NewGuid():N};Mode=Memory;Cache=Shared"));
-}
-
-public sealed class FileBasedTimeToLiveTests : TimeToLiveTestsBase
-{
-    private string? dbPath;
-
-    protected override DynamoDbClient CreateClient()
-    {
-        var (c, path) = FileBasedTestHelper.CreateFileBasedClient();
-        dbPath = path;
-        return c;
-    }
-
-    public override ValueTask DisposeAsync()
-    {
-        var result = base.DisposeAsync();
-        FileBasedTestHelper.Cleanup(dbPath);
-        return result;
     }
 }

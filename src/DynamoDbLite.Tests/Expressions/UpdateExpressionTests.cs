@@ -219,7 +219,7 @@ public sealed class UpdateExpressionTests
         var item = new Dictionary<string, AttributeValue>
         {
             ["PK"] = new() { S = "USER#1" },
-            ["a"] = new() { M = new Dictionary<string, AttributeValue>() },
+            ["a"] = new() { M = [] },
         };
 
         var ast = UpdateExpressionParser.Parse("SET a.b = :val");
@@ -236,7 +236,7 @@ public sealed class UpdateExpressionTests
         var item = new Dictionary<string, AttributeValue>
         {
             ["PK"] = new() { S = "USER#1" },
-            ["a"] = new() { M = new Dictionary<string, AttributeValue>() },
+            ["a"] = new() { M = [] },
         };
 
         var ast = UpdateExpressionParser.Parse("REMOVE a.b");

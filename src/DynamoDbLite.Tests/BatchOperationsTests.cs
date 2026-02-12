@@ -4,40 +4,16 @@ using DynamoDbLite.Tests.Fixtures;
 
 namespace DynamoDbLite.Tests;
 
-public abstract class BatchOperationsTestsBase
-    : IAsyncLifetime
+public sealed class BatchOperationsTests
+    : DynamoDbClientFixture
 {
-    protected DynamoDbClient client = null!;
-
-    protected abstract DynamoDbClient CreateClient();
-
-    public async ValueTask InitializeAsync()
+    protected override async ValueTask SetupAsync(CancellationToken ct)
     {
-        client = CreateClient();
-        _ = await client.CreateTableAsync(new CreateTableRequest
-        {
-            TableName = "TestTable",
-            KeySchema =
-                [
-                    new KeySchemaElement { AttributeName = "PK", KeyType = KeyType.HASH },
-                    new KeySchemaElement { AttributeName = "SK", KeyType = KeyType.RANGE }
-                ],
-            AttributeDefinitions =
-                [
-                    new AttributeDefinition { AttributeName = "PK", AttributeType = ScalarAttributeType.S },
-                    new AttributeDefinition { AttributeName = "SK", AttributeType = ScalarAttributeType.S }
-                ]
-        }, TestContext.Current.CancellationToken);
+        await CreateTestTableAsync(Client(StoreType.MemoryBased), ct);
+        await CreateTestTableAsync(Client(StoreType.FileBased), ct);
     }
 
-    public virtual ValueTask DisposeAsync()
-    {
-        GC.SuppressFinalize(this);
-        client.Dispose();
-        return ValueTask.CompletedTask;
-    }
-
-    private async Task PutTestItemAsync(string pk, string sk, string name)
+    private static async Task PutTestItemAsync(DynamoDbClient client, string pk, string sk, string name)
         => _ = await client.PutItemAsync(new PutItemRequest
         {
             TableName = "TestTable",
@@ -49,7 +25,7 @@ public abstract class BatchOperationsTestsBase
             }
         }, TestContext.Current.CancellationToken);
 
-    private async Task CreateSecondTableAsync()
+    private static async Task CreateSecondTableAsync(DynamoDbClient client)
         => _ = await client.CreateTableAsync(new CreateTableRequest
         {
             TableName = "SecondTable",
@@ -67,12 +43,15 @@ public abstract class BatchOperationsTestsBase
 
     // ── BatchGetItemAsync ──────────────────────────────────────────────
 
-    [Fact]
-    public async Task BatchGetItemAsync_MultipleItems_ReturnsAll()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task BatchGetItemAsync_MultipleItems_ReturnsAll(StoreType st)
     {
-        await PutTestItemAsync("USER#1", "PROFILE", "Alice");
-        await PutTestItemAsync("USER#2", "PROFILE", "Bob");
-        await PutTestItemAsync("USER#3", "PROFILE", "Charlie");
+        var client = Client(st);
+        await PutTestItemAsync(client, "USER#1", "PROFILE", "Alice");
+        await PutTestItemAsync(client, "USER#2", "PROFILE", "Bob");
+        await PutTestItemAsync(client, "USER#3", "PROFILE", "Charlie");
 
         var response = await client.BatchGetItemAsync(new BatchGetItemRequest
         {
@@ -107,10 +86,13 @@ public abstract class BatchOperationsTestsBase
         Assert.Empty(response.UnprocessedKeys);
     }
 
-    [Fact]
-    public async Task BatchGetItemAsync_SimpleOverload_Succeeds()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task BatchGetItemAsync_SimpleOverload_Succeeds(StoreType st)
     {
-        await PutTestItemAsync("USER#1", "PROFILE", "Alice");
+        var client = Client(st);
+        await PutTestItemAsync(client, "USER#1", "PROFILE", "Alice");
 
         var response = await client.BatchGetItemAsync(
             new Dictionary<string, KeysAndAttributes>
@@ -134,10 +116,13 @@ public abstract class BatchOperationsTestsBase
         _ = Assert.Single(response.Responses["TestTable"]);
     }
 
-    [Fact]
-    public async Task BatchGetItemAsync_DictionaryOverload_Succeeds()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task BatchGetItemAsync_DictionaryOverload_Succeeds(StoreType st)
     {
-        await PutTestItemAsync("USER#1", "PROFILE", "Alice");
+        var client = Client(st);
+        await PutTestItemAsync(client, "USER#1", "PROFILE", "Alice");
 
         var response = await client.BatchGetItemAsync(
             new Dictionary<string, KeysAndAttributes>
@@ -160,10 +145,13 @@ public abstract class BatchOperationsTestsBase
         _ = Assert.Single(response.Responses["TestTable"]);
     }
 
-    [Fact]
-    public async Task BatchGetItemAsync_WithProjectionExpression_ReturnsProjected()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task BatchGetItemAsync_WithProjectionExpression_ReturnsProjected(StoreType st)
     {
-        await PutTestItemAsync("USER#1", "PROFILE", "Alice");
+        var client = Client(st);
+        await PutTestItemAsync(client, "USER#1", "PROFILE", "Alice");
 
         var response = await client.BatchGetItemAsync(new BatchGetItemRequest
         {
@@ -194,10 +182,13 @@ public abstract class BatchOperationsTestsBase
         Assert.False(item.ContainsKey("SK"));
     }
 
-    [Fact]
-    public async Task BatchGetItemAsync_NonExistentKey_OmittedFromResponse()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task BatchGetItemAsync_NonExistentKey_OmittedFromResponse(StoreType st)
     {
-        await PutTestItemAsync("USER#1", "PROFILE", "Alice");
+        var client = Client(st);
+        await PutTestItemAsync(client, "USER#1", "PROFILE", "Alice");
 
         var response = await client.BatchGetItemAsync(new BatchGetItemRequest
         {
@@ -226,11 +217,14 @@ public abstract class BatchOperationsTestsBase
         Assert.Equal("Alice", response.Responses["TestTable"][0]["name"].S);
     }
 
-    [Fact]
-    public async Task BatchGetItemAsync_MultipleTables_ReturnsFromBoth()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task BatchGetItemAsync_MultipleTables_ReturnsFromBoth(StoreType st)
     {
-        await CreateSecondTableAsync();
-        await PutTestItemAsync("USER#1", "PROFILE", "Alice");
+        var client = Client(st);
+        await CreateSecondTableAsync(client);
+        await PutTestItemAsync(client, "USER#1", "PROFILE", "Alice");
 
         _ = await client.PutItemAsync(new PutItemRequest
         {
@@ -278,9 +272,12 @@ public abstract class BatchOperationsTestsBase
         Assert.Equal("100", response.Responses["SecondTable"][0]["total"].N);
     }
 
-    [Fact]
-    public async Task BatchGetItemAsync_ExceedsLimit_ThrowsException()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task BatchGetItemAsync_ExceedsLimit_ThrowsException(StoreType st)
     {
+        var client = Client(st);
         var keys = Enumerable.Range(1, 101).Select(i => new Dictionary<string, AttributeValue>
         {
             ["PK"] = new() { S = $"USER#{i}" },
@@ -299,10 +296,12 @@ public abstract class BatchOperationsTestsBase
         Assert.Contains("Too many items", ex.Message);
     }
 
-    [Fact]
-    public async Task BatchGetItemAsync_NonExistentTable_ThrowsResourceNotFoundException()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task BatchGetItemAsync_NonExistentTable_ThrowsResourceNotFoundException(StoreType st)
         => _ = await Assert.ThrowsAsync<ResourceNotFoundException>(()
-            => client.BatchGetItemAsync(new BatchGetItemRequest
+            => Client(st).BatchGetItemAsync(new BatchGetItemRequest
             {
                 RequestItems = new Dictionary<string, KeysAndAttributes>
                 {
@@ -320,9 +319,12 @@ public abstract class BatchOperationsTestsBase
                 }
             }, TestContext.Current.CancellationToken));
 
-    [Fact]
-    public async Task BatchGetItemAsync_EmptyRequestItems_ThrowsException()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task BatchGetItemAsync_EmptyRequestItems_ThrowsException(StoreType st)
     {
+        var client = Client(st);
         var ex = await Assert.ThrowsAsync<AmazonDynamoDBException>(() =>
             client.BatchGetItemAsync(new BatchGetItemRequest
             {
@@ -332,8 +334,12 @@ public abstract class BatchOperationsTestsBase
         Assert.Contains("requestItems", ex.Message);
     }
 
-    [Fact]
-    public async Task BatchGetItemAsync_AfterDispose_ThrowsObjectDisposedException()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+#pragma warning disable xUnit1026
+    public async Task BatchGetItemAsync_AfterDispose_ThrowsObjectDisposedException(StoreType st)
+#pragma warning restore xUnit1026
     {
 #pragma warning disable IDISP016, IDISP017
         var disposableClient = new DynamoDbClient(new DynamoDbLiteOptions(
@@ -363,9 +369,12 @@ public abstract class BatchOperationsTestsBase
 
     // ── BatchWriteItemAsync ────────────────────────────────────────────
 
-    [Fact]
-    public async Task BatchWriteItemAsync_MultiplePuts_AllSucceed()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task BatchWriteItemAsync_MultiplePuts_AllSucceed(StoreType st)
     {
+        var client = Client(st);
         var response = await client.BatchWriteItemAsync(new BatchWriteItemRequest
         {
             RequestItems = new Dictionary<string, List<WriteRequest>>
@@ -406,9 +415,12 @@ public abstract class BatchOperationsTestsBase
         Assert.Equal("Charlie", get3.Item["name"].S);
     }
 
-    [Fact]
-    public async Task BatchWriteItemAsync_SimpleOverload_Succeeds()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task BatchWriteItemAsync_SimpleOverload_Succeeds(StoreType st)
     {
+        var client = Client(st);
         var response = await client.BatchWriteItemAsync(
             new Dictionary<string, List<WriteRequest>>
             {
@@ -425,11 +437,14 @@ public abstract class BatchOperationsTestsBase
         Assert.Equal(System.Net.HttpStatusCode.OK, response.HttpStatusCode);
     }
 
-    [Fact]
-    public async Task BatchWriteItemAsync_MultipleDeletes_AllSucceed()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task BatchWriteItemAsync_MultipleDeletes_AllSucceed(StoreType st)
     {
-        await PutTestItemAsync("USER#1", "PROFILE", "Alice");
-        await PutTestItemAsync("USER#2", "PROFILE", "Bob");
+        var client = Client(st);
+        await PutTestItemAsync(client, "USER#1", "PROFILE", "Alice");
+        await PutTestItemAsync(client, "USER#2", "PROFILE", "Bob");
 
         _ = await client.BatchWriteItemAsync(new BatchWriteItemRequest
         {
@@ -460,10 +475,13 @@ public abstract class BatchOperationsTestsBase
         Assert.False(get2.IsItemSet);
     }
 
-    [Fact]
-    public async Task BatchWriteItemAsync_MixedPutAndDelete_Succeeds()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task BatchWriteItemAsync_MixedPutAndDelete_Succeeds(StoreType st)
     {
-        await PutTestItemAsync("USER#1", "PROFILE", "Alice");
+        var client = Client(st);
+        await PutTestItemAsync(client, "USER#1", "PROFILE", "Alice");
 
         _ = await client.BatchWriteItemAsync(new BatchWriteItemRequest
         {
@@ -494,10 +512,13 @@ public abstract class BatchOperationsTestsBase
         Assert.Equal("Bob", get2.Item["name"].S);
     }
 
-    [Fact]
-    public async Task BatchWriteItemAsync_MultipleTables_Succeeds()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task BatchWriteItemAsync_MultipleTables_Succeeds(StoreType st)
     {
-        await CreateSecondTableAsync();
+        var client = Client(st);
+        await CreateSecondTableAsync(client);
 
         _ = await client.BatchWriteItemAsync(new BatchWriteItemRequest
         {
@@ -531,9 +552,12 @@ public abstract class BatchOperationsTestsBase
         Assert.Equal("50", get2.Item["total"].N);
     }
 
-    [Fact]
-    public async Task BatchWriteItemAsync_ExceedsLimit_ThrowsException()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task BatchWriteItemAsync_ExceedsLimit_ThrowsException(StoreType st)
     {
+        var client = Client(st);
         var writes = Enumerable.Range(1, 26).Select(i =>
             new WriteRequest
             {
@@ -560,9 +584,12 @@ public abstract class BatchOperationsTestsBase
         Assert.Contains("Too many items", ex.Message);
     }
 
-    [Fact]
-    public async Task BatchWriteItemAsync_DuplicateKeys_ThrowsException()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task BatchWriteItemAsync_DuplicateKeys_ThrowsException(StoreType st)
     {
+        var client = Client(st);
         var ex = await Assert.ThrowsAsync<AmazonDynamoDBException>(() =>
             client.BatchWriteItemAsync(new BatchWriteItemRequest
             {
@@ -585,10 +612,12 @@ public abstract class BatchOperationsTestsBase
         Assert.Contains("duplicates", ex.Message);
     }
 
-    [Fact]
-    public async Task BatchWriteItemAsync_NonExistentTable_ThrowsResourceNotFoundException()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task BatchWriteItemAsync_NonExistentTable_ThrowsResourceNotFoundException(StoreType st)
         => _ = await Assert.ThrowsAsync<ResourceNotFoundException>(()
-            => client.BatchWriteItemAsync(new BatchWriteItemRequest
+            => Client(st).BatchWriteItemAsync(new BatchWriteItemRequest
             {
                 RequestItems = new Dictionary<string, List<WriteRequest>>
                 {
@@ -609,9 +638,12 @@ public abstract class BatchOperationsTestsBase
                 }
             }, TestContext.Current.CancellationToken));
 
-    [Fact]
-    public async Task BatchWriteItemAsync_EmptyRequestItems_ThrowsException()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task BatchWriteItemAsync_EmptyRequestItems_ThrowsException(StoreType st)
     {
+        var client = Client(st);
         var ex = await Assert.ThrowsAsync<AmazonDynamoDBException>(() =>
             client.BatchWriteItemAsync(new BatchWriteItemRequest
             {
@@ -621,8 +653,12 @@ public abstract class BatchOperationsTestsBase
         Assert.Contains("requestItems", ex.Message);
     }
 
-    [Fact]
-    public async Task BatchWriteItemAsync_AfterDispose_ThrowsObjectDisposedException()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+#pragma warning disable xUnit1026
+    public async Task BatchWriteItemAsync_AfterDispose_ThrowsObjectDisposedException(StoreType st)
+#pragma warning restore xUnit1026
     {
 #pragma warning disable IDISP016, IDISP017
         var disposableClient = new DynamoDbClient(new DynamoDbLiteOptions(
@@ -644,30 +680,5 @@ public abstract class BatchOperationsTestsBase
                 }
             }, TestContext.Current.CancellationToken));
 #pragma warning restore IDISP016, IDISP017
-    }
-}
-
-public sealed class InMemoryBatchOperationsTests : BatchOperationsTestsBase
-{
-    protected override DynamoDbClient CreateClient() =>
-        new(new DynamoDbLiteOptions($"Data Source=Test_{Guid.NewGuid():N};Mode=Memory;Cache=Shared"));
-}
-
-public sealed class FileBasedBatchOperationsTests : BatchOperationsTestsBase
-{
-    private string? dbPath;
-
-    protected override DynamoDbClient CreateClient()
-    {
-        var (c, path) = FileBasedTestHelper.CreateFileBasedClient();
-        dbPath = path;
-        return c;
-    }
-
-    public override ValueTask DisposeAsync()
-    {
-        var result = base.DisposeAsync();
-        FileBasedTestHelper.Cleanup(dbPath);
-        return result;
     }
 }
