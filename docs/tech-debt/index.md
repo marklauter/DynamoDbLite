@@ -12,7 +12,7 @@
 | [008](008-linq-to-loop-validation.md) | LINQ to loop replacements in validation | High | Open |
 | [009](009-index-table-name-allocation.md) | IndexTableName string allocation | High | Open |
 | [010](010-collection-presizing.md) | Collection pre-sizing | High | Resolved |
-| [011](011-increment-prefix-char-array.md) | IncrementPrefix char array allocation | High | Open |
+| [011](011-increment-prefix-char-array.md) | IncrementPrefix char array allocation | High | Resolved |
 | [012](012-binary-set-toarray-in-lambdas.md) | Binary set .ToArray() in LINQ predicates | Medium | Open |
 | [013](013-linq-select-tolist-serialization.md) | LINQ .Select().ToList() for serialization | Medium | Open |
 | [014](014-dapper-aslist-copies.md) | Dapper .AsList() potential copies | Medium | Open |

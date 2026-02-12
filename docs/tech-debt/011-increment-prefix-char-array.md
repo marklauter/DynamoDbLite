@@ -2,7 +2,7 @@
 
 - **Area:** KeyConditionSqlBuilder
 - **Priority:** High
-- **Status:** Open
+- **Status:** Resolved
 
 ## Problem
 `KeyConditionSqlBuilder.cs` allocates a `char[]` via `ToCharArray()` to increment the last character of a prefix string.

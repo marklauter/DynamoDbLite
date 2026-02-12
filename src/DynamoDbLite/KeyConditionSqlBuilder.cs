@@ -108,13 +108,12 @@ internal static class KeyConditionSqlBuilder
             _ => throw new ArgumentException($"Expected value reference operand, got: {operand.GetType().Name}")
         };
 
-    private static string IncrementPrefix(string prefix)
-    {
-        if (prefix.Length == 0)
-            return "\uffff";
-
-        var chars = prefix.ToCharArray();
-        chars[^1]++;
-        return new string(chars);
-    }
+    private static string IncrementPrefix(string prefix) =>
+        prefix.Length == 0
+            ? "\uffff"
+            : string.Create(prefix.Length, prefix, (span, p) =>
+            {
+                p.AsSpan().CopyTo(span);
+                span[^1]++;
+            });
 }
