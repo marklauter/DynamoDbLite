@@ -4,30 +4,42 @@ using Amazon.DynamoDBv2.Model;
 
 namespace DynamoDbLite.Tests.Fixtures;
 
-public abstract class DynamoDbContextFixture
+public enum StoreType
+{
+    FileBased,
+    MemoryBased,
+}
+
+public class DynamoDbContextFixture
     : IAsyncLifetime
 {
-    protected readonly DynamoDbClient client;
-    protected readonly DynamoDBContext context;
+    private readonly InMemoryDynamoFactory imf = new();
+    private readonly FileBasedDynamoFactory fbf = new();
 
-    public DynamoDbContextFixture()
+    public DynamoDBContext Context(StoreType st)
+        => st switch
+        {
+            StoreType.FileBased => fbf.Context,
+            StoreType.MemoryBased => imf.Context,
+            _ => throw new ArgumentOutOfRangeException(nameof(st), st, null)
+        };
+
+    public DynamoDbClient Client(StoreType st)
+    => st switch
     {
-        client = CreateClient();
-        context = CreateContext(client);
-    }
-
-    protected abstract DynamoDbClient CreateClient();
-
-    protected virtual DynamoDBContext CreateContext(DynamoDbClient c) =>
-        new DynamoDBContextBuilder()
-            .ConfigureContext(cfg => cfg.DisableFetchingTableMetadata = true)
-            .WithDynamoDBClient(() => c)
-            .Build();
+        StoreType.FileBased => fbf.Client,
+        StoreType.MemoryBased => imf.Client,
+        _ => throw new ArgumentOutOfRangeException(nameof(st), st, null)
+    };
 
     public async ValueTask InitializeAsync()
     {
-        var ct = TestContext.Current.CancellationToken;
+        await CreateTables(imf.Client, TestContext.Current.CancellationToken);
+        await CreateTables(fbf.Client, TestContext.Current.CancellationToken);
+    }
 
+    private static async Task CreateTables(DynamoDbClient client, CancellationToken ct)
+    {
         _ = await client.CreateTableAsync(new CreateTableRequest
         {
             TableName = "SimpleItems",
@@ -127,8 +139,70 @@ public abstract class DynamoDbContextFixture
     public virtual ValueTask DisposeAsync()
     {
         GC.SuppressFinalize(this);
-        context.Dispose();
-        client.Dispose();
+        imf.Dispose();
+        fbf.Dispose();
         return ValueTask.CompletedTask;
+    }
+}
+
+internal abstract class DynamoDbContextFactory
+    : IDisposable
+{
+    public DynamoDbClient Client { get; }
+    public DynamoDBContext Context { get; }
+    private bool disposed;
+
+    public DynamoDbContextFactory()
+    {
+        Client = CreateClient();
+        Context = CreateContext(Client);
+    }
+
+    public virtual void Dispose()
+    {
+        if (disposed)
+        {
+            return;
+        }
+
+        Client.Dispose();
+        Context.Dispose();
+
+        GC.SuppressFinalize(this);
+        disposed = true;
+    }
+
+    protected abstract DynamoDbClient CreateClient();
+
+    private static DynamoDBContext CreateContext(DynamoDbClient c) =>
+        new DynamoDBContextBuilder()
+            .ConfigureContext(cfg => cfg.DisableFetchingTableMetadata = true)
+            .WithDynamoDBClient(() => c)
+            .Build();
+}
+
+internal sealed class InMemoryDynamoFactory
+    : DynamoDbContextFactory
+{
+    protected override DynamoDbClient CreateClient() =>
+        new(new DynamoDbLiteOptions($"Data Source=Test_{Guid.NewGuid():N};Mode=Memory;Cache=Shared"));
+}
+
+internal sealed class FileBasedDynamoFactory
+    : DynamoDbContextFactory
+{
+    private string? dbPath;
+
+    protected override DynamoDbClient CreateClient()
+    {
+        var (c, path) = FileBasedTestHelper.CreateFileBasedClient();
+        dbPath = path;
+        return c;
+    }
+
+    public override void Dispose()
+    {
+        base.Dispose();
+        FileBasedTestHelper.Cleanup(dbPath);
     }
 }
