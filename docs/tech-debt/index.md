@@ -20,7 +20,7 @@
 | [016](016-import-compression-not-implemented.md) | Import compression not applied | Low | Open |
 | [017](017-empty-import-path-silent-success.md) | Empty import path silently succeeds | Medium | Open |
 | [018](018-export-import-silent-exceptions.md) | Export/import background tasks swallow exceptions | Low | Open |
-| [019](019-tag-resource-drops-existing-tags.md) | TagResourceAsync drops existing tags | High | Open |
+| [019](019-tag-resource-drops-existing-tags.md) | TagResourceAsync drops existing tags | High | Resolved |
 | [020](020-increment-prefix-char-overflow.md) | IncrementPrefix char overflow breaks begins_with | High | Open |
 | [021](021-empty-container-treated-as-null.md) | Empty containers treated as null in path resolution | Medium | Open |
 | [022](022-empty-set-type-detection.md) | Empty set type detection fails | Medium | Open |
@@ -28,5 +28,6 @@
 | [024](024-projection-creates-structure.md) | Projection creates structure instead of selecting | Medium | Open |
 | [025](025-set-at-path-null-ref-on-list.md) | SetAtPath NullReferenceException on nested list | Low | Open |
 | [026](026-between-null-comparison-throws.md) | BETWEEN with null operand throws | Low | Open |
-| [027](027-lossy-empty-collection-serialization.md) | Lossy empty collection serialization | Medium | Open |
+| [027](027-lossy-empty-collection-serialization.md) | Lossy empty collection serialization | Medium | Resolved |
 | [028](028-harden-apply-attribute-updates.md) | Harden ApplyAttributeUpdates legacy method | Medium | Open |
+| [029](029-orm-test-gaps.md) | DynamoDBContext ORM test coverage gaps | Medium | Open |
