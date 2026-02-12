@@ -79,7 +79,7 @@ internal static class AttributeValueSerializer
                 writer.WriteBase64StringValue(b.ToArray());
             writer.WriteEndArray();
         }
-        else if (value.L is { Count: > 0 })
+        else if (value.L is { Count: > 0 } || IsAlwaysSend(value.L))
         {
             writer.WriteStartArray("L");
             foreach (var item in value.L)
@@ -89,7 +89,7 @@ internal static class AttributeValueSerializer
 
             writer.WriteEndArray();
         }
-        else if (value.M is { Count: > 0 })
+        else if (value.M is { Count: > 0 } || IsAlwaysSend(value.M))
         {
             writer.WritePropertyName("M");
             WriteMap(writer, value.M);
@@ -149,4 +149,11 @@ internal static class AttributeValueSerializer
         using var arr = element.EnumerateArray();
         return [.. arr.Select(ReadAttributeValue)];
     }
+
+    /// <summary>
+    /// Detects the SDK's AlwaysSendDictionary/AlwaysSendList marker types,
+    /// which indicate an intentionally-empty collection (not a default-initialized one).
+    /// </summary>
+    private static bool IsAlwaysSend<T>(T value) =>
+        value is not null && value.GetType() != typeof(T);
 }

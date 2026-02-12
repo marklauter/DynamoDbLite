@@ -137,6 +137,36 @@ public abstract class TagTestsBase
     }
 
     [Fact]
+    public async Task TagResource_Preserves_Existing_Tags_When_Adding_New()
+    {
+        _ = await client.TagResourceAsync(new TagResourceRequest
+        {
+            ResourceArn = TableArn,
+            Tags =
+            [
+                new Tag { Key = "env", Value = "test" },
+                new Tag { Key = "team", Value = "platform" }
+            ]
+        }, TestContext.Current.CancellationToken);
+
+        _ = await client.TagResourceAsync(new TagResourceRequest
+        {
+            ResourceArn = TableArn,
+            Tags = [new Tag { Key = "version", Value = "v1" }]
+        }, TestContext.Current.CancellationToken);
+
+        var response = await client.ListTagsOfResourceAsync(new ListTagsOfResourceRequest
+        {
+            ResourceArn = TableArn
+        }, TestContext.Current.CancellationToken);
+
+        Assert.Equal(3, response.Tags.Count);
+        Assert.Contains(response.Tags, t => t.Key == "env" && t.Value == "test");
+        Assert.Contains(response.Tags, t => t.Key == "team" && t.Value == "platform");
+        Assert.Contains(response.Tags, t => t.Key == "version" && t.Value == "v1");
+    }
+
+    [Fact]
     public async Task TagResource_Validates_Max_50_Tags()
     {
         var tags = Enumerable.Range(1, 51)
