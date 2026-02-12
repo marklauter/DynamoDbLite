@@ -121,10 +121,9 @@ internal static class KeyConditionSqlBuilder
             return "\uffff";
 
         var trimmed = prefix.AsSpan().TrimEnd('\uffff');
-        if (trimmed.Length == 0)
-            return null;
-
-        return string.Create(trimmed.Length, prefix, (span, p) =>
+        return trimmed.Length == 0
+            ? null
+            : string.Create(trimmed.Length, prefix, (span, p) =>
         {
             p.AsSpan()[..span.Length].CopyTo(span);
             span[^1]++;
