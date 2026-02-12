@@ -194,7 +194,7 @@ public sealed partial class DynamoDbClient
             {
                 ImportArn = importArn,
                 ImportStatus = ImportStatus.IN_PROGRESS,
-                TableArn = $"arn:aws:dynamodb:local:000000000000:table/{tableName}",
+                TableArn = SqliteStore.TableArn(tableName),
                 S3BucketSource = request.S3BucketSource,
                 InputFormat = InputFormat.DYNAMODB_JSON,
                 TableCreationParameters = request.TableCreationParameters,
@@ -302,7 +302,7 @@ public sealed partial class DynamoDbClient
         {
             ImportArn = r.ImportArn,
             ImportStatus = r.Status,
-            TableArn = $"arn:aws:dynamodb:local:000000000000:table/{r.TableName}",
+            TableArn = SqliteStore.TableArn(r.TableName),
             S3BucketSource = new S3BucketSource { S3Bucket = r.S3Bucket, S3KeyPrefix = r.S3KeyPrefix },
             InputFormat = r.InputFormat,
             StartTime = DateTime.Parse(r.StartTime, CultureInfo.InvariantCulture),
@@ -326,7 +326,7 @@ public sealed partial class DynamoDbClient
         {
             ExportArn = row.ExportArn,
             ExportStatus = row.Status,
-            TableArn = $"arn:aws:dynamodb:local:000000000000:table/{row.TableName}",
+            TableArn = SqliteStore.TableArn(row.TableName),
             ExportFormat = row.ExportFormat,
             S3Bucket = row.S3Bucket,
             S3Prefix = row.S3Prefix,
@@ -347,7 +347,7 @@ public sealed partial class DynamoDbClient
         {
             ImportArn = row.ImportArn,
             ImportStatus = row.Status,
-            TableArn = $"arn:aws:dynamodb:local:000000000000:table/{row.TableName}",
+            TableArn = SqliteStore.TableArn(row.TableName),
             S3BucketSource = new S3BucketSource { S3Bucket = row.S3Bucket, S3KeyPrefix = row.S3KeyPrefix },
             InputFormat = row.InputFormat,
             InputCompressionType = row.InputCompression,
@@ -482,14 +482,14 @@ static file class ExportHelper
     {
         var timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         var guid = Guid.NewGuid().ToString("N")[..8];
-        return $"arn:aws:dynamodb:local:000000000000:table/{tableName}/export/{timestamp}-{guid}";
+        return $"{SqliteStore.TableArn(tableName)}/export/{timestamp}-{guid}";
     }
 
     internal static string GenerateImportArn(string tableName)
     {
         var timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         var guid = Guid.NewGuid().ToString("N")[..8];
-        return $"arn:aws:dynamodb:local:000000000000:table/{tableName}/import/{timestamp}-{guid}";
+        return $"{SqliteStore.TableArn(tableName)}/import/{timestamp}-{guid}";
     }
 
     internal static string ExtractExportId(string exportArn)
@@ -511,7 +511,7 @@ static file class ExportHelper
         {
             version = "2020-06-30",
             exportArn,
-            tableArn = $"arn:aws:dynamodb:local:000000000000:table/{tableName}",
+            tableArn = SqliteStore.TableArn(tableName),
             tableId = tableName,
             exportTime = startTime,
             startTime,

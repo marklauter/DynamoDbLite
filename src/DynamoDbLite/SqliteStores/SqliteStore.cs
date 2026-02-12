@@ -574,7 +574,7 @@ internal abstract class SqliteStore
             CreationDateTime = createdAt,
             ItemCount = row.ItemCount,
             TableSizeBytes = row.TableSizeBytes,
-            TableArn = $"arn:aws:dynamodb:local:000000000000:table/{row.TableName}"
+            TableArn = TableArn(row.TableName)
         };
 
         if (gsiDefs.Count > 0)
@@ -587,7 +587,7 @@ internal abstract class SqliteStore
                 IndexStatus = IndexStatus.ACTIVE,
                 IndexSizeBytes = 0,
                 ItemCount = 0,
-                IndexArn = $"arn:aws:dynamodb:local:000000000000:table/{row.TableName}/index/{idx.IndexName}",
+                IndexArn = IndexArn(row.TableName, idx.IndexName),
                 ProvisionedThroughput = new ProvisionedThroughputDescription()
             })];
         }
@@ -601,7 +601,7 @@ internal abstract class SqliteStore
                 Projection = ToProjection(idx),
                 IndexSizeBytes = 0,
                 ItemCount = 0,
-                IndexArn = $"arn:aws:dynamodb:local:000000000000:table/{row.TableName}/index/{idx.IndexName}"
+                IndexArn = IndexArn(row.TableName, idx.IndexName)
             })];
         }
 
@@ -792,8 +792,20 @@ internal abstract class SqliteStore
 
     // ── Index table management ────────────────────────────────────
 
+    private static readonly ConcurrentDictionary<(string, string), string> IndexTableNameCache = new();
+
     internal static string IndexTableName(string tableName, string indexName) =>
-        $"idx_{tableName}_{indexName}";
+        IndexTableNameCache.GetOrAdd((tableName, indexName), static k => $"idx_{k.Item1}_{k.Item2}");
+
+    private static readonly ConcurrentDictionary<string, string> TableArnCache = new();
+
+    internal static string TableArn(string tableName) =>
+        TableArnCache.GetOrAdd(tableName, static n => $"arn:aws:dynamodb:local:000000000000:table/{n}");
+
+    private static readonly ConcurrentDictionary<(string, string), string> IndexArnCache = new();
+
+    internal static string IndexArn(string tableName, string indexName) =>
+        IndexArnCache.GetOrAdd((tableName, indexName), static k => $"arn:aws:dynamodb:local:000000000000:table/{k.Item1}/index/{k.Item2}");
 
     private static async Task CreateIndexTableAsync(
         DbConnection connection,
