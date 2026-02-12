@@ -6,6 +6,9 @@
 		<Nullable>enable</Nullable>
 		<EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
 		<TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+		<AnalysisMode>all</AnalysisMode>
+		<AnalysisLevel>latest-all</AnalysisLevel>
+		<AnalysisModeSecurity>All</AnalysisModeSecurity>
 	</PropertyGroup>
 
 </Project>
