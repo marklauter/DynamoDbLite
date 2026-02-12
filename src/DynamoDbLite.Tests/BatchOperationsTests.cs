@@ -334,12 +334,8 @@ public sealed class BatchOperationsTests
         Assert.Contains("requestItems", ex.Message);
     }
 
-    [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
-#pragma warning disable xUnit1026
-    public async Task BatchGetItemAsync_AfterDispose_ThrowsObjectDisposedException(StoreType st)
-#pragma warning restore xUnit1026
+    [Fact]
+    public async Task BatchGetItemAsync_AfterDispose_ThrowsObjectDisposedException()
     {
 #pragma warning disable IDISP016, IDISP017
         var disposableClient = new DynamoDbClient(new DynamoDbLiteOptions(
@@ -653,12 +649,8 @@ public sealed class BatchOperationsTests
         Assert.Contains("requestItems", ex.Message);
     }
 
-    [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
-#pragma warning disable xUnit1026
-    public async Task BatchWriteItemAsync_AfterDispose_ThrowsObjectDisposedException(StoreType st)
-#pragma warning restore xUnit1026
+    [Fact]
+    public async Task BatchWriteItemAsync_AfterDispose_ThrowsObjectDisposedException()
     {
 #pragma warning disable IDISP016, IDISP017
         var disposableClient = new DynamoDbClient(new DynamoDbLiteOptions(
