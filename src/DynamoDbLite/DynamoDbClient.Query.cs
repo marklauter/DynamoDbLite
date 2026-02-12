@@ -422,6 +422,7 @@ public sealed partial class DynamoDbClient
         Dictionary<string, Condition> scanFilter,
         CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(scanFilter);
         var (filterExpression, attrNames, attrValues) = ConvertConditionsToExpression(scanFilter);
         return ScanAsync(new ScanRequest
         {
@@ -438,6 +439,7 @@ public sealed partial class DynamoDbClient
         Dictionary<string, Condition> scanFilter,
         CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(scanFilter);
         var (filterExpression, attrNames, attrValues) = ConvertConditionsToExpression(scanFilter);
         return ScanAsync(new ScanRequest
         {

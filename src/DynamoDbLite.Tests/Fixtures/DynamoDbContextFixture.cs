@@ -1,15 +1,11 @@
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.DataModel;
 using Amazon.DynamoDBv2.Model;
+using System.Diagnostics.CodeAnalysis;
 
 namespace DynamoDbLite.Tests.Fixtures;
 
-public enum StoreType
-{
-    FileBased,
-    MemoryBased,
-}
-
+[SuppressMessage("Maintainability", "CA1515:Consider making public types internal", Justification = "required for test")]
 public class DynamoDbContextFixture
     : IAsyncLifetime
 {

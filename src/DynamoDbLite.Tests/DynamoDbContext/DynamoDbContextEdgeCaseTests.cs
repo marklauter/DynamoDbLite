@@ -3,7 +3,7 @@ using DynamoDbLite.Tests.Models;
 
 namespace DynamoDbLite.Tests.DynamoDbContext;
 
-public class DynamoDbContextEdgeCaseTests
+public sealed class DynamoDbContextEdgeCaseTests
     : DynamoDbContextFixture
 {
     [Theory]

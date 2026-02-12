@@ -4,12 +4,14 @@ using DynamoDbLite.Tests.Fixtures;
 
 namespace DynamoDbLite.Tests;
 
-public abstract class ExportImportRoundTripTestsBase
+public sealed class ExportImportRoundTripTests
     : IAsyncLifetime
 {
-    protected DynamoDbClient client = null!;
+    private readonly DynamoDbClient memoryClient =
+        new(new DynamoDbLiteOptions($"Data Source=Test_{Guid.NewGuid():N};Mode=Memory;Cache=Shared"));
 
-    protected abstract DynamoDbClient CreateClient();
+    private readonly DynamoDbClient fileClient;
+    private readonly string? dbPath;
 
     private readonly string tempDir = Path.Combine(Path.GetTempPath(), $"dynamo_roundtrip_test_{Guid.NewGuid():N}");
 
@@ -17,23 +19,41 @@ public abstract class ExportImportRoundTripTestsBase
     private const string SourceTableArn = "arn:aws:dynamodb:local:000000000000:table/RoundTripSource";
     private const string TargetTable = "RoundTripTarget";
 
-    public ValueTask InitializeAsync()
+    public ExportImportRoundTripTests()
     {
-        client = CreateClient();
-        return ValueTask.CompletedTask;
+        var (c, path) = FileBasedTestHelper.CreateFileBasedClient();
+        fileClient = c;
+        dbPath = path;
     }
 
-    public virtual ValueTask DisposeAsync()
+    private DynamoDbClient Client(StoreType st) =>
+        st switch
+        {
+            StoreType.FileBased => fileClient,
+            StoreType.MemoryBased => memoryClient,
+            _ => throw new ArgumentOutOfRangeException(nameof(st), st, null),
+        };
+
+    public ValueTask InitializeAsync() => ValueTask.CompletedTask;
+
+    public ValueTask DisposeAsync()
     {
-        client.Dispose();
+        memoryClient.Dispose();
+        fileClient.Dispose();
+        FileBasedTestHelper.Cleanup(dbPath);
         if (Directory.Exists(tempDir))
             Directory.Delete(tempDir, true);
         return ValueTask.CompletedTask;
     }
 
-    [Fact]
-    public async Task Export_And_Import_Preserves_All_Data()
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task Export_And_Import_Preserves_All_Data(StoreType st)
     {
+        var client = Client(st);
+        var ct = TestContext.Current.CancellationToken;
+
         // Create source table with varied DynamoDB types
         _ = await client.CreateTableAsync(new CreateTableRequest
         {
@@ -48,7 +68,7 @@ public abstract class ExportImportRoundTripTestsBase
                 new AttributeDefinition { AttributeName = "PK", AttributeType = ScalarAttributeType.S },
                 new AttributeDefinition { AttributeName = "SK", AttributeType = ScalarAttributeType.S }
             ]
-        }, TestContext.Current.CancellationToken);
+        }, ct);
 
         // Insert items with varied attribute types
         var items = new List<Dictionary<string, AttributeValue>>
@@ -92,7 +112,7 @@ public abstract class ExportImportRoundTripTestsBase
             {
                 TableName = SourceTable,
                 Item = item
-            }, TestContext.Current.CancellationToken);
+            }, ct);
         }
 
         // Export
@@ -101,16 +121,16 @@ public abstract class ExportImportRoundTripTestsBase
             TableArn = SourceTableArn,
             S3Bucket = tempDir,
             ExportFormat = ExportFormat.DYNAMODB_JSON
-        }, TestContext.Current.CancellationToken);
+        }, ct);
 
         // Wait for export to complete
         for (var i = 0; i < 50; i++)
         {
-            await Task.Delay(100, TestContext.Current.CancellationToken);
+            await Task.Delay(100, ct);
             var desc = await client.DescribeExportAsync(new DescribeExportRequest
             {
                 ExportArn = exportResponse.ExportDescription.ExportArn
-            }, TestContext.Current.CancellationToken);
+            }, ct);
             if (desc.ExportDescription.ExportStatus != ExportStatus.IN_PROGRESS)
                 break;
         }
@@ -134,23 +154,22 @@ public abstract class ExportImportRoundTripTestsBase
                     new AttributeDefinition { AttributeName = "SK", AttributeType = ScalarAttributeType.S }
                 ]
             }
-        }, TestContext.Current.CancellationToken);
+        }, ct);
 
         // Wait for import to complete
         for (var i = 0; i < 50; i++)
         {
-            await Task.Delay(100, TestContext.Current.CancellationToken);
+            await Task.Delay(100, ct);
             var desc = await client.DescribeImportAsync(new DescribeImportRequest
             {
                 ImportArn = importResponse.ImportTableDescription.ImportArn
-            }, TestContext.Current.CancellationToken);
+            }, ct);
             if (desc.ImportTableDescription.ImportStatus != ImportStatus.IN_PROGRESS)
                 break;
         }
 
         // Scan target table and compare
-        var scanResponse = await client.ScanAsync(new ScanRequest { TableName = TargetTable },
-            TestContext.Current.CancellationToken);
+        var scanResponse = await client.ScanAsync(new ScanRequest { TableName = TargetTable }, ct);
 
         Assert.Equal(3, scanResponse.Count);
 
@@ -174,30 +193,5 @@ public abstract class ExportImportRoundTripTestsBase
         var user3 = scanResponse.Items.First(i => i["PK"].S == "user#3");
         Assert.True(user3["NullField"].NULL);
         Assert.Equal("nested-value", user3["Nested"].M["Key"].S);
-    }
-}
-
-public sealed class InMemoryExportImportRoundTripTests : ExportImportRoundTripTestsBase
-{
-    protected override DynamoDbClient CreateClient() =>
-        new(new DynamoDbLiteOptions($"Data Source=Test_{Guid.NewGuid():N};Mode=Memory;Cache=Shared"));
-}
-
-public sealed class FileBasedExportImportRoundTripTests : ExportImportRoundTripTestsBase
-{
-    private string? dbPath;
-
-    protected override DynamoDbClient CreateClient()
-    {
-        var (c, path) = FileBasedTestHelper.CreateFileBasedClient();
-        dbPath = path;
-        return c;
-    }
-
-    public override ValueTask DisposeAsync()
-    {
-        var result = base.DisposeAsync();
-        FileBasedTestHelper.Cleanup(dbPath);
-        return result;
     }
 }

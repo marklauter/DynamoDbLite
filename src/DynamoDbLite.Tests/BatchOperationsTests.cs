@@ -32,6 +32,7 @@ public abstract class BatchOperationsTestsBase
 
     public virtual ValueTask DisposeAsync()
     {
+        GC.SuppressFinalize(this);
         client.Dispose();
         return ValueTask.CompletedTask;
     }

@@ -2,7 +2,7 @@ using Amazon.DynamoDBv2.DataModel;
 
 namespace DynamoDbLite.Tests.Models;
 
-public enum ItemStatus
+internal enum ItemStatus
 {
     Draft = 0,
     Published = 1,
@@ -10,7 +10,7 @@ public enum ItemStatus
 }
 
 [DynamoDBTable("EnumItems")]
-public class EnumItem
+internal class EnumItem
 {
     [DynamoDBHashKey]
     public string Id { get; set; } = "";

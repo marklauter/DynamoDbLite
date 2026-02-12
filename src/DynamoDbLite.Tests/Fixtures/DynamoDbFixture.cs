@@ -5,7 +5,7 @@ using Testcontainers.DynamoDb;
 
 namespace DynamoDbLite.Tests.Fixtures;
 
-public class DynamoDbFixture
+internal class DynamoDbFixture
     : IAsyncLifetime
 {
     private readonly DynamoDbContainer container =

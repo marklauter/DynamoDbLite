@@ -3,6 +3,7 @@ using Amazon.DynamoDBv2.Model;
 using Amazon.Runtime;
 using DynamoDbLite.SqliteStores;
 using System.Collections.Concurrent;
+using System.Diagnostics.CodeAnalysis;
 
 namespace DynamoDbLite;
 
@@ -33,6 +34,7 @@ public sealed partial class DynamoDbClient(DynamoDbLiteOptions? options = null)
     private void TriggerBackgroundCleanup(string tableName) =>
         _ = CleanupExpiredItemsSafeAsync(tableName);
 
+    [SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Fire-and-forget background task; unhandled exceptions would crash the process")]
     private async Task CleanupExpiredItemsSafeAsync(string tableName)
     {
         try

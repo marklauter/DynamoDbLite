@@ -4,7 +4,7 @@ using DynamoDbLite.Tests.Models;
 
 namespace DynamoDbLite.Tests.DynamoDbContext;
 
-public class DynamoDbContextMetadataTests
+public sealed class DynamoDbContextMetadataTests
     : DynamoDbContextFixture
 {
     [Theory]

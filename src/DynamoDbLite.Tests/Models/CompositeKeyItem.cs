@@ -3,7 +3,7 @@ using Amazon.DynamoDBv2.DataModel;
 namespace DynamoDbLite.Tests.Models;
 
 [DynamoDBTable("CompositeItems")]
-public class CompositeKeyItem
+internal class CompositeKeyItem
 {
     [DynamoDBHashKey]
     public string PK { get; set; } = "";

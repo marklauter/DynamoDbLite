@@ -3,7 +3,7 @@ using Amazon.DynamoDBv2.DataModel;
 namespace DynamoDbLite.Tests.Models;
 
 [DynamoDBTable("CollectionItems")]
-public class CollectionItem
+internal class CollectionItem
 {
     [DynamoDBHashKey]
     public string Id { get; set; } = "";

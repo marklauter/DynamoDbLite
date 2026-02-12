@@ -3,7 +3,7 @@ using DynamoDbLite.Tests.Models;
 
 namespace DynamoDbLite.Tests.DynamoDbContext;
 
-public class DynamoDbContextTypeMappingTests
+public sealed class DynamoDbContextTypeMappingTests
     : DynamoDbContextFixture
 {
     [Theory]

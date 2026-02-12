@@ -3,7 +3,7 @@ using DynamoDbLite.Tests.Models;
 
 namespace DynamoDbLite.Tests.DynamoDbContext;
 
-public class DynamoDbContextNumericSortKeyTests
+public sealed class DynamoDbContextNumericSortKeyTests
     : DynamoDbContextFixture
 {
     [Theory]

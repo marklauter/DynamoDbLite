@@ -2,6 +2,7 @@ using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
 using DynamoDbLite.SqliteStores;
 using DynamoDbLite.SqliteStores.Models;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Text.Json;
 
@@ -54,6 +55,7 @@ public sealed partial class DynamoDbClient
         };
     }
 
+    [SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Fire-and-forget background task; failures are recorded as FAILED status")]
     private async Task ExecuteExportAsync(
         string exportArn, string tableName, string s3Bucket, string s3Prefix, string format, string startTime)
     {
@@ -204,6 +206,7 @@ public sealed partial class DynamoDbClient
         };
     }
 
+    [SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Fire-and-forget background task; failures are recorded as FAILED status")]
     private async Task ExecuteImportAsync(
         string importArn, string tableName,
         string s3Bucket, string s3KeyPrefix)

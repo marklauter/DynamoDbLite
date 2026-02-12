@@ -3,7 +3,7 @@ using DynamoDbLite.Tests.Models;
 
 namespace DynamoDbLite.Tests.DynamoDbContext;
 
-public class DynamoDbContextBatchWriteTests
+public sealed class DynamoDbContextBatchWriteTests
     : DynamoDbContextFixture
 {
     [Theory]
