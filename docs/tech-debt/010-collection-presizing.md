@@ -2,7 +2,7 @@
 
 - **Area:** Core / SqliteStore
 - **Priority:** High
-- **Status:** Open
+- **Status:** Resolved
 
 ## Problem
 Throughout the codebase, collections are created without capacity hints, causing unnecessary resizing and allocations.

@@ -479,9 +479,9 @@ public sealed partial class DynamoDbClient
     private static (string FilterExpression, Dictionary<string, string> AttrNames, Dictionary<string, AttributeValue> AttrValues)
         ConvertConditionsToExpression(Dictionary<string, Condition> conditions, string prefix = "legacy")
     {
-        var expressions = new List<string>();
-        var attrNames = new Dictionary<string, string>();
-        var attrValues = new Dictionary<string, AttributeValue>();
+        var expressions = new List<string>(conditions.Count);
+        var attrNames = new Dictionary<string, string>(conditions.Count);
+        var attrValues = new Dictionary<string, AttributeValue>(conditions.Count);
         var i = 0;
 
         foreach (var (attributeName, condition) in conditions)

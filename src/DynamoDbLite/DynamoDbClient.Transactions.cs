@@ -39,7 +39,7 @@ public sealed partial class DynamoDbClient
 
         // ── Validation phase ─────────────────────────────────────────
         var actions = request.TransactItems;
-        var seenKeys = new HashSet<(string, string, string)>();
+        var seenKeys = new HashSet<(string, string, string)>(actions.Count);
         var keyInfoByTable = new Dictionary<string, KeySchemaInfo>();
         var resolvedActions = new List<ResolvedTransactWriteAction>(actions.Count);
 
@@ -194,7 +194,7 @@ public sealed partial class DynamoDbClient
         }
 
         // ── Write phase (single SQLite transaction) ──────────────────
-        var operations = new List<TransactWriteOperation>();
+        var operations = new List<TransactWriteOperation>(resolvedActions.Count);
         var ttlConfigByTable = new Dictionary<string, string?>();
 
         for (var i = 0; i < resolvedActions.Count; i++)
