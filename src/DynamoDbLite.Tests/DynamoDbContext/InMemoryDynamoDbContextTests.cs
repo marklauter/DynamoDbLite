@@ -1,4 +1,4 @@
-namespace DynamoDbLite.Tests;
+namespace DynamoDbLite.Tests.DynamoDbContext;
 
 public sealed class InMemoryDynamoDbContextTests
     : DynamoDbContextTests

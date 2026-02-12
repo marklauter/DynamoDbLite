@@ -4,7 +4,7 @@ using Amazon.DynamoDBv2.Model;
 using DynamoDbLite.Tests.Fixtures;
 using DynamoDbLite.Tests.Models;
 
-namespace DynamoDbLite.Tests;
+namespace DynamoDbLite.Tests.DynamoDbContext;
 
 public abstract class DynamoDbContextTests
     : DynamoDbContextFixture
@@ -180,7 +180,8 @@ public abstract class DynamoDbContextTests
         await context.SaveAsync(new CompositeKeyItem { PK = "dt-1", SK = "a", CreatedAt = dt }, TestContext.Current.CancellationToken);
 
         var loaded = await context.LoadAsync<CompositeKeyItem>("dt-1", "a", TestContext.Current.CancellationToken);
-        Assert.Equal(dt, loaded!.CreatedAt.ToUniversalTime());
+        Assert.Equal(dt, loaded!.CreatedAt);
+        Assert.Equal(DateTimeKind.Utc, loaded.CreatedAt.Kind);
     }
 
     [Fact]
@@ -281,8 +282,8 @@ public abstract class DynamoDbContextTests
         await context.SaveAsync(item, TestContext.Current.CancellationToken);
 
         var loaded = await context.LoadAsync<CollectionItem>("edict-1", TestContext.Current.CancellationToken);
-        // Empty dictionaries round-trip as null since DynamoDB has no empty map marker
-        Assert.True(loaded!.Scores is null or { Count: 0 });
+        Assert.NotNull(loaded!.Scores);
+        Assert.Empty(loaded.Scores);
     }
 
     // ───────────────────── Numeric Sort Key ─────────────────────

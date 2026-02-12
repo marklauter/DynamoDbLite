@@ -1,6 +1,6 @@
 using DynamoDbLite.Tests.Fixtures;
 
-namespace DynamoDbLite.Tests;
+namespace DynamoDbLite.Tests.DynamoDbContext;
 
 public sealed class FileBasedDynamoDbContextTests
     : DynamoDbContextTests
