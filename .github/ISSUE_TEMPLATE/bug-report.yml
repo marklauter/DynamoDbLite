@@ -1,0 +1,56 @@
+name: Bug Report
+description: Report incorrect behavior vs. real DynamoDB
+labels: ["bug"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What happened and what you expected instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to Reproduce
+      description: Minimal code or steps to trigger the bug.
+      render: csharp
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What real DynamoDB does in this scenario.
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+      description: What DynamoDbLite does instead.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: store-type
+    attributes:
+      label: Store Type
+      description: Which store implementation is affected?
+      options:
+        - Both
+        - InMemorySqliteStore
+        - FileSqliteStore
+    validations:
+      required: true
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes
+      description: Optional context — version, workarounds, related issues.
+    validations:
+      required: false

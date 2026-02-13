@@ -1,0 +1,84 @@
+name: Tech Debt
+description: Track technical debt in the codebase
+labels: ["tech-debt"]
+body:
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Component or subsystem name
+      options:
+        - SqliteStore
+        - DynamoDbClient
+        - Expressions
+        - Serialization
+        - Indexes
+        - Transactions
+        - TTL
+        - Export/Import
+        - Tags
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: type
+    attributes:
+      label: Type
+      options:
+        - Bug — incorrect behavior vs. real DynamoDB
+        - Performance — allocation, hot-path, or scaling concern
+        - Observability — swallowed exceptions, missing logging
+        - Validation — missing or insufficient input checking
+        - Cleanup — dead code, structural refactor, naming
+        - Feature Gap — unimplemented DynamoDB capability
+        - Safety — error handling, null guards, edge-case hardening
+        - API Fidelity — response shape or error code mismatch vs. AWS
+        - Testing — missing coverage or test quality
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options:
+        - High
+        - Medium
+        - Low
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What is wrong and why it matters.
+    validations:
+      required: true
+
+  - type: textarea
+    id: suggested-fix
+    attributes:
+      label: Suggested Fix
+      description: How to address it.
+    validations:
+      required: true
+
+  - type: textarea
+    id: code-references
+    attributes:
+      label: Code References
+      description: Key locations in the codebase related to this debt.
+      placeholder: |
+        - `path/to/file.cs:line` — brief description
+    validations:
+      required: false
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes
+      description: Optional context, constraints, or related items.
+    validations:
+      required: false
