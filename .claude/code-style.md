@@ -123,3 +123,6 @@ No `_` prefix. No `this.` qualifier. No Hungarian notation.
   ```
 - usings outside namespace, not grouped or sorted specially
 - modifier order: `public` `private` `protected` `internal` `file` `static` `extern` `new` `virtual` `abstract` `sealed` `override` `readonly` `unsafe` `required` `volatile` `async`
+
+## Enforcement
+The `.editorconfig` is enforced by `dotnet format` — run `dotnet format "src/DynamoDbLite.slnx" --verbosity normal` after writing code and fix any violations before committing.
