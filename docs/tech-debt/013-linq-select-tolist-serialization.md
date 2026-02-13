@@ -1,14 +1,15 @@
 # LINQ .Select().ToList() for Serialization
 
-- **Area:** SqliteStore
+- **Area:** SqliteStore, DataPipeline
 - **Priority:** Medium
-- **Status:** Open
+- **Status:** Resolved
 
 ## Problem
-`SqliteStore.cs` creates anonymous objects via LINQ for JSON serialization, allocating intermediate lists.
+`SqliteStore.cs` and `DynamoDbClient.DataPipeline.cs` created anonymous objects via LINQ for JSON serialization, allocating intermediate lists.
 
-## Suggested Fix
-Use a `foreach` loop with pre-allocated `List<T>` and a small named struct/record.
-
-## Code References
-- `src/DynamoDbLite/SqliteStore.cs` — `JsonSerializer.Serialize(keySchema.Select(k => new { ... }).ToList())`
+## Resolution
+- Created 7 `Wire`-suffixed records in `DynamoDbLite.Serialization` namespace (one file each)
+- Replaced `.Select().ToList()` with pre-allocated arrays and `for` loops
+- `KeySchemaElementExtensions.ToKeySchemas()` — shared extension with `AggressiveInlining`
+- `SerializerExtensions.ToJson()` — extension methods on `TableCreationParameters` and `List<IndexDefinition>`
+- Wire suffix eliminates name collisions with AWS SDK types — no aliases needed

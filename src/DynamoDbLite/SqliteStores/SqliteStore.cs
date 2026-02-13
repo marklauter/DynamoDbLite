@@ -1,6 +1,7 @@
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
 using Dapper;
+using DynamoDbLite.Serialization;
 using DynamoDbLite.SqliteStores.Models;
 using Microsoft.Data.Sqlite;
 using System.Collections.Concurrent;
@@ -247,8 +248,8 @@ internal abstract class SqliteStore
                 provisionedThroughput.WriteCapacityUnits
             })
             : "{}";
-        var gsiJson = SerializeIndexDefinitions(gsiDefinitions ?? []);
-        var lsiJson = SerializeIndexDefinitions(lsiDefinitions ?? []);
+        var gsiJson = (gsiDefinitions ?? []).ToJson();
+        var lsiJson = (lsiDefinitions ?? []).ToJson();
 
         using var @lock = await AcquireWriteLockAsync(cancellationToken).ConfigureAwait(false);
         using var connection = await OpenConnectionAsync(cancellationToken);
@@ -1100,7 +1101,7 @@ internal abstract class SqliteStore
         List<IndexDefinition> gsiDefinitions,
         CancellationToken cancellationToken = default)
     {
-        var gsiJson = SerializeIndexDefinitions(gsiDefinitions);
+        var gsiJson = gsiDefinitions.ToJson();
         using var @lock = await AcquireWriteLockAsync(cancellationToken).ConfigureAwait(false);
         using var connection = await OpenConnectionAsync(cancellationToken);
         _ = await connection.ExecuteAsync(
@@ -1115,7 +1116,7 @@ internal abstract class SqliteStore
         List<IndexDefinition> gsiDefinitions,
         List<AttributeDefinition>? updatedAttrDefs = null)
     {
-        var gsiJson = SerializeIndexDefinitions(gsiDefinitions);
+        var gsiJson = gsiDefinitions.ToJson();
 
         if (updatedAttrDefs is not null)
         {
@@ -1280,15 +1281,6 @@ internal abstract class SqliteStore
         return list;
     }
 
-    private static string SerializeIndexDefinitions(List<IndexDefinition> indexes) =>
-        JsonSerializer.Serialize(indexes.Select(static idx => new
-        {
-            idx.IndexName,
-            idx.IsGlobal,
-            KeySchema = idx.KeySchema.Select(static k => new { k.AttributeName, KeyType = k.KeyType.Value }).ToList(),
-            idx.ProjectionType,
-            idx.NonKeyAttributes
-        }).ToList());
 
     // ── TTL cleanup & backfill ──────────────────────────────────────
 

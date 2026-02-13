@@ -1,5 +1,6 @@
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
+using DynamoDbLite.Serialization;
 using DynamoDbLite.SqliteStores;
 using DynamoDbLite.SqliteStores.Models;
 using System.Diagnostics.CodeAnalysis;
@@ -170,7 +171,7 @@ public sealed partial class DynamoDbClient
         var importArn = ExportHelper.GenerateImportArn(tableName);
         var startTime = DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture);
 
-        var tableCreationJson = SerializeTableCreationParameters(request.TableCreationParameters);
+        var tableCreationJson = request.TableCreationParameters.ToJson();
 
         await store.CreateImportRecordAsync(
             importArn, tableName, format, compression, s3Bucket, s3KeyPrefix,
@@ -367,23 +368,6 @@ public sealed partial class DynamoDbClient
         };
     }
 
-    private static string SerializeTableCreationParameters(TableCreationParameters p) =>
-        JsonSerializer.Serialize(new
-        {
-            p.TableName,
-            KeySchema = p.KeySchema.Select(static k => new { k.AttributeName, KeyType = k.KeyType.Value }).ToList(),
-            AttributeDefinitions = p.AttributeDefinitions.Select(static a => new { a.AttributeName, AttributeType = a.AttributeType.Value }).ToList(),
-            ProvisionedThroughput = p.ProvisionedThroughput is not null
-                ? new { p.ProvisionedThroughput.ReadCapacityUnits, p.ProvisionedThroughput.WriteCapacityUnits }
-                : null,
-            GlobalSecondaryIndexes = p.GlobalSecondaryIndexes?.Select(static g => new
-            {
-                g.IndexName,
-                KeySchema = g.KeySchema.Select(static k => new { k.AttributeName, KeyType = k.KeyType.Value }).ToList(),
-                Projection = g.Projection is not null ? new { ProjectionType = g.Projection.ProjectionType?.Value, g.Projection.NonKeyAttributes } : null
-            }).ToList()
-        });
-
     private static TableCreationParameters DeserializeTableCreationParameters(string json)
     {
         using var doc = JsonDocument.Parse(json);
@@ -427,7 +411,7 @@ public sealed partial class DynamoDbClient
         };
     }
 
-    private static ProvisionedThroughput DeserializeProvisionedThroughput(JsonElement element) =>
+    private static Amazon.DynamoDBv2.Model.ProvisionedThroughput DeserializeProvisionedThroughput(JsonElement element) =>
         new()
         {
             ReadCapacityUnits = element.GetProperty("ReadCapacityUnits").GetInt64(),
@@ -459,12 +443,12 @@ public sealed partial class DynamoDbClient
         ];
     }
 
-    private static Projection DeserializeProjection(JsonElement gsiElement)
+    private static Amazon.DynamoDBv2.Model.Projection DeserializeProjection(JsonElement gsiElement)
     {
         if (!gsiElement.TryGetProperty("Projection", out var proj) || proj.ValueKind == JsonValueKind.Null)
-            return new Projection { ProjectionType = ProjectionType.ALL };
+            return new Amazon.DynamoDBv2.Model.Projection { ProjectionType = ProjectionType.ALL };
 
-        var projection = new Projection();
+        var projection = new Amazon.DynamoDBv2.Model.Projection();
         if (proj.TryGetProperty("ProjectionType", out var projType) && projType.ValueKind != JsonValueKind.Null)
             projection.ProjectionType = projType.GetString()!;
         if (proj.TryGetProperty("NonKeyAttributes", out var nka) && nka.ValueKind == JsonValueKind.Array)
