@@ -1,5 +1,5 @@
-using System.Runtime.CompilerServices;
 using Amazon.DynamoDBv2.Model;
+using System.Runtime.CompilerServices;
 
 namespace DynamoDbLite.Serialization;
 

@@ -1281,7 +1281,6 @@ internal abstract class SqliteStore
         return list;
     }
 
-
     // ── TTL cleanup & backfill ──────────────────────────────────────
 
     internal async Task CleanupExpiredItemsAsync(string tableName, CancellationToken cancellationToken = default)
