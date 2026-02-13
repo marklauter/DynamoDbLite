@@ -138,4 +138,29 @@ public sealed class ProjectionExpressionTests
         _ = Assert.Single(result);
         Assert.Equal("Alice", result["name"].S);
     }
+
+    [Fact]
+    public void Apply_ListIndexNestedPath_PreservesListStructure()
+    {
+        var item = new Dictionary<string, AttributeValue>
+        {
+            ["PK"] = new() { S = "USER#1" },
+            ["items"] = new()
+            {
+                L =
+                [
+                    new() { M = new Dictionary<string, AttributeValue> { ["name"] = new() { S = "a" } } },
+                    new() { M = new Dictionary<string, AttributeValue> { ["name"] = new() { S = "b" } } }
+                ]
+            }
+        };
+
+        var paths = ProjectionExpressionParser.Parse("items[1].name");
+        var result = ProjectionExpressionEvaluator.Apply(item, paths);
+
+        // Result should have items as a list (not a map)
+        Assert.Null(result["items"].M);
+        Assert.NotNull(result["items"].L);
+        Assert.Equal("b", result["items"].L[1].M["name"].S);
+    }
 }
