@@ -240,4 +240,94 @@ public sealed class ProjectionExpressionTests
         Assert.Null(result["data"].M["tags"].M);
         Assert.Equal("red", result["data"].M["tags"].L[0].S);
     }
+
+    [Fact]
+    public void Apply_SharedRootMap_MergesSuccessAndOmitsFailure()
+    {
+        var item = new Dictionary<string, AttributeValue>
+        {
+            ["PK"] = new() { S = "USER#1" },
+            ["address"] = new()
+            {
+                M = new Dictionary<string, AttributeValue>
+                {
+                    ["city"] = new() { S = "Seattle" },
+                    ["state"] = new() { S = "WA" },
+                    ["zip"] = new() { S = "98101" }
+                }
+            }
+        };
+
+        var paths = ProjectionExpressionParser.Parse("address.city, address.nonexistent");
+        var result = ProjectionExpressionEvaluator.Apply(item, paths);
+
+        Assert.True(result.ContainsKey("address"));
+        _ = Assert.Single(result["address"].M);
+        Assert.Equal("Seattle", result["address"].M["city"].S);
+    }
+
+    [Fact]
+    public void Apply_MultipleListPaths_PopulatesBothSlots()
+    {
+        var item = new Dictionary<string, AttributeValue>
+        {
+            ["PK"] = new() { S = "USER#1" },
+            ["items"] = new()
+            {
+                L =
+                [
+                    new() { M = new Dictionary<string, AttributeValue> { ["name"] = new() { S = "a" } } },
+                    new() { M = new Dictionary<string, AttributeValue> { ["name"] = new() { S = "b" } } }
+                ]
+            }
+        };
+
+        var paths = ProjectionExpressionParser.Parse("items[0].name, items[1].name");
+        var result = ProjectionExpressionEvaluator.Apply(item, paths);
+
+        Assert.Equal(2, result["items"].L.Count);
+        Assert.Equal("a", result["items"].L[0].M["name"].S);
+        Assert.Equal("b", result["items"].L[1].M["name"].S);
+    }
+
+    [Fact]
+    public void Apply_NonContiguousListPaths_NullPadsBetweenSlots()
+    {
+        var item = new Dictionary<string, AttributeValue>
+        {
+            ["PK"] = new() { S = "USER#1" },
+            ["items"] = new()
+            {
+                L =
+                [
+                    new() { M = new Dictionary<string, AttributeValue> { ["name"] = new() { S = "a" } } },
+                    new() { M = new Dictionary<string, AttributeValue> { ["name"] = new() { S = "b" } } },
+                    new() { M = new Dictionary<string, AttributeValue> { ["name"] = new() { S = "c" } } }
+                ]
+            }
+        };
+
+        var paths = ProjectionExpressionParser.Parse("items[0].name, items[2].name");
+        var result = ProjectionExpressionEvaluator.Apply(item, paths);
+
+        Assert.Equal(3, result["items"].L.Count);
+        Assert.Equal("a", result["items"].L[0].M["name"].S);
+        Assert.True(result["items"].L[1].NULL);
+        Assert.Equal("c", result["items"].L[2].M["name"].S);
+    }
+
+    [Fact]
+    public void Apply_MissingRootOnMultiElementPath_OmitsAttribute()
+    {
+        var item = new Dictionary<string, AttributeValue>
+        {
+            ["PK"] = new() { S = "USER#1" },
+            ["name"] = new() { S = "Alice" }
+        };
+
+        var paths = ProjectionExpressionParser.Parse("missing.city");
+        var result = ProjectionExpressionEvaluator.Apply(item, paths);
+
+        Assert.False(result.ContainsKey("missing"));
+    }
 }

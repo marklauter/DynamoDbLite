@@ -31,86 +31,95 @@ internal static class ProjectionExpressionEvaluator
         Dictionary<string, AttributeValue> result,
         AttributePath path)
     {
-        // Pre-check: if path doesn't resolve in source, skip entirely
-        // to avoid creating empty containers in the result
-        if (ExpressionHelper.ResolvePath(source, path, null) is null)
+        var elements = path.Elements;
+        var first = (AttributeNameElement)elements[0];
+
+        if (!source.TryGetValue(first.Name, out var srcVal))
             return;
 
-        var srcMap = source;
-        var rstMap = result;
-        List<AttributeValue>? srcList = null;
-        List<AttributeValue>? rstList = null;
-        AttributeValue? srcVal;
-        AttributeValue? rstVal;
-
-        var elements = path.Elements;
-
-        for (var i = 0; i < elements.Count; i++)
+        // Container already in result from a prior path — recurse into it directly
+        if (result.TryGetValue(first.Name, out var rstVal))
         {
-            var isLast = i == elements.Count - 1;
+            _ = CopyPathFrom(srcVal, rstVal, elements, 1);
+            return;
+        }
 
-            switch (elements[i])
+        // New container — create detached, only attach if the deeper path resolves
+        rstVal = CreateMatchingContainer(srcVal);
+        if (rstVal is not null && CopyPathFrom(srcVal, rstVal, elements, 1))
+            result[first.Name] = rstVal;
+    }
+
+    private static bool CopyPathFrom(
+        AttributeValue src,
+        AttributeValue rst,
+        IReadOnlyList<PathElement> elements,
+        int index)
+    {
+        var isLast = index == elements.Count - 1;
+
+        switch (elements[index])
+        {
+            case AttributeNameElement nameEl:
             {
-                case AttributeNameElement nameEl:
+                if (src.M is null || !src.M.TryGetValue(nameEl.Name, out var srcChild))
+                    return false;
+
+                if (isLast)
                 {
-                    if (srcMap is null || !srcMap.TryGetValue(nameEl.Name, out srcVal))
-                        return;
-
-                    if (isLast)
-                    {
-                        rstMap![nameEl.Name] = srcVal;
-                        return;
-                    }
-
-                    // Intermediate: create matching container in result
-                    if (!rstMap!.TryGetValue(nameEl.Name, out rstVal))
-                    {
-                        rstVal = CreateMatchingContainer(srcVal);
-                        if (rstVal is null)
-                            return;
-                        rstMap[nameEl.Name] = rstVal;
-                    }
-
-                    srcMap = srcVal.M;
-                    srcList = srcVal.L;
-                    rstMap = rstVal.M;
-                    rstList = rstVal.L;
-                    break;
+                    rst.M![nameEl.Name] = srcChild;
+                    return true;
                 }
 
-                case ListIndexElement indexEl:
-                {
-                    if (srcList is null || indexEl.Index >= srcList.Count)
-                        return;
+                // Existing child in result — recurse into it (additive)
+                if (rst.M!.TryGetValue(nameEl.Name, out var rstChild))
+                    return CopyPathFrom(srcChild, rstChild, elements, index + 1);
 
-                    srcVal = srcList[indexEl.Index];
+                // New child — create detached, attach only on success
+                rstChild = CreateMatchingContainer(srcChild);
+                if (rstChild is null)
+                    return false;
 
-                    if (isLast)
-                    {
-                        NullPadList(rstList!, indexEl.Index);
-                        rstList![indexEl.Index] = srcVal;
-                        return;
-                    }
+                if (!CopyPathFrom(srcChild, rstChild, elements, index + 1))
+                    return false;
 
-                    // Intermediate: null-pad and create matching container
-                    NullPadList(rstList!, indexEl.Index);
-                    rstVal = rstList![indexEl.Index];
-
-                    if (rstVal.NULL is true)
-                    {
-                        rstVal = CreateMatchingContainer(srcVal);
-                        if (rstVal is null)
-                            return;
-                        rstList[indexEl.Index] = rstVal;
-                    }
-
-                    srcMap = srcVal.M;
-                    srcList = srcVal.L;
-                    rstMap = rstVal.M;
-                    rstList = rstVal.L;
-                    break;
-                }
+                rst.M[nameEl.Name] = rstChild;
+                return true;
             }
+
+            case ListIndexElement indexEl:
+            {
+                if (src.L is null || indexEl.Index >= src.L.Count)
+                    return false;
+
+                var srcChild = src.L[indexEl.Index];
+
+                if (isLast)
+                {
+                    NullPadList(rst.L!, indexEl.Index);
+                    rst.L![indexEl.Index] = srcChild;
+                    return true;
+                }
+
+                // Existing populated slot — recurse into it
+                if (indexEl.Index < rst.L!.Count && rst.L[indexEl.Index].NULL is not true)
+                    return CopyPathFrom(srcChild, rst.L[indexEl.Index], elements, index + 1);
+
+                // New slot — create detached, pad + attach only on success
+                var rstChild = CreateMatchingContainer(srcChild);
+                if (rstChild is null)
+                    return false;
+
+                if (!CopyPathFrom(srcChild, rstChild, elements, index + 1))
+                    return false;
+
+                NullPadList(rst.L, indexEl.Index);
+                rst.L[indexEl.Index] = rstChild;
+                return true;
+            }
+
+            default:
+                return false;
         }
     }
 
