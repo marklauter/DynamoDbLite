@@ -1,6 +1,7 @@
 # Lossy serialization of empty collections
 
 - **Area:** AttributeValueSerializer
+- **Type:** Bug
 - **Priority:** Medium
 - **Status:** Resolved
 

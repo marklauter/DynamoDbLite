@@ -1,6 +1,7 @@
 # Projection evaluator creates structure instead of selecting
 
 - **Area:** Expressions / ProjectionExpressionEvaluator
+- **Type:** Bug
 - **Priority:** Medium
 - **Status:** Resolved
 

@@ -1,6 +1,7 @@
 # Split SqliteStore into in-memory and file-based implementations
 
 - **Area:** SqliteStore
+- **Type:** Cleanup
 - **Priority:** Medium
 - **Status:** Resolved
 

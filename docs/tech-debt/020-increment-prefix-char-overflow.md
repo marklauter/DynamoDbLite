@@ -1,6 +1,7 @@
 # IncrementPrefix char overflow breaks begins_with queries
 
 - **Area:** KeyConditionSqlBuilder
+- **Type:** Bug
 - **Priority:** High
 - **Status:** Resolved
 

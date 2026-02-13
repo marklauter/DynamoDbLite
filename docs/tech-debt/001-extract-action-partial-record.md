@@ -1,6 +1,7 @@
 # ExtractTransactWriteAction returns partially-populated record
 
 - **Area:** DynamoDbClient.Transactions
+- **Type:** Cleanup
 - **Priority:** Low
 - **Status:** Open
 

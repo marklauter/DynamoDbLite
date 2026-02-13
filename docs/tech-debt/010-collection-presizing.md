@@ -1,6 +1,7 @@
 # List/Dictionary Pre-sizing
 
 - **Area:** Core / SqliteStore
+- **Type:** Performance
 - **Priority:** High
 - **Status:** Resolved
 

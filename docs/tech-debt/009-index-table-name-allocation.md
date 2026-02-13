@@ -1,6 +1,7 @@
 # IndexTableName String Allocation
 
 - **Area:** SqliteStore
+- **Type:** Performance
 - **Priority:** High
 - **Status:** Resolved
 

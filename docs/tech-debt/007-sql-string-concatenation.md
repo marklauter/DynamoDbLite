@@ -1,6 +1,7 @@
 # SQL String Concatenation in Query Hot Paths
 
 - **Area:** SqliteStore
+- **Type:** Performance
 - **Priority:** High
 - **Status:** Resolved
 

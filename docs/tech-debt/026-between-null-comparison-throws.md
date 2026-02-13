@@ -1,6 +1,7 @@
 # BETWEEN with null operand throws instead of returning false
 
 - **Area:** Expressions / ConditionExpressionEvaluator
+- **Type:** Bug
 - **Priority:** Low
 - **Status:** Open
 

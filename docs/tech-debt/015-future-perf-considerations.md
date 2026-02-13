@@ -1,6 +1,7 @@
 # Future Performance Considerations
 
 - **Area:** Core
+- **Type:** Performance
 - **Priority:** Low
 - **Status:** Open
 

@@ -1,6 +1,7 @@
 # Dapper .AsList() Potential Copies
 
 - **Area:** SqliteStore
+- **Type:** Performance
 - **Priority:** Medium
 - **Status:** Open
 

@@ -1,6 +1,7 @@
 # LINQ to Loop Replacements in Validation Paths
 
 - **Area:** DynamoDbClient.TableManagement
+- **Type:** Performance
 - **Priority:** High
 - **Status:** Resolved
 

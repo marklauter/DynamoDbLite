@@ -1,6 +1,7 @@
 # SetAtPath NullReferenceException on nested list access
 
 - **Area:** Expressions / ExpressionHelper
+- **Type:** Safety
 - **Priority:** Low
 - **Status:** Open
 

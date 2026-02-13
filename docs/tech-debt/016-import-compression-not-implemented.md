@@ -1,6 +1,7 @@
 # Import compression format stored but not applied
 
 - **Area:** Export & Import (DynamoDbClient.DataPipeline.cs, SqliteStore.cs)
+- **Type:** Feature Gap
 - **Priority:** Low
 - **Status:** Open
 

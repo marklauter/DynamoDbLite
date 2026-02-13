@@ -1,6 +1,7 @@
 # MemoryStream .ToArray() — Avoidable Copies
 
 - **Area:** Core / Expressions
+- **Type:** Performance
 - **Priority:** High
 - **Status:** Resolved
 

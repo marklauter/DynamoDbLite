@@ -1,6 +1,7 @@
 # Background TTL cleanup silently swallows exceptions
 
 - **Area:** DynamoDbClient / TTL cleanup
+- **Type:** Observability
 - **Priority:** Medium
 - **Status:** Open
 

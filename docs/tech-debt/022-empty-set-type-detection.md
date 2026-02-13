@@ -1,6 +1,7 @@
 # Empty set type detection returns wrong result
 
 - **Area:** Expressions / ConditionExpressionEvaluator
+- **Type:** Bug
 - **Priority:** Medium
 - **Status:** Resolved
 

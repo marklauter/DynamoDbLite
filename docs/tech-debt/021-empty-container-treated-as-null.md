@@ -1,6 +1,7 @@
 # Empty containers treated as null in path resolution
 
 - **Area:** Expressions / ExpressionHelper
+- **Type:** Bug
 - **Priority:** Medium
 - **Status:** Resolved
 

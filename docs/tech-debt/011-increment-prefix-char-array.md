@@ -1,6 +1,7 @@
 # IncrementPrefix Char Array Allocation
 
 - **Area:** KeyConditionSqlBuilder
+- **Type:** Performance
 - **Priority:** High
 - **Status:** Resolved
 

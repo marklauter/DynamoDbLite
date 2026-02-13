@@ -1,6 +1,7 @@
 # Binary Set Operations — Repeated .ToArray() in LINQ Predicates
 
 - **Area:** Expressions
+- **Type:** Performance
 - **Priority:** Medium
 - **Status:** Resolved
 

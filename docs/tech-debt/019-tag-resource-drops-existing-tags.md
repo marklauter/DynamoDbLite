@@ -1,6 +1,7 @@
 # TagResourceAsync silently drops existing tags
 
 - **Area:** DynamoDbClient.Admin / Tags
+- **Type:** Bug
 - **Priority:** High
 - **Status:** Resolved
 

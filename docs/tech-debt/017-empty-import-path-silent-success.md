@@ -1,6 +1,7 @@
 # Empty import path silently succeeds
 
 - **Area:** Export & Import (DynamoDbClient.DataPipeline.cs)
+- **Type:** Validation
 - **Priority:** Medium
 - **Status:** Open
 

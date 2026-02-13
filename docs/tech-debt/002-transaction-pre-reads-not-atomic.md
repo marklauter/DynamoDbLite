@@ -1,6 +1,7 @@
 # Transaction pre-reads are not in the same SQLite transaction as writes
 
 - **Area:** DynamoDbClient.Transactions / SqliteStore
+- **Type:** Bug
 - **Priority:** Medium
 - **Status:** Won't Fix
 

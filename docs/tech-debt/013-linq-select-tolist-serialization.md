@@ -1,6 +1,7 @@
 # LINQ .Select().ToList() for Serialization
 
 - **Area:** SqliteStore, DataPipeline
+- **Type:** Performance
 - **Priority:** Medium
 - **Status:** Resolved
 

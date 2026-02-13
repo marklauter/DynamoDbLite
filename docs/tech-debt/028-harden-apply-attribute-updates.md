@@ -1,6 +1,7 @@
 # Harden ApplyAttributeUpdates legacy method
 
 - **Area:** DynamoDbClient.Crud
+- **Type:** Bug
 - **Priority:** Medium
 - **Status:** Open
 

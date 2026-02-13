@@ -1,6 +1,7 @@
 # Missing ION export/import format
 
 - **Area:** Export & Import (DynamoDbClient.DataPipeline.cs, ExportHelper.cs)
+- **Type:** Feature Gap
 - **Priority:** Low
 - **Status:** Open
 

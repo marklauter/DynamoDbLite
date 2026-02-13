@@ -1,6 +1,7 @@
 # DynamoDBContext ORM test coverage gaps
 
 - **Area:** DynamoDbLite.Tests / DynamoDbContext
+- **Type:** Testing
 - **Priority:** Medium
 - **Status:** Open
 

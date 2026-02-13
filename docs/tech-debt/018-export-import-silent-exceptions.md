@@ -1,6 +1,7 @@
 # Export/import background tasks swallow exceptions silently
 
 - **Area:** Export & Import (DynamoDbClient.DataPipeline.cs)
+- **Type:** Observability
 - **Priority:** Low
 - **Status:** Open
 

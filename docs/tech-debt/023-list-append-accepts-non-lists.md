@@ -1,6 +1,7 @@
 # list_append silently accepts non-list operands
 
 - **Area:** Expressions / UpdateExpressionEvaluator
+- **Type:** Bug
 - **Priority:** Medium
 - **Status:** Resolved
 
