@@ -12,68 +12,119 @@ internal static class ProjectionExpressionEvaluator
 
         foreach (var path in paths)
         {
-            var value = ExpressionHelper.ResolvePath(item, path, null);
-            if (value is null)
-                continue;
-
             if (path.Elements is [AttributeNameElement nameEl])
             {
-                result[nameEl.Name] = value;
+                if (item.TryGetValue(nameEl.Name, out var value))
+                    result[nameEl.Name] = value;
             }
             else
             {
-                SetNestedValue(result, path, value);
+                CopyPath(item, result, path);
             }
         }
 
         return result;
     }
 
-    private static void SetNestedValue(
+    private static void CopyPath(
+        Dictionary<string, AttributeValue> source,
         Dictionary<string, AttributeValue> result,
-        AttributePath path,
-        AttributeValue value)
+        AttributePath path)
     {
-        var currentMap = result;
-        AttributeValue? current = null;
+        // Pre-check: if path doesn't resolve in source, skip entirely
+        // to avoid creating empty containers in the result
+        if (ExpressionHelper.ResolvePath(source, path, null) is null)
+            return;
 
-        for (var i = 0; i < path.Elements.Count - 1; i++)
+        var srcMap = source;
+        var rstMap = result;
+        List<AttributeValue>? srcList = null;
+        List<AttributeValue>? rstList = null;
+        AttributeValue? srcVal;
+        AttributeValue? rstVal;
+
+        var elements = path.Elements;
+
+        for (var i = 0; i < elements.Count; i++)
         {
-            switch (path.Elements[i])
+            var isLast = i == elements.Count - 1;
+
+            switch (elements[i])
             {
                 case AttributeNameElement nameEl:
-                    if (!currentMap.TryGetValue(nameEl.Name, out current))
+                {
+                    if (srcMap is null || !srcMap.TryGetValue(nameEl.Name, out srcVal))
+                        return;
+
+                    if (isLast)
                     {
-                        current = new AttributeValue { M = [] };
-                        currentMap[nameEl.Name] = current;
+                        rstMap![nameEl.Name] = srcVal;
+                        return;
                     }
 
-                    currentMap = current.M!;
+                    // Intermediate: create matching container in result
+                    if (!rstMap!.TryGetValue(nameEl.Name, out rstVal))
+                    {
+                        rstVal = CreateMatchingContainer(srcVal);
+                        if (rstVal is null)
+                            return;
+                        rstMap[nameEl.Name] = rstVal;
+                    }
+
+                    srcMap = srcVal.M;
+                    srcList = srcVal.L;
+                    rstMap = rstVal.M;
+                    rstList = rstVal.L;
                     break;
+                }
 
                 case ListIndexElement indexEl:
-                    var list = current!.L ??= [];
-                    while (list.Count <= indexEl.Index)
-                        list.Add(new AttributeValue { NULL = true });
-                    current = list[indexEl.Index];
-                    current.M ??= [];
-                    currentMap = current.M;
+                {
+                    if (srcList is null || indexEl.Index >= srcList.Count)
+                        return;
+
+                    srcVal = srcList[indexEl.Index];
+
+                    if (isLast)
+                    {
+                        NullPadList(rstList!, indexEl.Index);
+                        rstList![indexEl.Index] = srcVal;
+                        return;
+                    }
+
+                    // Intermediate: null-pad and create matching container
+                    NullPadList(rstList!, indexEl.Index);
+                    rstVal = rstList![indexEl.Index];
+
+                    if (rstVal.NULL is true)
+                    {
+                        rstVal = CreateMatchingContainer(srcVal);
+                        if (rstVal is null)
+                            return;
+                        rstList[indexEl.Index] = rstVal;
+                    }
+
+                    srcMap = srcVal.M;
+                    srcList = srcVal.L;
+                    rstMap = rstVal.M;
+                    rstList = rstVal.L;
                     break;
+                }
             }
         }
+    }
 
-        switch (path.Elements[^1])
+    private static AttributeValue? CreateMatchingContainer(AttributeValue srcVal) =>
+        srcVal switch
         {
-            case AttributeNameElement nameEl:
-                currentMap[nameEl.Name] = value;
-                break;
+            { L: not null } => new AttributeValue { L = [] },
+            { M: not null } => new AttributeValue { M = [] },
+            _ => null
+        };
 
-            case ListIndexElement indexEl:
-                var list = current!.L ??= [];
-                while (list.Count <= indexEl.Index)
-                    list.Add(new AttributeValue { NULL = true });
-                list[indexEl.Index] = value;
-                break;
-        }
+    private static void NullPadList(List<AttributeValue> list, int index)
+    {
+        while (list.Count <= index)
+            list.Add(new AttributeValue { NULL = true });
     }
 }

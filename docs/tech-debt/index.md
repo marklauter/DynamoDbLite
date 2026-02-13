@@ -25,7 +25,7 @@
 | [021](021-empty-container-treated-as-null.md) | Empty containers treated as null in path resolution | Medium | Resolved |
 | [022](022-empty-set-type-detection.md) | Empty set type detection fails | Medium | Resolved |
 | [023](023-list-append-accepts-non-lists.md) | list_append silently accepts non-list operands | Medium | Resolved |
-| [024](024-projection-creates-structure.md) | Projection creates structure instead of selecting | Medium | Open |
+| [024](024-projection-creates-structure.md) | Projection creates structure instead of selecting | Medium | Resolved |
 | [025](025-set-at-path-null-ref-on-list.md) | SetAtPath NullReferenceException on nested list | Low | Open |
 | [026](026-between-null-comparison-throws.md) | BETWEEN with null operand throws | Low | Open |
 | [027](027-lossy-empty-collection-serialization.md) | Lossy empty collection serialization | Medium | Resolved |

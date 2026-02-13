@@ -2,7 +2,7 @@
 
 - **Area:** Expressions / ProjectionExpressionEvaluator
 - **Priority:** Medium
-- **Status:** Open
+- **Status:** Resolved
 
 ## Problem
 

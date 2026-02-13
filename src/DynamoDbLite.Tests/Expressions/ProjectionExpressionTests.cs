@@ -163,4 +163,81 @@ public sealed class ProjectionExpressionTests
         Assert.NotNull(result["items"].L);
         Assert.Equal("b", result["items"].L[1].M["name"].S);
     }
+
+    [Fact]
+    public void Apply_ListIndex_FinalElement_CopiesValue()
+    {
+        var item = new Dictionary<string, AttributeValue>
+        {
+            ["PK"] = new() { S = "USER#1" },
+            ["items"] = new()
+            {
+                L =
+                [
+                    new() { S = "alpha" },
+                    new() { S = "beta" }
+                ]
+            }
+        };
+
+        var paths = ProjectionExpressionParser.Parse("items[0]");
+        var result = ProjectionExpressionEvaluator.Apply(item, paths);
+
+        Assert.NotNull(result["items"].L);
+        Assert.Equal("alpha", result["items"].L[0].S);
+    }
+
+    [Fact]
+    public void Apply_NestedListIndex_OutOfBounds_OmitsAttribute()
+    {
+        var item = new Dictionary<string, AttributeValue>
+        {
+            ["PK"] = new() { S = "USER#1" },
+            ["items"] = new()
+            {
+                L =
+                [
+                    new() { M = new Dictionary<string, AttributeValue> { ["name"] = new() { S = "a" } } },
+                    new() { M = new Dictionary<string, AttributeValue> { ["name"] = new() { S = "b" } } }
+                ]
+            }
+        };
+
+        var paths = ProjectionExpressionParser.Parse("items[5].name");
+        var result = ProjectionExpressionEvaluator.Apply(item, paths);
+
+        Assert.False(result.ContainsKey("items"));
+    }
+
+    [Fact]
+    public void Apply_NestedMapThenList_PreservesBothTypes()
+    {
+        var item = new Dictionary<string, AttributeValue>
+        {
+            ["PK"] = new() { S = "USER#1" },
+            ["data"] = new()
+            {
+                M = new Dictionary<string, AttributeValue>
+                {
+                    ["tags"] = new()
+                    {
+                        L =
+                        [
+                            new() { S = "red" },
+                            new() { S = "blue" }
+                        ]
+                    }
+                }
+            }
+        };
+
+        var paths = ProjectionExpressionParser.Parse("data.tags[0]");
+        var result = ProjectionExpressionEvaluator.Apply(item, paths);
+
+        Assert.NotNull(result["data"].M);
+        Assert.Null(result["data"].L);
+        Assert.NotNull(result["data"].M["tags"].L);
+        Assert.Null(result["data"].M["tags"].M);
+        Assert.Equal("red", result["data"].M["tags"].L[0].S);
+    }
 }
