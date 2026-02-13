@@ -8,15 +8,18 @@ body:
       label: Area
       description: Component or subsystem name
       options:
+        - Core
         - SqliteStore
         - DynamoDbClient
         - Expressions
+        - KeyConditionSqlBuilder
         - Serialization
         - Indexes
         - Transactions
         - TTL
         - Export/Import
         - Tags
+        - Testing
         - Other
     validations:
       required: true
