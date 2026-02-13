@@ -46,6 +46,28 @@ internal static class UpdateExpressionEvaluator
     private static ReadOnlySpan<byte> GetSpan(MemoryStream ms) =>
         ms.TryGetBuffer(out var segment) ? segment.AsSpan() : ms.ToArray();
 
+    private static bool BinarySetContains(List<MemoryStream> set, MemoryStream value)
+    {
+        var valueSpan = GetSpan(value);
+        foreach (var item in set)
+        {
+            if (GetSpan(item).SequenceEqual(valueSpan))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static void BinarySetRemoveAll(List<MemoryStream> set, MemoryStream value)
+    {
+        var valueSpan = GetSpan(value);
+        for (var i = set.Count - 1; i >= 0; i--)
+        {
+            if (GetSpan(set[i]).SequenceEqual(valueSpan))
+                set.RemoveAt(i);
+        }
+    }
+
     private static string GetTopLevelKey(AttributePath path, Dictionary<string, string>? expressionAttributeNames)
     {
         var first = path.Elements[0];
@@ -170,8 +192,7 @@ internal static class UpdateExpressionEvaluator
             // Binary set union
             foreach (var b in addValue.BS)
             {
-                var bBytes = b.ToArray();
-                if (!existing.BS.Any(eb => GetSpan(eb).SequenceEqual(bBytes)))
+                if (!BinarySetContains(existing.BS, b))
                     existing.BS.Add(b);
             }
         }
@@ -200,10 +221,7 @@ internal static class UpdateExpressionEvaluator
         else if (existing.BS is not null && deleteValue.BS is not null)
         {
             foreach (var b in deleteValue.BS)
-            {
-                var bBytes = b.ToArray();
-                _ = existing.BS.RemoveAll(eb => GetSpan(eb).SequenceEqual(bBytes));
-            }
+                BinarySetRemoveAll(existing.BS, b);
         }
     }
 }

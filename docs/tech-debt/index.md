@@ -13,7 +13,7 @@
 | [009](009-index-table-name-allocation.md) | IndexTableName string allocation | High | Resolved |
 | [010](010-collection-presizing.md) | Collection pre-sizing | High | Resolved |
 | [011](011-increment-prefix-char-array.md) | IncrementPrefix char array allocation | High | Resolved |
-| [012](012-binary-set-toarray-in-lambdas.md) | Binary set .ToArray() in LINQ predicates | Medium | Open |
+| [012](012-binary-set-toarray-in-lambdas.md) | Binary set .ToArray() in LINQ predicates | Medium | Resolved |
 | [013](013-linq-select-tolist-serialization.md) | LINQ .Select().ToList() for serialization | Medium | Resolved |
 | [014](014-dapper-aslist-copies.md) | Dapper .AsList() potential copies | Medium | Open |
 | [015](015-future-perf-considerations.md) | Future performance considerations | Low | Open |

@@ -2,13 +2,10 @@
 
 - **Area:** Expressions
 - **Priority:** Medium
-- **Status:** Open
+- **Status:** Resolved
 
 ## Problem
 `UpdateExpressionEvaluator.cs` calls `.ToArray()` inside `Any`/`RemoveAll` lambdas, meaning every element comparison allocates a new array.
 
-## Suggested Fix
-Extract `b.ToArray()` (or better, `TryGetBuffer`) outside the lambda, compare using spans.
-
-## Code References
-- `src/DynamoDbLite/Expressions/UpdateExpressionEvaluator.cs` — `existing.BS.Any(eb => eb.ToArray().AsSpan().SequenceEqual(b.ToArray()))`
+## Resolution
+Replaced LINQ `Any`/`RemoveAll` lambdas with `BinarySetContains` and `BinarySetRemoveAll` helpers that use manual loops with `GetSpan` (backed by `TryGetBuffer`). Zero allocations when `TryGetBuffer` succeeds.
