@@ -39,7 +39,8 @@ Read `.claude/testing.md` before creating test projects and before writing tests
 Read `.claude/tech-stack.md` for platform and dependency info.
 
 ## Tech Debt
-Read `tech-debt/readme.md` for tech-debt template.
+Read `docs/tech-debt/readme.md` for tech-debt template before creating new tech-debt records.
+Read `docs/tech-debt/index.md` for tech-debt record listing and status.
 
 ## Gotchas
 Read `.claude/gotchas.md` before debugging build or runtime issues.
