@@ -16,6 +16,7 @@ When adding a tech debt item, create a new file in this folder following the for
 # Short descriptive title
 
 - **Area:** Component or subsystem name
+- **Type:** Bug | Performance | Observability | Validation | Cleanup | Feature Gap | Safety | API Fidelity | Testing
 - **Priority:** High | Medium | Low
 - **Status:** Open | In Progress | Resolved | Won't Fix
 
@@ -33,6 +34,18 @@ Key locations in the codebase related to this debt.
 ## Notes
 Optional context, constraints, or related items.
 ```
+
+## Type Values
+
+- **Bug** — incorrect behavior vs. real DynamoDB
+- **Performance** — allocation, hot-path, or scaling concern
+- **Observability** — swallowed exceptions, missing logging
+- **Validation** — missing or insufficient input checking
+- **Cleanup** — dead code, structural refactor, naming
+- **Feature Gap** — unimplemented DynamoDB capability
+- **Safety** — error handling, null guards, edge-case hardening
+- **API Fidelity** — response shape or error code mismatch vs. AWS
+- **Testing** — missing coverage or test quality
 
 ## Status Values
 
