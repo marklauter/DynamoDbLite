@@ -1,0 +1,68 @@
+name: Documentation
+description: Report a documentation issue — inaccuracy, clarity problem, or style violation
+labels: ["docs"]
+body:
+  - type: input
+    id: page
+    attributes:
+      label: Page
+      description: Wiki page filename.
+      placeholder: Query-and-Scan.md
+    validations:
+      required: true
+
+  - type: dropdown
+    id: pass
+    attributes:
+      label: Pass
+      description: Which editorial pass found this issue?
+      options:
+        - Structural — organization, flow, gaps, redundancies
+        - Line edit — sentence-level clarity and tightening
+        - Copy edit — grammar, formatting, terminology consistency
+        - Accuracy — claims that contradict source code
+    validations:
+      required: true
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      options:
+        - "must-fix — readers will be confused or misled"
+        - "suggestion — works but could be better"
+    validations:
+      required: true
+
+  - type: textarea
+    id: finding
+    attributes:
+      label: Finding
+      description: What's wrong. Quote the problematic text.
+    validations:
+      required: true
+
+  - type: textarea
+    id: recommendation
+    attributes:
+      label: Recommendation
+      description: What to do about it. Include corrected text for line/copy edits. Cite source file and line for accuracy issues.
+    validations:
+      required: true
+
+  - type: textarea
+    id: source-file
+    attributes:
+      label: Source file
+      description: Source file that contradicts the doc (accuracy issues only).
+      placeholder: src/DynamoDbLite/DynamoDbClient.Query.cs:45
+    validations:
+      required: false
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes
+      description: Optional context — related pages, cross-reference issues, etc.
+    validations:
+      required: false
