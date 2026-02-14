@@ -1,9 +1,11 @@
 ---
 name: file-issue
 description: Files a GitHub issue (tech-debt or bug report) using gh CLI. Use when code review reveals tech debt, bugs, or behavioral mismatches vs. real DynamoDB.
+model: haiku
+allowed-tools: Bash, Read, Grep, Glob
 ---
 
-Files a GitHub issue. Reads the matching template for required fields and allowed values:
+Read the matching template for required fields and allowed values:
 
 - **Tech debt**: `.github/ISSUE_TEMPLATE/tech-debt.yml`
 - **Bug report**: `.github/ISSUE_TEMPLATE/bug-report.yml`

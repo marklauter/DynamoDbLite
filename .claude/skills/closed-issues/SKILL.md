@@ -1,6 +1,8 @@
 ---
 name: closed-issues
 description: Lists closed GitHub issues, optionally filtered by label or keyword. Use to check if a problem was already resolved.
+model: haiku
+allowed-tools: Bash
 ---
 
 Lists closed issues using `gh`. Infers label/keyword from context.
