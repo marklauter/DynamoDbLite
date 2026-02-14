@@ -1,5 +1,8 @@
 # DynamoDbLite
 
+[![.NET Tests](https://github.com/marklauter/DynamoDbLite/actions/workflows/dotnet.tests.yml/badge.svg)](https://github.com/marklauter/DynamoDbLite/actions/workflows/dotnet.tests.yml)
+[![.NET](https://img.shields.io/badge/.NET-10.0-blue)](https://dotnet.microsoft.com/en-us/download/dotnet/10.0/)
+
 A lightweight implementation of the AWS DynamoDB client interface backed by SQLite.
 
 ## Overview
