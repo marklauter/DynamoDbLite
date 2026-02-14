@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="https://raw.githubusercontent.com/marklauter/DynamoDbLite/main/DynamoDbLite/images/dynamodblite-logo.png" alt="DynamoDbLite Logo" width="200" />
+</p>
+
 # DynamoDbLite
 
 [![.NET Tests](https://github.com/marklauter/DynamoDbLite/actions/workflows/dotnet.tests.yml/badge.svg)](https://github.com/marklauter/DynamoDbLite/actions/workflows/dotnet.tests.yml)
