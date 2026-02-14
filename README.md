@@ -1,4 +1,4 @@
-<img src="https://raw.githubusercontent.com/marklauter/DynamoDbLite/refs/heads/main/images/dynamodblite-logo.png" alt="DynamoDbLite Logo" width="116" />
+![DynamoDbLite Logo](https://raw.githubusercontent.com/marklauter/DynamoDbLite/refs/heads/main/images/dynamodblite-logo.png)
 
 # DynamoDbLite
 
