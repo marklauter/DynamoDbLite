@@ -19,7 +19,7 @@ Read `.claude/code-style.md`. Read `.claude/testing.md`.
 - Tech stack: `.claude/tech-stack.md`
 - Gotchas: `.claude/gotchas.md`
 
-## Tech Debt
+## Tech Debt & Issues
 
-Read `docs/tech-debt/readme.md` before creating records.
-Read `docs/tech-debt/index.md` for status — exclude known items from code review findings.
+Issue tracking on GitHub — `/file-issue` creates tech-debt or bug-report issues via `gh` CLI.
+Before flagging code review findings, check existing issues: `gh issue list --label tech-debt --search "keyword"`.
