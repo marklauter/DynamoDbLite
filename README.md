@@ -1,6 +1,4 @@
-<p align="center">
-  <img src="https://raw.githubusercontent.com/marklauter/DynamoDbLite/refs/heads/main/images/dynamodblite-logo.png" alt="DynamoDbLite Logo" width="116" />
-</p>
+<img src="https://raw.githubusercontent.com/marklauter/DynamoDbLite/refs/heads/main/images/dynamodblite-logo.png" alt="DynamoDbLite Logo" width="116" />
 
 # DynamoDbLite
 
