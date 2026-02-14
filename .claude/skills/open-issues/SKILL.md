@@ -1,10 +1,9 @@
 ---
-description: List open GitHub issues, optionally filtered by label or keyword. Use before flagging code review findings to check if an issue already exists.
-allowed-tools: Bash
-user-invocable: true
+name: open-issues
+description: Lists open GitHub issues, optionally filtered by label or keyword. Use before flagging code review findings to check if an issue already exists.
 ---
 
-Like `/issues` but hardcoded to `--state open`. Run `gh` directly — do NOT `cd`.
+Lists open issues using `gh`. Infers label/keyword from context.
 
 ```bash
 gh issue list --state open
@@ -12,4 +11,4 @@ gh issue list --state open --label "tech-debt"
 gh issue list --state open --label "tech-debt" --search "keyword"
 ```
 
-Infer label/keyword from context. Summarize results concisely.
+Summarize results concisely.
