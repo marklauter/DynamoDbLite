@@ -9,17 +9,20 @@ In-process `IAmazonDynamoDB` backed by SQLite — local dev/testing, mobile apps
 - Single test: `dotnet test "src/DynamoDbLite.slnx" --filter "FullyQualifiedClassName~MethodName"`
 - Format: `dotnet format "src/DynamoDbLite.slnx" --verbosity normal`
 
+## Principles
+
+DRY — all authored artifacts (code, skills, configs, docs). One source of truth; reference, don't duplicate.
+
 ## Before Writing Code or Tests
 
-Read `.claude/code-style.md`. Read `.claude/testing.md`.
+Read `.claude/code/code-style.md`. Read `.claude/code/testing.md`.
 
 ## Reference
 
-- Architecture: `.claude/architecture.md`
-- Tech stack: `.claude/tech-stack.md`
-- Gotchas: `.claude/gotchas.md`
+- Architecture: `.claude/code/architecture.md`
+- Tech stack: `.claude/code/tech-stack.md`
+- Gotchas: `.claude/code/gotchas.md`
 
 ## Tech Debt & Issues
 
-Issue tracking on GitHub — `/file-issue` creates tech-debt or bug-report issues via `gh` CLI.
-Before flagging code review findings, check existing issues: `gh issue list --label tech-debt --search "keyword"`.
+Issue tracking on GitHub via `gh` CLI. Check existing issues before flagging code review findings.
