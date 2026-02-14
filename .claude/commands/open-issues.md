@@ -1,6 +1,7 @@
 ---
 name: open-issues
 description: List open GitHub issues, optionally filtered by label or keyword.
+model: haiku
 allowed-tools: Bash
 user-invocable: true
 ---
