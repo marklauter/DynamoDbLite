@@ -3,8 +3,10 @@ name: .NET Test
 on:
   push:
     branches: [ "main" ]
+    paths: [ "src/**" ]
   pull_request:
     branches: [ "main" ]
+    paths: [ "src/**" ]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
