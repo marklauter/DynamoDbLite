@@ -1,4 +1,4 @@
-![DynamoDbLite Logo](https://raw.githubusercontent.com/marklauter/DynamoDbLite/refs/heads/main/images/dynamodblite-logo.png)
+![DynamoDbLite Logo](https://raw.githubusercontent.com/marklauter/DynamoDbLite/refs/heads/main/images/dynamodblite-logo-2.png)
 
 # DynamoDbLite
 
