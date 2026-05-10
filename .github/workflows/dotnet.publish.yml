@@ -1,0 +1,84 @@
+name: .NET Publish
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 10.0.x
+
+    - name: Cache NuGet packages
+      uses: actions/cache@v4
+      with:
+        path: ~/.nuget/packages
+        key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', 'src/Directory.Packages.props') }}
+        restore-keys: |
+          ${{ runner.os }}-nuget-
+
+    - name: Build
+      run: dotnet build "src/DynamoDbLite.slnx" -c Release
+
+    - name: Test
+      run: dotnet test "src/DynamoDbLite.slnx" -c Release --no-build
+
+  publish:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+    - uses: actions/checkout@v4
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 10.0.x
+
+    - name: Cache NuGet packages
+      uses: actions/cache@v4
+      with:
+        path: ~/.nuget/packages
+        key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', 'src/Directory.Packages.props') }}
+        restore-keys: |
+          ${{ runner.os }}-nuget-
+
+    - name: Resolve package version
+      env:
+        TAG: ${{ github.event.release.tag_name }}
+      run: |
+        version="${TAG#v}"
+        echo "Publishing version $version"
+        echo "PACKAGE_VERSION=$version" >> "$GITHUB_ENV"
+
+    - name: Restore
+      working-directory: src/DynamoDbLite
+      run: dotnet restore
+
+    - name: Pack
+      working-directory: src/DynamoDbLite
+      run: dotnet pack -c Release --no-restore -o nuget -p:PackageVersion=${{ env.PACKAGE_VERSION }} -p:Version=${{ env.PACKAGE_VERSION }}
+
+    - name: Upload package artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: nuget-packages
+        path: src/DynamoDbLite/nuget/*
+        retention-days: 30
+
+    - name: Publish to nuget.pkg.github.com
+      working-directory: src/DynamoDbLite
+      run: dotnet nuget push nuget/*.nupkg --skip-duplicate -k ${{ secrets.GITHUB_TOKEN }} -s https://nuget.pkg.github.com/marklauter/index.json
+
+    - name: Publish to api.nuget.org
+      working-directory: src/DynamoDbLite
+      run: dotnet nuget push nuget/*.nupkg --skip-duplicate -k ${{ secrets.NUGET_API_KEY }} -s https://api.nuget.org/v3/index.json
