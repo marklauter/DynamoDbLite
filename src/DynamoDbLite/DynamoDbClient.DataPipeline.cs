@@ -85,6 +85,7 @@ public sealed partial class DynamoDbClient
         }
         catch (Exception ex)
         {
+            LogExportFailed(ex, exportArn);
             try
             {
                 var endTime = DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture);
@@ -94,6 +95,10 @@ public sealed partial class DynamoDbClient
             catch (ObjectDisposedException)
             {
                 // Store disposed during background operation — silently abandon
+            }
+            catch (Exception writeEx)
+            {
+                LogExportStatusWriteFailed(writeEx, exportArn, ex.Message);
             }
         }
     }
@@ -261,6 +266,7 @@ public sealed partial class DynamoDbClient
         }
         catch (Exception ex)
         {
+            LogImportFailed(ex, importArn);
             try
             {
                 var endTime = DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture);
@@ -270,6 +276,10 @@ public sealed partial class DynamoDbClient
             catch (ObjectDisposedException)
             {
                 // Store disposed during background operation — silently abandon
+            }
+            catch (Exception writeEx)
+            {
+                LogImportStatusWriteFailed(writeEx, importArn, ex.Message);
             }
         }
     }

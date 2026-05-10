@@ -1,6 +1,7 @@
 using Amazon.DynamoDBv2;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Logging;
 using System.Diagnostics.CodeAnalysis;
 
 namespace DynamoDbLite;
@@ -17,7 +18,9 @@ public static class ServiceCollectionExtensions
 
         var builder = new DynamoDbLiteOptionsBuilder();
         configure(builder);
-        services.TryAddSingleton<IAmazonDynamoDB>(new DynamoDbClient(builder.Build()));
+        var options = builder.Build();
+        services.TryAddSingleton<IAmazonDynamoDB>(sp =>
+            new DynamoDbClient(options, sp.GetService<ILogger<DynamoDbClient>>()));
         return services;
     }
 }

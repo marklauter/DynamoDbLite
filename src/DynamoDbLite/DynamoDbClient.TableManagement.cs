@@ -30,7 +30,7 @@ public sealed partial class DynamoDbClient
 
         ValidateKeySchema(request.KeySchema, request.AttributeDefinitions);
 
-        var gsiDefs = ValidateAndConvertGsiDefinitions(request.GlobalSecondaryIndexes, request.KeySchema, request.AttributeDefinitions);
+        var gsiDefs = ValidateAndConvertGsiDefinitions(request.GlobalSecondaryIndexes, request.AttributeDefinitions);
         var lsiDefs = ValidateAndConvertLsiDefinitions(request.LocalSecondaryIndexes, request.KeySchema, request.AttributeDefinitions);
 
         ValidateAttributeDefinitionsCoverage(request.KeySchema, request.GlobalSecondaryIndexes, request.LocalSecondaryIndexes, request.AttributeDefinitions);
@@ -221,7 +221,6 @@ public sealed partial class DynamoDbClient
 
     private static List<IndexDefinition>? ValidateAndConvertGsiDefinitions(
         List<GlobalSecondaryIndex>? gsis,
-        List<KeySchemaElement> tableKeySchema,
         List<AttributeDefinition> attributeDefinitions)
     {
         if (gsis is not { Count: > 0 })

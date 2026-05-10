@@ -1,5 +1,6 @@
 using Amazon.DynamoDBv2;
 using Microsoft.Extensions.DependencyInjection;
+using System.Diagnostics.CodeAnalysis;
 
 namespace DynamoDbLite.Tests;
 
@@ -105,6 +106,7 @@ public sealed class ServiceCollectionExtensionsTests
     [InlineData(null)]
     [InlineData("")]
     [InlineData("   ")]
+    [SuppressMessage("Assertions", "xUnit2032:Type assertions based on 'assignable from' are confusingly named", Justification = "We deliberately match any ArgumentException subtype (ArgumentException, ArgumentNullException, ArgumentOutOfRangeException) wrapped as InnerException")]
     public void WithConnectionString_Throws_When_Null_Or_Whitespace(string? value)
     {
         var builder = new DynamoDbLiteOptionsBuilder();
@@ -114,6 +116,7 @@ public sealed class ServiceCollectionExtensionsTests
     }
 
     [Fact]
+    [SuppressMessage("Assertions", "xUnit2032:Type assertions based on 'assignable from' are confusingly named", Justification = "We deliberately match any ArgumentException subtype wrapped as InnerException")]
     public void WithConnectionString_Throws_On_Malformed_String()
     {
         var builder = new DynamoDbLiteOptionsBuilder();

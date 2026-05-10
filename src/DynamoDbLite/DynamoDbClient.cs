@@ -2,12 +2,16 @@ using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
 using Amazon.Runtime;
 using DynamoDbLite.SqliteStores;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
 
 namespace DynamoDbLite;
 
-public sealed partial class DynamoDbClient(DynamoDbLiteOptions? options = null)
+public sealed partial class DynamoDbClient(
+    DynamoDbLiteOptions? options = null,
+    ILogger<DynamoDbClient>? logger = null)
     : DynamoDbService
     , IAmazonDynamoDB
     , IAmazonService
@@ -18,6 +22,7 @@ public sealed partial class DynamoDbClient(DynamoDbLiteOptions? options = null)
 
     private readonly SqliteStore store = CreateStore(options ?? new DynamoDbLiteOptions());
     private readonly ConcurrentDictionary<string, (DateTime Expiry, TransactWriteItemsResponse Response)> transactWriteTokenCache = new();
+    private readonly ILogger<DynamoDbClient> logger = logger ?? NullLogger<DynamoDbClient>.Instance;
     private bool disposed;
 
     public IDynamoDBv2PaginatorFactory? Paginators { get; }
@@ -41,12 +46,26 @@ public sealed partial class DynamoDbClient(DynamoDbLiteOptions? options = null)
         {
             await store.CleanupExpiredItemsAsync(tableName);
         }
-        catch
+        catch (Exception ex)
         {
-            // todo: logging would be good
-            /* swallow */
+            LogCleanupFailed(ex, tableName);
         }
     }
+
+    [LoggerMessage(EventId = 1, Level = LogLevel.Error, Message = "Background TTL cleanup failed for table {TableName}")]
+    private partial void LogCleanupFailed(Exception ex, string tableName);
+
+    [LoggerMessage(EventId = 2, Level = LogLevel.Error, Message = "Export background task failed for export {ExportArn}")]
+    private partial void LogExportFailed(Exception ex, string exportArn);
+
+    [LoggerMessage(EventId = 3, Level = LogLevel.Error, Message = "Failed to persist FAILED status for export {ExportArn}; original error: {OriginalMessage}")]
+    private partial void LogExportStatusWriteFailed(Exception ex, string exportArn, string originalMessage);
+
+    [LoggerMessage(EventId = 4, Level = LogLevel.Error, Message = "Import background task failed for import {ImportArn}")]
+    private partial void LogImportFailed(Exception ex, string importArn);
+
+    [LoggerMessage(EventId = 5, Level = LogLevel.Error, Message = "Failed to persist FAILED status for import {ImportArn}; original error: {OriginalMessage}")]
+    private partial void LogImportStatusWriteFailed(Exception ex, string importArn, string originalMessage);
 
     private void ThrowIfDisposed() =>
         ObjectDisposedException.ThrowIf(disposed, this);

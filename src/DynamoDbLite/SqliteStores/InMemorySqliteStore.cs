@@ -33,12 +33,13 @@ internal sealed class InMemorySqliteStore
 
     public override void Dispose()
     {
-        if (disposed)
-            return;
+        if (!disposed)
+        {
+            sentinel.Dispose();
+            rwLock.Dispose();
+            disposed = true;
+        }
 
-        sentinel.Dispose();
-        rwLock.Dispose();
-
-        disposed = true;
+        base.Dispose();
     }
 }
