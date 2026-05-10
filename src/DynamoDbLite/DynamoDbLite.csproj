@@ -1,6 +1,22 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
+		<Title>DynamoDbLite: In-Process DynamoDB for .NET</Title>
+		<PackageId>MSL.$(AssemblyName)</PackageId>
+		<ProductName>DynamoDbLite: In-Process DynamoDB for .NET</ProductName>
+		<Authors>Mark Lauter</Authors>
+		<Description>In-process IAmazonDynamoDB implementation backed by SQLite. Drop-in replacement for the AWS DynamoDB SDK for local development, fast unit and integration tests, and offline scenarios — no container, no AWS credentials, no network.</Description>
+		<Copyright>Copyright (c) 2025 Mark Lauter</Copyright>
+		<PackageProjectUrl>https://github.com/marklauter/DynamoDbLite</PackageProjectUrl>
+		<RepositoryUrl>https://github.com/marklauter/DynamoDbLite</RepositoryUrl>
+		<RepositoryType>git</RepositoryType>
+		<PackageTags>dynamodb;sqlite;aws;testing;in-process;local;offline;mobile</PackageTags>
+		<NeutralLanguage>en-US</NeutralLanguage>
+		<IncludeContentInPack>true</IncludeContentInPack>
+		<SymbolPackageFormat>snupkg</SymbolPackageFormat>
+		<PackageReadmeFile>README.md</PackageReadmeFile>
+		<PackageLicenseFile>LICENSE</PackageLicenseFile>
+		<PackageIcon>dynamodblite-logo-2.png</PackageIcon>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -11,7 +27,27 @@
 		<PackageReference Include="AWSSDK.DynamoDBv2" />
 		<PackageReference Include="Dapper" />
 		<PackageReference Include="Microsoft.Data.Sqlite" />
+		<PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
 		<PackageReference Include="Superpower" />
+		<PackageReference Include="Microsoft.SourceLink.GitHub">
+			<PrivateAssets>all</PrivateAssets>
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+		</PackageReference>
+	</ItemGroup>
+
+	<ItemGroup>
+		<None Include="..\..\images\dynamodblite-logo-2.png">
+			<Pack>True</Pack>
+			<PackagePath>\</PackagePath>
+		</None>
+		<None Include="..\..\README.md">
+			<Pack>True</Pack>
+			<PackagePath>\</PackagePath>
+		</None>
+		<None Include="..\..\LICENSE">
+			<Pack>True</Pack>
+			<PackagePath>\</PackagePath>
+		</None>
 	</ItemGroup>
 
 </Project>

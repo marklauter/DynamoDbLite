@@ -1,25 +1,17 @@
 using Amazon.DynamoDBv2;
-using DynamoDbLite.DependencyInjection;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace DynamoDbLite.Tests;
 
 public sealed class ServiceCollectionExtensionsTests
 {
-    private static IConfiguration BuildConfig(string connectionString = "Data Source=Test;Mode=Memory;Cache=Shared") =>
-        new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?>
-            {
-                [$"{nameof(DynamoDbLiteOptions)}:ConnectionString"] = connectionString
-            })
-            .Build();
+    private const string TestConnectionString = "Data Source=Test;Mode=Memory;Cache=Shared";
 
     [Fact]
     public void AddDynamoDbLite_Registers_IAmazonDynamoDB()
     {
         using var provider = new ServiceCollection()
-            .AddDynamoDbLite(BuildConfig())
+            .AddDynamoDbLite(o => o.WithConnectionString(TestConnectionString))
             .BuildServiceProvider();
 
         var client = provider.GetService<IAmazonDynamoDB>();
@@ -32,7 +24,7 @@ public sealed class ServiceCollectionExtensionsTests
     public void AddDynamoDbLite_Registers_As_Singleton()
     {
         using var provider = new ServiceCollection()
-            .AddDynamoDbLite(BuildConfig())
+            .AddDynamoDbLite(o => o.WithConnectionString(TestConnectionString))
             .BuildServiceProvider();
 
         var first = provider.GetRequiredService<IAmazonDynamoDB>();
@@ -42,12 +34,22 @@ public sealed class ServiceCollectionExtensionsTests
     }
 
     [Fact]
-    public void AddDynamoDbLite_Uses_ConnectionString_From_Config()
+    public void AddDynamoDbLite_Uses_Configured_ConnectionString()
     {
-        var config = BuildConfig("Data Source=CustomTest;Mode=Memory;Cache=Shared");
-
         using var provider = new ServiceCollection()
-            .AddDynamoDbLite(config)
+            .AddDynamoDbLite(o => o.WithConnectionString("Data Source=CustomTest;Mode=Memory;Cache=Shared"))
+            .BuildServiceProvider();
+
+        var client = provider.GetRequiredService<IAmazonDynamoDB>();
+
+        _ = Assert.IsType<DynamoDbClient>(client);
+    }
+
+    [Fact]
+    public void AddDynamoDbLite_Uses_Default_ConnectionString_When_Not_Configured()
+    {
+        using var provider = new ServiceCollection()
+            .AddDynamoDbLite(_ => { })
             .BuildServiceProvider();
 
         var client = provider.GetRequiredService<IAmazonDynamoDB>();
@@ -62,7 +64,7 @@ public sealed class ServiceCollectionExtensionsTests
         var services = new ServiceCollection();
         _ = services.AddSingleton<IAmazonDynamoDB>(existing);
 
-        _ = services.AddDynamoDbLite(BuildConfig());
+        _ = services.AddDynamoDbLite(o => o.WithConnectionString(TestConnectionString));
 
         using var provider = services.BuildServiceProvider();
         var resolved = provider.GetRequiredService<IAmazonDynamoDB>();
@@ -71,31 +73,12 @@ public sealed class ServiceCollectionExtensionsTests
     }
 
     [Fact]
-    public void AddDynamoDbLite_Throws_When_Section_Missing()
+    public void AddDynamoDbLite_Throws_When_Configure_Is_Null()
     {
-        var config = new ConfigurationBuilder().Build();
+        var services = new ServiceCollection();
 
-        _ = Assert.Throws<InvalidOperationException>(() =>
-            new ServiceCollection().AddDynamoDbLite(config));
-    }
-
-    [Fact]
-    public void AddDynamoDbLite_Supports_Custom_SectionName()
-    {
-        var config = new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?>
-            {
-                ["Custom:ConnectionString"] = "Data Source=Custom;Mode=Memory;Cache=Shared"
-            })
-            .Build();
-
-        using var provider = new ServiceCollection()
-            .AddDynamoDbLite(config, "Custom")
-            .BuildServiceProvider();
-
-        var client = provider.GetRequiredService<IAmazonDynamoDB>();
-
-        _ = Assert.IsType<DynamoDbClient>(client);
+        _ = Assert.Throws<ArgumentNullException>(() =>
+            services.AddDynamoDbLite(null!));
     }
 
     [Fact]
@@ -103,8 +86,40 @@ public sealed class ServiceCollectionExtensionsTests
     {
         var services = new ServiceCollection();
 
-        var result = services.AddDynamoDbLite(BuildConfig());
+        var result = services.AddDynamoDbLite(o => o.WithConnectionString(TestConnectionString));
 
         Assert.Same(services, result);
+    }
+
+    [Fact]
+    public void WithConnectionString_Returns_Builder_For_Chaining()
+    {
+        var builder = new DynamoDbLiteOptionsBuilder();
+
+        var result = builder.WithConnectionString(TestConnectionString);
+
+        Assert.Same(builder, result);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void WithConnectionString_Throws_When_Null_Or_Whitespace(string? value)
+    {
+        var builder = new DynamoDbLiteOptionsBuilder();
+
+        var ex = Assert.Throws<DynamoDbLiteConfigurationException>(() => builder.WithConnectionString(value!));
+        _ = Assert.IsAssignableFrom<ArgumentException>(ex.InnerException);
+    }
+
+    [Fact]
+    public void WithConnectionString_Throws_On_Malformed_String()
+    {
+        var builder = new DynamoDbLiteOptionsBuilder();
+
+        var ex = Assert.Throws<DynamoDbLiteConfigurationException>(() =>
+            builder.WithConnectionString("Not=A;Valid=Sqlite=Connection=String"));
+        _ = Assert.IsAssignableFrom<ArgumentException>(ex.InnerException);
     }
 }

@@ -9,6 +9,22 @@
 		<AnalysisMode>all</AnalysisMode>
 		<AnalysisLevel>latest-all</AnalysisLevel>
 		<AnalysisModeSecurity>All</AnalysisModeSecurity>
+		<IncludeSymbols>true</IncludeSymbols>
+		<PublishRepositoryUrl>true</PublishRepositoryUrl>
+		<EmbedUntrackedSources>true</EmbedUntrackedSources>
+	</PropertyGroup>
+
+	<PropertyGroup Condition="$(MSBuildProjectName.EndsWith('.Tests'))">
+		<IsPackable>false</IsPackable>
+		<IsTestProject>true</IsTestProject>
+		<CollectCoverage>true</CollectCoverage>
+		<CoverletOutputFormat>cobertura</CoverletOutputFormat>
+		<!-- Exception types are plumbing; exclude from coverage to avoid noise. -->
+		<Exclude>[*]*Exception</Exclude>
+		<!-- CA1707: xUnit test method names use underscores (Method_Scenario_Outcome). -->
+		<!-- CA1051: test fixtures expose public fields for brevity. -->
+		<!-- IDISP026: test fixture base classes are unsealed by design (abstract base + sealed subclasses pattern). -->
+		<NoWarn>CA1707;CA1051;IDISP026</NoWarn>
 	</PropertyGroup>
 
 </Project>

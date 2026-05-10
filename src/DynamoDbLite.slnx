@@ -1,5 +1,4 @@
 <Solution>
-  <Project Path="DynamoDbLite.DependencyInjection/DynamoDbLite.DependencyInjection.csproj" />
   <Project Path="DynamoDbLite.Tests/DynamoDbLite.Tests.csproj" />
   <Project Path="DynamoDbLite/DynamoDbLite.csproj" />
 </Solution>
