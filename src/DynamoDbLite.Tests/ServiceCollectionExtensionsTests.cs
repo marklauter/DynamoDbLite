@@ -1,6 +1,5 @@
 using Amazon.DynamoDBv2;
 using Microsoft.Extensions.DependencyInjection;
-using System.Diagnostics.CodeAnalysis;
 
 namespace DynamoDbLite.Tests;
 
@@ -106,23 +105,21 @@ public sealed class ServiceCollectionExtensionsTests
     [InlineData(null)]
     [InlineData("")]
     [InlineData("   ")]
-    [SuppressMessage("Assertions", "xUnit2032:Type assertions based on 'assignable from' are confusingly named", Justification = "We deliberately match any ArgumentException subtype (ArgumentException, ArgumentNullException, ArgumentOutOfRangeException) wrapped as InnerException")]
     public void WithConnectionString_Throws_When_Null_Or_Whitespace(string? value)
     {
         var builder = new DynamoDbLiteOptionsBuilder();
 
         var ex = Assert.Throws<DynamoDbLiteConfigurationException>(() => builder.WithConnectionString(value!));
-        _ = Assert.IsAssignableFrom<ArgumentException>(ex.InnerException);
+        _ = Assert.IsType<ArgumentException>(ex.InnerException, exactMatch: false);
     }
 
     [Fact]
-    [SuppressMessage("Assertions", "xUnit2032:Type assertions based on 'assignable from' are confusingly named", Justification = "We deliberately match any ArgumentException subtype wrapped as InnerException")]
     public void WithConnectionString_Throws_On_Malformed_String()
     {
         var builder = new DynamoDbLiteOptionsBuilder();
 
         var ex = Assert.Throws<DynamoDbLiteConfigurationException>(() =>
             builder.WithConnectionString("Not=A;Valid=Sqlite=Connection=String"));
-        _ = Assert.IsAssignableFrom<ArgumentException>(ex.InnerException);
+        _ = Assert.IsType<ArgumentException>(ex.InnerException, exactMatch: false);
     }
 }

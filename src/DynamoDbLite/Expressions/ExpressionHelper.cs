@@ -46,7 +46,7 @@ internal static class ExpressionHelper
                     break;
 
                 default:
-                    throw new InvalidOperationException($"Unhandled PathElement: {element.GetType().Name}");
+                    throw UnhandledPathElement(element);
             }
         }
 
@@ -86,7 +86,7 @@ internal static class ExpressionHelper
                     currentMap = current.M;
                     break;
                 default:
-                    throw new InvalidOperationException($"Unhandled PathElement: {elements[i].GetType().Name}");
+                    throw UnhandledPathElement(elements[i]);
             }
         }
 
@@ -104,7 +104,7 @@ internal static class ExpressionHelper
                 finalList[indexEl.Index] = value;
                 break;
             default:
-                throw new InvalidOperationException($"Unhandled PathElement: {elements[^1].GetType().Name}");
+                throw UnhandledPathElement(elements[^1]);
         }
     }
 
@@ -151,7 +151,7 @@ internal static class ExpressionHelper
                     currentMap = current.M;
                     break;
                 default:
-                    throw new InvalidOperationException($"Unhandled PathElement: {elements[i].GetType().Name}");
+                    throw UnhandledPathElement(elements[i]);
             }
         }
 
@@ -167,7 +167,10 @@ internal static class ExpressionHelper
                     current.L.RemoveAt(indexEl.Index);
                 break;
             default:
-                throw new InvalidOperationException($"Unhandled PathElement: {elements[^1].GetType().Name}");
+                throw UnhandledPathElement(elements[^1]);
         }
     }
+
+    private static InvalidOperationException UnhandledPathElement(PathElement element) =>
+        new($"Unhandled PathElement: {element.GetType().Name}");
 }
