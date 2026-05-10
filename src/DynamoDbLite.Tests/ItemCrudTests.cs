@@ -881,6 +881,95 @@ public sealed class ItemCrudTests
 #pragma warning restore IDISP016, IDISP017
     }
 
+    // ── Binary-typed keys ──────────────────────────────────────────────
+
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task PutItem_GetItem_BinaryKey_RoundTrip(StoreType st)
+    {
+        var client = Client(st);
+        var ct = TestContext.Current.CancellationToken;
+        var tableName = $"BinaryKeyTable_{Guid.NewGuid():N}";
+        var pkBytes = new byte[] { 0x10, 0x20, 0x30, 0x40 };
+
+        _ = await client.CreateTableAsync(new CreateTableRequest
+        {
+            TableName = tableName,
+            KeySchema = [new KeySchemaElement { AttributeName = "PK", KeyType = KeyType.HASH }],
+            AttributeDefinitions = [new AttributeDefinition { AttributeName = "PK", AttributeType = ScalarAttributeType.B }]
+        }, ct);
+
+        _ = await client.PutItemAsync(new PutItemRequest
+        {
+            TableName = tableName,
+            Item = new Dictionary<string, AttributeValue>
+            {
+                ["PK"] = new() { B = new MemoryStream(pkBytes) },
+                ["payload"] = new() { S = "hello" }
+            }
+        }, ct);
+
+        var response = await client.GetItemAsync(new GetItemRequest
+        {
+            TableName = tableName,
+            Key = new Dictionary<string, AttributeValue>
+            {
+                ["PK"] = new() { B = new MemoryStream(pkBytes) }
+            }
+        }, ct);
+
+        Assert.Equal(pkBytes, response.Item["PK"].B.ToArray());
+        Assert.Equal("hello", response.Item["payload"].S);
+    }
+
+    // ── Convenience overloads with ReturnValue ─────────────────────────
+
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task PutItem_StringOverload_WithReturnValue_DelegatesCorrectly(StoreType st)
+    {
+        var client = Client(st);
+        var ct = TestContext.Current.CancellationToken;
+
+        var response = await client.PutItemAsync(
+            "TestTable",
+            new Dictionary<string, AttributeValue>
+            {
+                ["PK"] = new() { S = "USER#OVERLOAD_PUT" },
+                ["SK"] = new() { S = "PROFILE" },
+                ["name"] = new() { S = "Wrapper" }
+            },
+            ReturnValue.NONE,
+            ct);
+
+        Assert.Equal(System.Net.HttpStatusCode.OK, response.HttpStatusCode);
+    }
+
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task DeleteItem_StringOverload_WithReturnValue_ReturnsOldItem(StoreType st)
+    {
+        var client = Client(st);
+        var ct = TestContext.Current.CancellationToken;
+        _ = await PutTestItemAsync(client, "USER#OVERLOAD_DELETE", "PROFILE", "Doomed");
+
+        var response = await client.DeleteItemAsync(
+            "TestTable",
+            new Dictionary<string, AttributeValue>
+            {
+                ["PK"] = new() { S = "USER#OVERLOAD_DELETE" },
+                ["SK"] = new() { S = "PROFILE" }
+            },
+            ReturnValue.ALL_OLD,
+            ct);
+
+        Assert.NotNull(response.Attributes);
+        Assert.Equal("Doomed", response.Attributes["name"].S);
+    }
+
     // ── Helpers ─────────────────────────────────────────────────────────
 
     private static Task<PutItemResponse> PutTestItemAsync(DynamoDbClient client, string pk, string sk, string name) =>

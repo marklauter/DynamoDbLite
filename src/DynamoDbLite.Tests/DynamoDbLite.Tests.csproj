@@ -2,18 +2,25 @@
 
 	<PropertyGroup>
 		<IsPackable>false</IsPackable>
+		<IsTestProject>true</IsTestProject>
+		<!-- CA1707: xUnit test method names use underscores (Method_Scenario_Outcome). -->
+		<!-- CA1051: test fixtures expose public fields for brevity. -->
+		<!-- IDISP026: test fixture base classes are unsealed by design (abstract base + sealed subclasses pattern). -->
 		<NoWarn>CA1707;CA1051;IDISP026</NoWarn>
+		<CollectCoverage>true</CollectCoverage>
+		<CoverletOutputFormat>cobertura</CoverletOutputFormat>
+		<Include>[DynamoDbLite*]*</Include>
 	</PropertyGroup>
 
 	<ItemGroup>
 		<PackageReference Include="coverlet.collector" />
-		<PackageReference Include="Microsoft.Extensions.Configuration" />
-		<PackageReference Include="Microsoft.Extensions.DependencyInjection" />
-		<PackageReference Include="Microsoft.NET.Test.Sdk" />
-		<PackageReference Include="IDisposableAnalyzers">
+		<PackageReference Include="coverlet.msbuild">
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
+		<PackageReference Include="Microsoft.Extensions.Configuration" />
+		<PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+		<PackageReference Include="Microsoft.NET.Test.Sdk" />
 		<PackageReference Include="Testcontainers.DynamoDb" />
 		<PackageReference Include="xunit.runner.visualstudio">
 			<PrivateAssets>all</PrivateAssets>

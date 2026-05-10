@@ -104,6 +104,24 @@ public sealed class AttributeValueSerializerTests
     }
 
     [Fact]
+    public void RoundTrip_BinarySetAttribute_PreservesValue()
+    {
+        var first = new byte[] { 0x01, 0x02, 0x03 };
+        var second = new byte[] { 0xFE, 0xED };
+        var item = new Dictionary<string, AttributeValue>
+        {
+            ["blobs"] = new() { BS = [new MemoryStream(first), new MemoryStream(second)] }
+        };
+
+        var json = AttributeValueSerializer.Serialize(item);
+        var result = AttributeValueSerializer.Deserialize(json);
+
+        Assert.Equal(2, result["blobs"].BS.Count);
+        Assert.Equal(first, result["blobs"].BS[0].ToArray());
+        Assert.Equal(second, result["blobs"].BS[1].ToArray());
+    }
+
+    [Fact]
     public void RoundTrip_ListAttribute_PreservesValue()
     {
         var item = new Dictionary<string, AttributeValue>

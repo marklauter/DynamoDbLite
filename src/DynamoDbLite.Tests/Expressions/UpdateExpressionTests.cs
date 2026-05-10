@@ -322,6 +322,230 @@ public sealed class UpdateExpressionTests
         Assert.Contains("name", modifiedKeys);
     }
 
+    // ── ADD on number/binary sets ──────────────────────────────────────
+
+    [Fact]
+    public void Add_NumberSet_UnionsValues()
+    {
+        var item = new Dictionary<string, AttributeValue>
+        {
+            ["PK"] = new() { S = "USER#1" },
+            ["nums"] = new() { NS = ["1", "2"] }
+        };
+
+        var ast = UpdateExpressionParser.Parse("ADD nums :more");
+        var (result, _) = UpdateExpressionEvaluator.Apply(
+            ast, item, null,
+            new Dictionary<string, AttributeValue> { [":more"] = new() { NS = ["2", "3"] } });
+
+        Assert.Equal(3, result["nums"].NS.Count);
+        Assert.Contains("1", result["nums"].NS);
+        Assert.Contains("2", result["nums"].NS);
+        Assert.Contains("3", result["nums"].NS);
+    }
+
+    [Fact]
+    public void Add_BinarySet_UnionsValues_DedupedByContent()
+    {
+        var item = new Dictionary<string, AttributeValue>
+        {
+            ["PK"] = new() { S = "USER#1" },
+            ["blobs"] = new() { BS = [new MemoryStream([0x01]), new MemoryStream([0x02])] }
+        };
+
+        var ast = UpdateExpressionParser.Parse("ADD blobs :more");
+        var (result, _) = UpdateExpressionEvaluator.Apply(
+            ast, item, null,
+            new Dictionary<string, AttributeValue>
+            {
+                [":more"] = new() { BS = [new MemoryStream([0x02]), new MemoryStream([0x03])] }
+            });
+
+        Assert.Equal(3, result["blobs"].BS.Count);
+        Assert.Contains(result["blobs"].BS, b => b.ToArray().SequenceEqual([(byte)0x01]));
+        Assert.Contains(result["blobs"].BS, b => b.ToArray().SequenceEqual([(byte)0x02]));
+        Assert.Contains(result["blobs"].BS, b => b.ToArray().SequenceEqual([(byte)0x03]));
+    }
+
+    // ── DELETE on number/binary sets ───────────────────────────────────
+
+    [Fact]
+    public void Delete_NumberSet_RemovesValues()
+    {
+        var item = new Dictionary<string, AttributeValue>
+        {
+            ["PK"] = new() { S = "USER#1" },
+            ["nums"] = new() { NS = ["1", "2", "3"] }
+        };
+
+        var ast = UpdateExpressionParser.Parse("DELETE nums :rm");
+        var (result, _) = UpdateExpressionEvaluator.Apply(
+            ast, item, null,
+            new Dictionary<string, AttributeValue> { [":rm"] = new() { NS = ["2"] } });
+
+        Assert.Equal(2, result["nums"].NS.Count);
+        Assert.Contains("1", result["nums"].NS);
+        Assert.Contains("3", result["nums"].NS);
+    }
+
+    [Fact]
+    public void Delete_BinarySet_RemovesValues_ByContent()
+    {
+        var item = new Dictionary<string, AttributeValue>
+        {
+            ["PK"] = new() { S = "USER#1" },
+            ["blobs"] = new() { BS = [new MemoryStream([0x01]), new MemoryStream([0x02]), new MemoryStream([0x03])] }
+        };
+
+        var ast = UpdateExpressionParser.Parse("DELETE blobs :rm");
+        var (result, _) = UpdateExpressionEvaluator.Apply(
+            ast, item, null,
+            new Dictionary<string, AttributeValue> { [":rm"] = new() { BS = [new MemoryStream([0x02])] } });
+
+        Assert.Equal(2, result["blobs"].BS.Count);
+        Assert.Contains(result["blobs"].BS, b => b.ToArray().SequenceEqual([(byte)0x01]));
+        Assert.Contains(result["blobs"].BS, b => b.ToArray().SequenceEqual([(byte)0x03]));
+    }
+
+    [Fact]
+    public void Delete_OnMissingPath_NoOp()
+    {
+        var item = CreateTestItem();
+        var ast = UpdateExpressionParser.Parse("DELETE missing :v");
+        var (result, _) = UpdateExpressionEvaluator.Apply(
+            ast, item, null,
+            new Dictionary<string, AttributeValue> { [":v"] = new() { SS = ["x"] } });
+
+        Assert.False(result.ContainsKey("missing"));
+        Assert.Equal("Alice", result["name"].S);
+    }
+
+    // ── List-index path support ────────────────────────────────────────
+
+    [Fact]
+    public void Set_ListIndex_AssignsAtIndex()
+    {
+        var item = new Dictionary<string, AttributeValue>
+        {
+            ["PK"] = new() { S = "USER#1" },
+            ["items"] = new() { L = [new() { S = "a" }, new() { S = "b" }, new() { S = "c" }] }
+        };
+
+        var ast = UpdateExpressionParser.Parse("SET items[1] = :v");
+        var (result, _) = UpdateExpressionEvaluator.Apply(
+            ast, item, null,
+            new Dictionary<string, AttributeValue> { [":v"] = new() { S = "B" } });
+
+        Assert.Equal(3, result["items"].L.Count);
+        Assert.Equal("a", result["items"].L[0].S);
+        Assert.Equal("B", result["items"].L[1].S);
+        Assert.Equal("c", result["items"].L[2].S);
+    }
+
+    [Fact]
+    public void Set_ListIndex_AutoExtends_WithNullPlaceholders()
+    {
+        var item = new Dictionary<string, AttributeValue>
+        {
+            ["PK"] = new() { S = "USER#1" },
+            ["items"] = new() { L = [new() { S = "a" }] }
+        };
+
+        var ast = UpdateExpressionParser.Parse("SET items[3] = :v");
+        var (result, _) = UpdateExpressionEvaluator.Apply(
+            ast, item, null,
+            new Dictionary<string, AttributeValue> { [":v"] = new() { S = "X" } });
+
+        Assert.Equal(4, result["items"].L.Count);
+        Assert.Equal("a", result["items"].L[0].S);
+        Assert.True(result["items"].L[1].NULL);
+        Assert.True(result["items"].L[2].NULL);
+        Assert.Equal("X", result["items"].L[3].S);
+    }
+
+    [Fact]
+    public void Remove_ListIndex_RemovesElement()
+    {
+        var item = new Dictionary<string, AttributeValue>
+        {
+            ["PK"] = new() { S = "USER#1" },
+            ["items"] = new() { L = [new() { S = "a" }, new() { S = "b" }, new() { S = "c" }] }
+        };
+
+        var ast = UpdateExpressionParser.Parse("REMOVE items[1]");
+        var (result, _) = UpdateExpressionEvaluator.Apply(ast, item, null, null);
+
+        Assert.Equal(2, result["items"].L.Count);
+        Assert.Equal("a", result["items"].L[0].S);
+        Assert.Equal("c", result["items"].L[1].S);
+    }
+
+    [Fact]
+    public void Set_NestedListIndex_AssignsAtIndex()
+    {
+        var item = new Dictionary<string, AttributeValue>
+        {
+            ["PK"] = new() { S = "USER#1" },
+            ["nested"] = new()
+            {
+                M = new Dictionary<string, AttributeValue>
+                {
+                    ["list"] = new() { L = [new() { S = "a" }, new() { S = "b" }] }
+                }
+            }
+        };
+
+        var ast = UpdateExpressionParser.Parse("SET nested.list[0] = :v");
+        var (result, _) = UpdateExpressionEvaluator.Apply(
+            ast, item, null,
+            new Dictionary<string, AttributeValue> { [":v"] = new() { S = "A" } });
+
+        Assert.Equal("A", result["nested"].M["list"].L[0].S);
+        Assert.Equal("b", result["nested"].M["list"].L[1].S);
+    }
+
+    [Fact]
+    public void Remove_NestedListIndex_RemovesElement()
+    {
+        var item = new Dictionary<string, AttributeValue>
+        {
+            ["PK"] = new() { S = "USER#1" },
+            ["nested"] = new()
+            {
+                M = new Dictionary<string, AttributeValue>
+                {
+                    ["list"] = new() { L = [new() { S = "a" }, new() { S = "b" }, new() { S = "c" }] }
+                }
+            }
+        };
+
+        var ast = UpdateExpressionParser.Parse("REMOVE nested.list[1]");
+        var (result, _) = UpdateExpressionEvaluator.Apply(ast, item, null, null);
+
+        Assert.Equal(2, result["nested"].M["list"].L.Count);
+        Assert.Equal("a", result["nested"].M["list"].L[0].S);
+        Assert.Equal("c", result["nested"].M["list"].L[1].S);
+    }
+
+    [Fact]
+    public void Set_NestedMapPath_CreatesIntermediateMaps()
+    {
+        var item = new Dictionary<string, AttributeValue>
+        {
+            ["PK"] = new() { S = "USER#1" }
+        };
+
+        var ast = UpdateExpressionParser.Parse("SET nested.deep.field = :v");
+        var (result, _) = UpdateExpressionEvaluator.Apply(
+            ast, item, null,
+            new Dictionary<string, AttributeValue> { [":v"] = new() { S = "found" } });
+
+        Assert.True(result.ContainsKey("nested"));
+        Assert.NotNull(result["nested"].M);
+        Assert.True(result["nested"].M.ContainsKey("deep"));
+        Assert.Equal("found", result["nested"].M["deep"].M["field"].S);
+    }
+
     // ── Helpers ─────────────────────────────────────────────────────────
 
     private static Dictionary<string, AttributeValue> CreateTestItem() =>

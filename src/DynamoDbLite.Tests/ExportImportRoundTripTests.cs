@@ -13,11 +13,18 @@ public sealed class ExportImportRoundTripTests
     private const string SourceTableArn = "arn:aws:dynamodb:local:000000000000:table/RoundTripSource";
     private const string TargetTable = "RoundTripTarget";
 
-    public override ValueTask DisposeAsync()
+    public override async ValueTask DisposeAsync()
     {
-        if (Directory.Exists(tempDir))
-            Directory.Delete(tempDir, true);
-        return base.DisposeAsync();
+        await base.DisposeAsync();
+        try
+        {
+            if (Directory.Exists(tempDir))
+                Directory.Delete(tempDir, true);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Best-effort: background export/import task may still hold file handles
+        }
     }
 
     [Theory]
@@ -98,7 +105,8 @@ public sealed class ExportImportRoundTripTests
         }, ct);
 
         // Wait for export to complete
-        for (var i = 0; i < 50; i++)
+        ExportStatus? exportFinalStatus = null;
+        for (var i = 0; i < 100; i++)
         {
             await Task.Delay(100, ct);
             var desc = await client.DescribeExportAsync(new DescribeExportRequest
@@ -106,8 +114,13 @@ public sealed class ExportImportRoundTripTests
                 ExportArn = exportResponse.ExportDescription.ExportArn
             }, ct);
             if (desc.ExportDescription.ExportStatus != ExportStatus.IN_PROGRESS)
+            {
+                exportFinalStatus = desc.ExportDescription.ExportStatus;
                 break;
+            }
         }
+
+        Assert.NotNull(exportFinalStatus);
 
         // Import into new table
         var importResponse = await client.ImportTableAsync(new ImportTableRequest
@@ -131,7 +144,8 @@ public sealed class ExportImportRoundTripTests
         }, ct);
 
         // Wait for import to complete
-        for (var i = 0; i < 50; i++)
+        ImportStatus? importFinalStatus = null;
+        for (var i = 0; i < 100; i++)
         {
             await Task.Delay(100, ct);
             var desc = await client.DescribeImportAsync(new DescribeImportRequest
@@ -139,8 +153,13 @@ public sealed class ExportImportRoundTripTests
                 ImportArn = importResponse.ImportTableDescription.ImportArn
             }, ct);
             if (desc.ImportTableDescription.ImportStatus != ImportStatus.IN_PROGRESS)
+            {
+                importFinalStatus = desc.ImportTableDescription.ImportStatus;
                 break;
+            }
         }
+
+        Assert.NotNull(importFinalStatus);
 
         // Scan target table and compare
         var scanResponse = await client.ScanAsync(new ScanRequest { TableName = TargetTable }, ct);
@@ -167,5 +186,152 @@ public sealed class ExportImportRoundTripTests
         var user3 = scanResponse.Items.First(i => i["PK"].S == "user#3");
         Assert.True(user3["NullField"].NULL);
         Assert.Equal("nested-value", user3["Nested"].M["Key"].S);
+    }
+
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task Export_And_Import_With_GSI_PreservesIndex(StoreType st)
+    {
+        var client = Client(st);
+        var ct = TestContext.Current.CancellationToken;
+        const string sourceTable = "GsiRoundTripSource";
+        const string sourceArn = "arn:aws:dynamodb:local:000000000000:table/GsiRoundTripSource";
+        const string targetTable = "GsiRoundTripTarget";
+        const string indexName = "ByKindVersion";
+
+        _ = await client.CreateTableAsync(new CreateTableRequest
+        {
+            TableName = sourceTable,
+            KeySchema =
+            [
+                new KeySchemaElement { AttributeName = "PK", KeyType = KeyType.HASH },
+                new KeySchemaElement { AttributeName = "SK", KeyType = KeyType.RANGE }
+            ],
+            AttributeDefinitions =
+            [
+                new AttributeDefinition { AttributeName = "PK", AttributeType = ScalarAttributeType.S },
+                new AttributeDefinition { AttributeName = "SK", AttributeType = ScalarAttributeType.S },
+                new AttributeDefinition { AttributeName = "kind", AttributeType = ScalarAttributeType.S },
+                new AttributeDefinition { AttributeName = "version", AttributeType = ScalarAttributeType.S }
+            ],
+            GlobalSecondaryIndexes =
+            [
+                new GlobalSecondaryIndex
+                {
+                    IndexName = indexName,
+                    KeySchema =
+                    [
+                        new KeySchemaElement { AttributeName = "kind", KeyType = KeyType.HASH },
+                        new KeySchemaElement { AttributeName = "version", KeyType = KeyType.RANGE }
+                    ],
+                    Projection = new Projection { ProjectionType = ProjectionType.ALL }
+                }
+            ]
+        }, ct);
+
+        for (var i = 1; i <= 3; i++)
+        {
+            _ = await client.PutItemAsync(new PutItemRequest
+            {
+                TableName = sourceTable,
+                Item = new Dictionary<string, AttributeValue>
+                {
+                    ["PK"] = new() { S = $"item#{i}" },
+                    ["SK"] = new() { S = "data" },
+                    ["kind"] = new() { S = i % 2 == 0 ? "even" : "odd" },
+                    ["version"] = new() { S = $"v{i}" }
+                }
+            }, ct);
+        }
+
+        var exportResponse = await client.ExportTableToPointInTimeAsync(new ExportTableToPointInTimeRequest
+        {
+            TableArn = sourceArn,
+            S3Bucket = tempDir,
+            ExportFormat = ExportFormat.DYNAMODB_JSON
+        }, ct);
+
+        ExportStatus? exportFinalStatus = null;
+        for (var i = 0; i < 100; i++)
+        {
+            await Task.Delay(100, ct);
+            var desc = await client.DescribeExportAsync(new DescribeExportRequest
+            {
+                ExportArn = exportResponse.ExportDescription.ExportArn
+            }, ct);
+            if (desc.ExportDescription.ExportStatus != ExportStatus.IN_PROGRESS)
+            {
+                exportFinalStatus = desc.ExportDescription.ExportStatus;
+                break;
+            }
+        }
+
+        Assert.NotNull(exportFinalStatus);
+
+        var importResponse = await client.ImportTableAsync(new ImportTableRequest
+        {
+            S3BucketSource = new S3BucketSource { S3Bucket = tempDir },
+            InputFormat = InputFormat.DYNAMODB_JSON,
+            TableCreationParameters = new TableCreationParameters
+            {
+                TableName = targetTable,
+                KeySchema =
+                [
+                    new KeySchemaElement { AttributeName = "PK", KeyType = KeyType.HASH },
+                    new KeySchemaElement { AttributeName = "SK", KeyType = KeyType.RANGE }
+                ],
+                AttributeDefinitions =
+                [
+                    new AttributeDefinition { AttributeName = "PK", AttributeType = ScalarAttributeType.S },
+                    new AttributeDefinition { AttributeName = "SK", AttributeType = ScalarAttributeType.S },
+                    new AttributeDefinition { AttributeName = "kind", AttributeType = ScalarAttributeType.S },
+                    new AttributeDefinition { AttributeName = "version", AttributeType = ScalarAttributeType.S }
+                ],
+                GlobalSecondaryIndexes =
+                [
+                    new GlobalSecondaryIndex
+                    {
+                        IndexName = indexName,
+                        KeySchema =
+                        [
+                            new KeySchemaElement { AttributeName = "kind", KeyType = KeyType.HASH },
+                            new KeySchemaElement { AttributeName = "version", KeyType = KeyType.RANGE }
+                        ],
+                        Projection = new Projection { ProjectionType = ProjectionType.ALL }
+                    }
+                ]
+            }
+        }, ct);
+
+        ImportStatus? importFinalStatus = null;
+        for (var i = 0; i < 100; i++)
+        {
+            await Task.Delay(100, ct);
+            var desc = await client.DescribeImportAsync(new DescribeImportRequest
+            {
+                ImportArn = importResponse.ImportTableDescription.ImportArn
+            }, ct);
+            if (desc.ImportTableDescription.ImportStatus != ImportStatus.IN_PROGRESS)
+            {
+                importFinalStatus = desc.ImportTableDescription.ImportStatus;
+                break;
+            }
+        }
+
+        Assert.NotNull(importFinalStatus);
+
+        // Query the imported GSI to confirm both data and index were created
+        var queryResponse = await client.QueryAsync(new QueryRequest
+        {
+            TableName = targetTable,
+            IndexName = indexName,
+            KeyConditionExpression = "#k = :k",
+            ExpressionAttributeNames = new Dictionary<string, string> { ["#k"] = "kind" },
+            ExpressionAttributeValues = new Dictionary<string, AttributeValue> { [":k"] = new() { S = "odd" } }
+        }, ct);
+
+        Assert.Equal(2, queryResponse.Count);
+        Assert.All(queryResponse.Items, i => Assert.Equal("odd", i["kind"].S));
     }
 }

@@ -10,7 +10,7 @@ internal static class AttributeValueSerializer
         new(bytes, 0, bytes.Length, writable: false, publiclyVisible: true);
 
     private static ReadOnlySpan<byte> GetSpan(MemoryStream ms) =>
-        ms.TryGetBuffer(out var segment) ? segment.AsSpan() : ms.ToArray();
+        ms.TryGetBuffer(out var segment) ? segment.AsSpan() : ms.ToArray(); // defensive: streams created via ReadableStream always expose buffer
 
     internal static string Serialize(Dictionary<string, AttributeValue> item)
     {
@@ -102,7 +102,7 @@ internal static class AttributeValueSerializer
         }
         else
         {
-            // Fallback for empty collections or unset attribute values
+            // defensive: empty-collection fallback for unset AttributeValue
             writer.WriteBoolean("NULL", true);
         }
 
@@ -135,7 +135,7 @@ internal static class AttributeValueSerializer
             "BS" => new AttributeValue { BS = ReadBinaryList(prop.Value) },
             "L" => new AttributeValue { L = ReadAttributeValueList(prop.Value) },
             "M" => new AttributeValue { M = ReadMap(prop.Value) },
-            _ => throw new NotSupportedException()
+            _ => throw new NotSupportedException() // defensive: unknown DynamoDB type tag
         };
 
     private static List<string> ReadStringList(JsonElement element)

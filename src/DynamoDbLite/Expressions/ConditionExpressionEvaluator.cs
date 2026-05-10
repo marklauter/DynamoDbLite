@@ -18,7 +18,7 @@ internal static class ConditionExpressionEvaluator
             LogicalNode logical => EvaluateLogical(logical, item, expressionAttributeNames, expressionAttributeValues),
             NotNode not => !Evaluate(not.Inner, item, expressionAttributeNames, expressionAttributeValues),
             FunctionConditionNode func => EvaluateFunction(func, item, expressionAttributeNames, expressionAttributeValues),
-            _ => throw new ArgumentException($"Unknown condition node type: {node.GetType().Name}")
+            _ => throw new ArgumentException($"Unknown condition node type: {node.GetType().Name}") // defensive: unreachable from parser
         };
 
     private static AttributeValue? ResolveOperand(
@@ -33,8 +33,8 @@ internal static class ConditionExpressionEvaluator
                 ? v
                 : throw new ArgumentException($"Expression attribute value {valueRef.ValueRef} is not defined"),
             SizeFunctionOperand sizeOp => EvaluateSize(sizeOp, item, expressionAttributeNames),
-            LiteralOperand lit => lit.Value,
-            _ => throw new ArgumentException($"Unknown operand type: {operand.GetType().Name}")
+            LiteralOperand lit => lit.Value, // reserved: parser does not currently emit inline literals
+            _ => throw new ArgumentException($"Unknown operand type: {operand.GetType().Name}") // defensive: unreachable from parser
         };
 
     private static AttributeValue EvaluateSize(
@@ -63,7 +63,7 @@ internal static class ConditionExpressionEvaluator
     }
 
     private static ReadOnlySpan<byte> GetSpan(MemoryStream ms) =>
-        ms.TryGetBuffer(out var segment) ? segment.AsSpan() : ms.ToArray();
+        ms.TryGetBuffer(out var segment) ? segment.AsSpan() : ms.ToArray(); // defensive: streams created via ReadableStream always expose buffer
 
     private static int CompareValues(AttributeValue? left, AttributeValue? right) =>
         (left, right) switch
@@ -121,7 +121,7 @@ internal static class ConditionExpressionEvaluator
             "<=" => cmp <= 0,
             ">" => cmp > 0,
             ">=" => cmp >= 0,
-            _ => throw new ArgumentException($"Unknown comparison operator: {node.Operator}")
+            _ => throw new ArgumentException($"Unknown comparison operator: {node.Operator}") // defensive: unreachable from parser
         };
     }
 
@@ -164,7 +164,7 @@ internal static class ConditionExpressionEvaluator
                   && Evaluate(node.Right, item, expressionAttributeNames, expressionAttributeValues),
             "OR" => Evaluate(node.Left, item, expressionAttributeNames, expressionAttributeValues)
                  || Evaluate(node.Right, item, expressionAttributeNames, expressionAttributeValues),
-            _ => throw new ArgumentException($"Unknown logical operator: {node.Operator}")
+            _ => throw new ArgumentException($"Unknown logical operator: {node.Operator}") // defensive: unreachable from parser
         };
 
     private static bool EvaluateFunction(
@@ -179,7 +179,7 @@ internal static class ConditionExpressionEvaluator
             "attribute_type" => EvaluateAttributeType(node, item, expressionAttributeNames, expressionAttributeValues),
             "begins_with" => EvaluateBeginsWith(node, item, expressionAttributeNames, expressionAttributeValues),
             "contains" => EvaluateContains(node, item, expressionAttributeNames, expressionAttributeValues),
-            _ => throw new ArgumentException($"Unknown function: {node.FunctionName}")
+            _ => throw new ArgumentException($"Unknown function: {node.FunctionName}") // defensive: unreachable from parser
         };
 
     private static bool EvaluateAttributeType(

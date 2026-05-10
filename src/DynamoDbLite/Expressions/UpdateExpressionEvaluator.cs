@@ -44,7 +44,7 @@ internal static class UpdateExpressionEvaluator
     }
 
     private static ReadOnlySpan<byte> GetSpan(MemoryStream ms) =>
-        ms.TryGetBuffer(out var segment) ? segment.AsSpan() : ms.ToArray();
+        ms.TryGetBuffer(out var segment) ? segment.AsSpan() : ms.ToArray(); // defensive: streams created via ReadableStream always expose buffer
 
     private static bool BinarySetContains(List<MemoryStream> set, MemoryStream value)
     {
@@ -96,7 +96,7 @@ internal static class UpdateExpressionEvaluator
             ArithmeticUpdateValue arith => EvaluateArithmetic(arith, item, expressionAttributeNames, expressionAttributeValues),
             IfNotExistsUpdateValue ifne => EvaluateIfNotExists(ifne, item, expressionAttributeNames, expressionAttributeValues),
             ListAppendUpdateValue la => EvaluateListAppend(la, item, expressionAttributeNames, expressionAttributeValues),
-            _ => throw new ArgumentException($"Unknown update value type: {updateValue.GetType().Name}")
+            _ => throw new ArgumentException($"Unknown update value type: {updateValue.GetType().Name}") // defensive: unreachable from parser
         };
 
     private static AttributeValue EvaluateArithmetic(
@@ -118,7 +118,7 @@ internal static class UpdateExpressionEvaluator
         {
             "+" => leftNum + rightNum,
             "-" => leftNum - rightNum,
-            _ => throw new ArgumentException($"Unknown arithmetic operator: {arith.Operator}")
+            _ => throw new ArgumentException($"Unknown arithmetic operator: {arith.Operator}") // defensive: unreachable from parser
         };
 
         return new AttributeValue { N = result.ToString(CultureInfo.InvariantCulture) };

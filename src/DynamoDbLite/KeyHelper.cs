@@ -6,7 +6,7 @@ namespace DynamoDbLite;
 internal static class KeyHelper
 {
     private static ReadOnlySpan<byte> GetSpan(MemoryStream ms) =>
-        ms.TryGetBuffer(out var segment) ? segment.AsSpan() : ms.ToArray();
+        ms.TryGetBuffer(out var segment) ? segment.AsSpan() : ms.ToArray(); // defensive: AWS SDK MemoryStreams always expose buffer
 
     internal static (string Pk, string Sk) ExtractKeys(
         Dictionary<string, AttributeValue> item,

@@ -13,6 +13,11 @@ public sealed class ConditionExpressionTests
         ["active"] = new() { BOOL = true },
         ["tags"] = new() { SS = ["admin", "user"] },
         ["scores"] = new() { NS = ["10", "20", "30"] },
+        ["blob"] = new() { B = new MemoryStream([0x01, 0x02, 0x03]) },
+        ["blobs"] = new() { BS = [new MemoryStream([0xFF]), new MemoryStream([0xEE])] },
+        ["items"] = new() { L = [new() { S = "x" }, new() { N = "1" }] },
+        ["meta"] = new() { M = new Dictionary<string, AttributeValue> { ["k"] = new() { S = "v" } } },
+        ["null_attr"] = new() { NULL = true },
     };
 
     // ── Comparison ─────────────────────────────────────────────────────
@@ -417,6 +422,171 @@ public sealed class ConditionExpressionTests
                 [":name"] = new() { S = "Alice" },
                 [":wrong"] = new() { N = "99" }
             });
+
+        Assert.True(result);
+    }
+
+    // ── Size across all types ──────────────────────────────────────────
+
+    [Theory]
+    [InlineData("age", 2)]
+    [InlineData("blob", 3)]
+    [InlineData("tags", 2)]
+    [InlineData("scores", 3)]
+    [InlineData("blobs", 2)]
+    [InlineData("items", 2)]
+    [InlineData("meta", 1)]
+    public void Size_AllTypes_ReturnsExpectedCount(string attr, int expected)
+    {
+        var ast = ConditionExpressionParser.Parse($"size({attr}) = :len");
+        var result = ConditionExpressionEvaluator.Evaluate(
+            ast, TestItem, null,
+            new Dictionary<string, AttributeValue> { [":len"] = new() { N = expected.ToString(System.Globalization.CultureInfo.InvariantCulture) } });
+
+        Assert.True(result);
+    }
+
+    [Fact]
+    public void Size_MissingAttribute_ReturnsZero()
+    {
+        var ast = ConditionExpressionParser.Parse("size(nope) = :zero");
+        var result = ConditionExpressionEvaluator.Evaluate(
+            ast, TestItem, null,
+            new Dictionary<string, AttributeValue> { [":zero"] = new() { N = "0" } });
+
+        Assert.True(result);
+    }
+
+    // ── attribute_type across all types ────────────────────────────────
+
+    [Theory]
+    [InlineData("blob", "B")]
+    [InlineData("scores", "NS")]
+    [InlineData("blobs", "BS")]
+    [InlineData("items", "L")]
+    [InlineData("meta", "M")]
+    [InlineData("active", "BOOL")]
+    [InlineData("null_attr", "NULL")]
+    public void AttributeType_AllTypes_ReturnsTypeName(string attr, string typeName)
+    {
+        var ast = ConditionExpressionParser.Parse($"attribute_type({attr}, :type)");
+        var result = ConditionExpressionEvaluator.Evaluate(
+            ast, TestItem, null,
+            new Dictionary<string, AttributeValue> { [":type"] = new() { S = typeName } });
+
+        Assert.True(result);
+    }
+
+    // ── contains() across collection types ─────────────────────────────
+
+    [Fact]
+    public void Contains_NumberSet_True()
+    {
+        var ast = ConditionExpressionParser.Parse("contains(scores, :v)");
+        var result = ConditionExpressionEvaluator.Evaluate(
+            ast, TestItem, null,
+            new Dictionary<string, AttributeValue> { [":v"] = new() { N = "20" } });
+
+        Assert.True(result);
+    }
+
+    [Fact]
+    public void Contains_NumberSet_False()
+    {
+        var ast = ConditionExpressionParser.Parse("contains(scores, :v)");
+        var result = ConditionExpressionEvaluator.Evaluate(
+            ast, TestItem, null,
+            new Dictionary<string, AttributeValue> { [":v"] = new() { N = "999" } });
+
+        Assert.False(result);
+    }
+
+    [Fact]
+    public void Contains_BinarySet_True()
+    {
+        var ast = ConditionExpressionParser.Parse("contains(blobs, :v)");
+        var result = ConditionExpressionEvaluator.Evaluate(
+            ast, TestItem, null,
+            new Dictionary<string, AttributeValue> { [":v"] = new() { B = new MemoryStream([0xFF]) } });
+
+        Assert.True(result);
+    }
+
+    [Fact]
+    public void Contains_BinarySet_False()
+    {
+        var ast = ConditionExpressionParser.Parse("contains(blobs, :v)");
+        var result = ConditionExpressionEvaluator.Evaluate(
+            ast, TestItem, null,
+            new Dictionary<string, AttributeValue> { [":v"] = new() { B = new MemoryStream([0xAA]) } });
+
+        Assert.False(result);
+    }
+
+    [Fact]
+    public void Contains_List_TrueWhenElementMatches()
+    {
+        var ast = ConditionExpressionParser.Parse("contains(items, :v)");
+        var result = ConditionExpressionEvaluator.Evaluate(
+            ast, TestItem, null,
+            new Dictionary<string, AttributeValue> { [":v"] = new() { S = "x" } });
+
+        Assert.True(result);
+    }
+
+    // ── Equality across scalar types ───────────────────────────────────
+
+    [Fact]
+    public void Equality_Binary_True()
+    {
+        var ast = ConditionExpressionParser.Parse("blob = :v");
+        var result = ConditionExpressionEvaluator.Evaluate(
+            ast, TestItem, null,
+            new Dictionary<string, AttributeValue> { [":v"] = new() { B = new MemoryStream([0x01, 0x02, 0x03]) } });
+
+        Assert.True(result);
+    }
+
+    [Fact]
+    public void Equality_Binary_False()
+    {
+        var ast = ConditionExpressionParser.Parse("blob = :v");
+        var result = ConditionExpressionEvaluator.Evaluate(
+            ast, TestItem, null,
+            new Dictionary<string, AttributeValue> { [":v"] = new() { B = new MemoryStream([0x01, 0x02]) } });
+
+        Assert.False(result);
+    }
+
+    [Fact]
+    public void Equality_Bool_True()
+    {
+        var ast = ConditionExpressionParser.Parse("active = :v");
+        var result = ConditionExpressionEvaluator.Evaluate(
+            ast, TestItem, null,
+            new Dictionary<string, AttributeValue> { [":v"] = new() { BOOL = true } });
+
+        Assert.True(result);
+    }
+
+    [Fact]
+    public void Equality_Null_True()
+    {
+        var ast = ConditionExpressionParser.Parse("null_attr = :v");
+        var result = ConditionExpressionEvaluator.Evaluate(
+            ast, TestItem, null,
+            new Dictionary<string, AttributeValue> { [":v"] = new() { NULL = true } });
+
+        Assert.True(result);
+    }
+
+    [Fact]
+    public void Equality_ListElement_ResolvesByIndex()
+    {
+        var ast = ConditionExpressionParser.Parse("items[0] = :v");
+        var result = ConditionExpressionEvaluator.Evaluate(
+            ast, TestItem, null,
+            new Dictionary<string, AttributeValue> { [":v"] = new() { S = "x" } });
 
         Assert.True(result);
     }

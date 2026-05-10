@@ -11,10 +11,6 @@
 		<PackageReference Include="AWSSDK.DynamoDBv2" />
 		<PackageReference Include="Dapper" />
 		<PackageReference Include="Microsoft.Data.Sqlite" />
-		<PackageReference Include="IDisposableAnalyzers">
-			<PrivateAssets>all</PrivateAssets>
-			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-		</PackageReference>
 		<PackageReference Include="Superpower" />
 	</ItemGroup>
 

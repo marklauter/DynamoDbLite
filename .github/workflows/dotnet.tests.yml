@@ -33,7 +33,7 @@ jobs:
       uses: actions/cache@v4
       with:
         path: ~/.nuget/packages
-        key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
+        key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', 'src/Directory.Packages.props') }}
         restore-keys: |
           ${{ runner.os }}-nuget-
 
@@ -42,3 +42,11 @@ jobs:
 
     - name: Test
       run: dotnet test "src/DynamoDbLite.slnx" -c ${{ matrix.configuration }} --no-build
+
+    - name: Upload coverage report
+      if: always() && matrix.configuration == 'Debug'
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-cobertura
+        path: src/DynamoDbLite.Tests/coverage.cobertura.xml
+        if-no-files-found: error

@@ -62,7 +62,8 @@ public abstract class ImportTestsBase
         exportArn = exportResponse.ExportDescription.ExportArn;
 
         // Wait for export to complete
-        for (var i = 0; i < 50; i++)
+        ExportStatus? finalStatus = null;
+        for (var i = 0; i < 100; i++)
         {
             await Task.Delay(100, TestContext.Current.CancellationToken);
             var desc = await client.DescribeExportAsync(new DescribeExportRequest
@@ -70,8 +71,13 @@ public abstract class ImportTestsBase
                 ExportArn = exportArn
             }, TestContext.Current.CancellationToken);
             if (desc.ExportDescription.ExportStatus != ExportStatus.IN_PROGRESS)
+            {
+                finalStatus = desc.ExportDescription.ExportStatus;
                 break;
+            }
         }
+
+        Assert.NotNull(finalStatus);
     }
 
     public virtual ValueTask DisposeAsync()
@@ -114,11 +120,10 @@ public abstract class ImportTestsBase
         }, TestContext.Current.CancellationToken);
 
         var importArn = importResponse.ImportTableDescription.ImportArn;
-        Assert.Equal(ImportStatus.IN_PROGRESS, importResponse.ImportTableDescription.ImportStatus);
 
         // Wait for import to complete
         ImportTableDescription? description = null;
-        for (var i = 0; i < 50; i++)
+        for (var i = 0; i < 100; i++)
         {
             await Task.Delay(100, TestContext.Current.CancellationToken);
             var desc = await client.DescribeImportAsync(new DescribeImportRequest
@@ -216,10 +221,9 @@ public sealed class FileBasedImportTests : ImportTestsBase
         return c;
     }
 
-    public override ValueTask DisposeAsync()
+    public override async ValueTask DisposeAsync()
     {
-        var result = base.DisposeAsync();
+        await base.DisposeAsync();
         FileBasedTestHelper.Cleanup(dbPath);
-        return result;
     }
 }

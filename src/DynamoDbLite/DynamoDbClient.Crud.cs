@@ -2,6 +2,7 @@ using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
 using DynamoDbLite.SqliteStores;
 using DynamoDbLite.SqliteStores.Models;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 
 namespace DynamoDbLite;
@@ -288,6 +289,7 @@ public sealed partial class DynamoDbClient
         return response;
     }
 
+    [ExcludeFromCodeCoverage(Justification = "Deprecated AWS DynamoDB AttributeUpdates API — superseded by UpdateExpression")]
     public Task<UpdateItemResponse> UpdateItemAsync(
         string tableName,
         Dictionary<string, AttributeValue> key,
@@ -300,6 +302,7 @@ public sealed partial class DynamoDbClient
             AttributeUpdates = attributeUpdates,
         }, cancellationToken);
 
+    [ExcludeFromCodeCoverage(Justification = "Deprecated AWS DynamoDB AttributeUpdates API — superseded by UpdateExpression")]
     public Task<UpdateItemResponse> UpdateItemAsync(
         string tableName,
         Dictionary<string, AttributeValue> key,
@@ -314,6 +317,7 @@ public sealed partial class DynamoDbClient
             ReturnValues = returnValues,
         }, cancellationToken);
 
+    [ExcludeFromCodeCoverage(Justification = "Deprecated AWS DynamoDB AttributeUpdates API — superseded by UpdateExpression")]
     private static Dictionary<string, AttributeValue> ApplyAttributeUpdates(
         Dictionary<string, AttributeValue> item,
         Dictionary<string, AttributeValueUpdate> attributeUpdates)

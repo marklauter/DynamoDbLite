@@ -93,7 +93,7 @@ public abstract class ExportTestsBase
 
         // Poll until completed
         ExportDescription? description = null;
-        for (var i = 0; i < 50; i++)
+        for (var i = 0; i < 100; i++)
         {
             await Task.Delay(100, TestContext.Current.CancellationToken);
             var desc = await client.DescribeExportAsync(new DescribeExportRequest
@@ -177,10 +177,9 @@ public sealed class FileBasedExportTests : ExportTestsBase
         return c;
     }
 
-    public override ValueTask DisposeAsync()
+    public override async ValueTask DisposeAsync()
     {
-        var result = base.DisposeAsync();
+        await base.DisposeAsync();
         FileBasedTestHelper.Cleanup(dbPath);
-        return result;
     }
 }

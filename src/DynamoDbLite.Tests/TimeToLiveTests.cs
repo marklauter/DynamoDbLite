@@ -988,13 +988,21 @@ public sealed class TimeToLiveTests
             TestContext.Current.CancellationToken);
         _ = Assert.Single(scanBefore.Items);
 
-        // The scan triggers fire-and-forget background cleanup. The delay is a reviewed
-        // tradeoff: exposing the Task for await would leak internals into the public API.
-        // Acceptable for in-memory SQLite where the cleanup completes in microseconds.
-        await Task.Delay(200, TestContext.Current.CancellationToken);
+        // The scan triggers fire-and-forget background cleanup. Poll DescribeTable
+        // until ItemCount reflects the cleanup, instead of a fixed delay that races on slow CI.
+        TableDescription? description = null;
+        for (var i = 0; i < 50; i++)
+        {
+            await Task.Delay(100, TestContext.Current.CancellationToken);
+            var d = await client.DescribeTableAsync("TestTable", TestContext.Current.CancellationToken);
+            if (d.Table.ItemCount == 1)
+            {
+                description = d.Table;
+                break;
+            }
+        }
 
-        // After cleanup, the table stats should reflect only the non-expired item
-        var description = await client.DescribeTableAsync("TestTable", TestContext.Current.CancellationToken);
-        Assert.Equal(1, description.Table.ItemCount);
+        Assert.NotNull(description);
+        Assert.Equal(1, description.ItemCount);
     }
 }
