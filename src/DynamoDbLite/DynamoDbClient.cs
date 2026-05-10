@@ -12,8 +12,7 @@ namespace DynamoDbLite;
 public sealed partial class DynamoDbClient(
     DynamoDbLiteOptions? options = null,
     ILogger<DynamoDbClient>? logger = null)
-    : DynamoDbService
-    , IAmazonDynamoDB
+    : IAmazonDynamoDB
     , IAmazonService
     , IDisposable
 {
@@ -25,7 +24,15 @@ public sealed partial class DynamoDbClient(
     private readonly ILogger<DynamoDbClient> logger = logger ?? NullLogger<DynamoDbClient>.Instance;
     private bool disposed;
 
+    public IClientConfig Config { get; } = new AmazonDynamoDBConfig();
+
     public IDynamoDBv2PaginatorFactory? Paginators { get; }
+
+    public static ClientConfig CreateDefaultClientConfig() => new AmazonDynamoDBConfig();
+
+    [SuppressMessage("IDisposableAnalyzers.Correctness", "IDISP005:Return type should indicate that the value should be disposed", Justification = "AWS defined the interface")]
+    public static IAmazonService CreateDefaultServiceClient(AWSCredentials awsCredentials, ClientConfig clientConfig) =>
+        new DynamoDbClient();
 
     public void Dispose()
     {
