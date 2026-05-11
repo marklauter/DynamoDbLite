@@ -937,6 +937,23 @@ public sealed class SecondaryIndexTests
             }, TestContext.Current.CancellationToken));
     }
 
+    [Theory]
+    [InlineData(StoreType.FileBased)]
+    [InlineData(StoreType.MemoryBased)]
+    public async Task ScanAsync_ConsistentReadOnGsi_Throws(StoreType st)
+    {
+        var client = Client(st);
+        await CreateTableWithGsiAsync(client);
+
+        _ = await Assert.ThrowsAsync<AmazonDynamoDBException>(() =>
+            client.ScanAsync(new ScanRequest
+            {
+                TableName = "TestTable",
+                IndexName = "GSI1",
+                ConsistentRead = true,
+            }, TestContext.Current.CancellationToken));
+    }
+
     // -- UpdateTable: Create GSI with backfill ---------------------------
 
     [Theory]

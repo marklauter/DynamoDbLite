@@ -229,8 +229,11 @@ internal static class ConditionExpressionEvaluator
             return value.NS.Contains(operand.N);
         if (value.BS is not null && operand.B is not null)
         {
-            var operandBytes = operand.B.ToArray();
-            return value.BS.Any(b => GetSpan(b).SequenceEqual(operandBytes));
+            var operandSpan = GetSpan(operand.B);
+            foreach (var b in value.BS)
+                if (GetSpan(b).SequenceEqual(operandSpan))
+                    return true;
+            return false;
         }
 
         // List contains

@@ -323,44 +323,64 @@ public sealed partial class DynamoDbClient
                 _ = transactWriteTokenCache.TryRemove(key, out _);
     }
 
-    private static ResolvedTransactWriteAction ExtractTransactWriteAction(TransactWriteItem item)
+    private static ExtractedTransactAction ExtractTransactWriteAction(TransactWriteItem item)
     {
         if (item.Put is not null)
         {
             var p = item.Put;
-            return new(default, p.TableName, default!, default!, default!,
-                Key: null, Item: p.Item,
-                p.ConditionExpression, p.ExpressionAttributeNames, p.ExpressionAttributeValues,
-                null, ParseReturnOnFail(p.ReturnValuesOnConditionCheckFailure),
-                TransactActionType.Put);
+            return new ExtractedTransactAction(
+                TableName: p.TableName,
+                Key: null,
+                Item: p.Item,
+                ConditionExpression: p.ConditionExpression,
+                ExpressionAttributeNames: p.ExpressionAttributeNames,
+                ExpressionAttributeValues: p.ExpressionAttributeValues,
+                UpdateExpression: null,
+                ReturnValuesOnConditionCheckFailure: ParseReturnOnFail(p.ReturnValuesOnConditionCheckFailure),
+                ActionType: TransactActionType.Put);
         }
 
         if (item.Update is not null)
         {
             var u = item.Update;
-            return new(default, u.TableName, default!, default!, default!,
-                Key: u.Key, Item: null,
-                u.ConditionExpression, u.ExpressionAttributeNames, u.ExpressionAttributeValues,
-                u.UpdateExpression, ParseReturnOnFail(u.ReturnValuesOnConditionCheckFailure),
-                TransactActionType.Update);
+            return new ExtractedTransactAction(
+                TableName: u.TableName,
+                Key: u.Key,
+                Item: null,
+                ConditionExpression: u.ConditionExpression,
+                ExpressionAttributeNames: u.ExpressionAttributeNames,
+                ExpressionAttributeValues: u.ExpressionAttributeValues,
+                UpdateExpression: u.UpdateExpression,
+                ReturnValuesOnConditionCheckFailure: ParseReturnOnFail(u.ReturnValuesOnConditionCheckFailure),
+                ActionType: TransactActionType.Update);
         }
 
         if (item.Delete is not null)
         {
             var d = item.Delete;
-            return new(default, d.TableName, default!, default!, default!,
-                Key: d.Key, Item: null,
-                d.ConditionExpression, d.ExpressionAttributeNames, d.ExpressionAttributeValues,
-                null, ParseReturnOnFail(d.ReturnValuesOnConditionCheckFailure),
-                TransactActionType.Delete);
+            return new ExtractedTransactAction(
+                TableName: d.TableName,
+                Key: d.Key,
+                Item: null,
+                ConditionExpression: d.ConditionExpression,
+                ExpressionAttributeNames: d.ExpressionAttributeNames,
+                ExpressionAttributeValues: d.ExpressionAttributeValues,
+                UpdateExpression: null,
+                ReturnValuesOnConditionCheckFailure: ParseReturnOnFail(d.ReturnValuesOnConditionCheckFailure),
+                ActionType: TransactActionType.Delete);
         }
 
         var c = item.ConditionCheck!;
-        return new(default, c.TableName, default!, default!, default!,
-            Key: c.Key, Item: null,
-            c.ConditionExpression, c.ExpressionAttributeNames, c.ExpressionAttributeValues,
-            null, ParseReturnOnFail(c.ReturnValuesOnConditionCheckFailure),
-            TransactActionType.ConditionCheck);
+        return new ExtractedTransactAction(
+            TableName: c.TableName,
+            Key: c.Key,
+            Item: null,
+            ConditionExpression: c.ConditionExpression,
+            ExpressionAttributeNames: c.ExpressionAttributeNames,
+            ExpressionAttributeValues: c.ExpressionAttributeValues,
+            UpdateExpression: null,
+            ReturnValuesOnConditionCheckFailure: ParseReturnOnFail(c.ReturnValuesOnConditionCheckFailure),
+            ActionType: TransactActionType.ConditionCheck);
     }
 
     private static ReturnValuesOnConditionCheckFailure? ParseReturnOnFail(string? value) =>
@@ -369,6 +389,17 @@ public sealed partial class DynamoDbClient
         : ReturnValuesOnConditionCheckFailure.NONE;
 
     private enum TransactActionType { Put, Update, Delete, ConditionCheck }
+
+    private sealed record ExtractedTransactAction(
+        string TableName,
+        Dictionary<string, AttributeValue>? Key,
+        Dictionary<string, AttributeValue>? Item,
+        string? ConditionExpression,
+        Dictionary<string, string>? ExpressionAttributeNames,
+        Dictionary<string, AttributeValue>? ExpressionAttributeValues,
+        string? UpdateExpression,
+        ReturnValuesOnConditionCheckFailure? ReturnValuesOnConditionCheckFailure,
+        TransactActionType ActionType);
 
     private sealed record ResolvedTransactWriteAction(
         int Index,

@@ -2,6 +2,7 @@ using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
 using DynamoDbLite.SqliteStores;
 using DynamoDbLite.SqliteStores.Models;
+using System.Globalization;
 
 namespace DynamoDbLite;
 
@@ -315,6 +316,10 @@ public sealed partial class DynamoDbClient
         var allIndexes = await store.GetIndexDefinitionsAsync(request.TableName, cancellationToken);
         var indexDef = allIndexes.First(i => i.IndexName == request.IndexName);
 
+        if (indexDef.IsGlobal && request.ConsistentRead is true)
+            throw new AmazonDynamoDBException(
+                "Consistent reads are not supported on global secondary indexes");
+
         string? exclusiveStartPk = null;
         string? exclusiveStartSk = null;
         string? exclusiveStartTablePk = null;
@@ -488,7 +493,7 @@ public sealed partial class DynamoDbClient
 
         foreach (var (attributeName, condition) in conditions)
         {
-            var nameKey = $"#{prefix}N{i}";
+            var nameKey = BuildLegacyNameKey(prefix, i);
             attrNames[nameKey] = attributeName;
 
             var expr = condition.ComparisonOperator.Value switch
@@ -518,7 +523,7 @@ public sealed partial class DynamoDbClient
         string nameKey, string op, string prefix, int index,
         Condition condition, Dictionary<string, AttributeValue> attrValues)
     {
-        var valueKey = $":{prefix}V{index}";
+        var valueKey = BuildLegacyValueKey(prefix, index);
         attrValues[valueKey] = condition.AttributeValueList[0];
         return $"{nameKey} {op} {valueKey}";
     }
@@ -527,7 +532,7 @@ public sealed partial class DynamoDbClient
         string nameKey, string prefix, int index,
         Condition condition, Dictionary<string, AttributeValue> attrValues)
     {
-        var valueKey = $":{prefix}V{index}";
+        var valueKey = BuildLegacyValueKey(prefix, index);
         attrValues[valueKey] = condition.AttributeValueList[0];
         return $"begins_with({nameKey}, {valueKey})";
     }
@@ -536,7 +541,7 @@ public sealed partial class DynamoDbClient
         string nameKey, string prefix, int index,
         Condition condition, Dictionary<string, AttributeValue> attrValues)
     {
-        var valueKey = $":{prefix}V{index}";
+        var valueKey = BuildLegacyValueKey(prefix, index);
         attrValues[valueKey] = condition.AttributeValueList[0];
         return $"contains({nameKey}, {valueKey})";
     }
@@ -545,12 +550,51 @@ public sealed partial class DynamoDbClient
         string nameKey, string prefix, int index,
         Condition condition, Dictionary<string, AttributeValue> attrValues)
     {
-        var lowKey = $":{prefix}V{index}a";
-        var highKey = $":{prefix}V{index}b";
+        var lowKey = BuildLegacyValueKey(prefix, index, 'a');
+        var highKey = BuildLegacyValueKey(prefix, index, 'b');
         attrValues[lowKey] = condition.AttributeValueList[0];
         attrValues[highKey] = condition.AttributeValueList[1];
         return $"{nameKey} BETWEEN {lowKey} AND {highKey}";
     }
+
+    // Builds "#{prefix}N{index}" without intermediate allocations.
+    private static string BuildLegacyNameKey(string prefix, int index) =>
+        string.Create(2 + prefix.Length + CountDigits(index), (prefix, index), static (span, state) =>
+        {
+            span[0] = '#';
+            state.prefix.AsSpan().CopyTo(span[1..]);
+            span[1 + state.prefix.Length] = 'N';
+            _ = state.index.TryFormat(span[(2 + state.prefix.Length)..], out _, provider: CultureInfo.InvariantCulture);
+        });
+
+    // Builds ":{prefix}V{index}" or ":{prefix}V{index}{suffix}" without intermediate allocations.
+    private static string BuildLegacyValueKey(string prefix, int index, char suffix = '\0')
+    {
+        var hasSuffix = suffix != '\0';
+        var len = 2 + prefix.Length + CountDigits(index) + (hasSuffix ? 1 : 0);
+        return string.Create(len, (prefix, index, suffix, hasSuffix), static (span, state) =>
+        {
+            span[0] = ':';
+            state.prefix.AsSpan().CopyTo(span[1..]);
+            span[1 + state.prefix.Length] = 'V';
+            var digitStart = 2 + state.prefix.Length;
+            _ = state.index.TryFormat(span[digitStart..], out var digitsWritten, provider: CultureInfo.InvariantCulture);
+            if (state.hasSuffix)
+                span[digitStart + digitsWritten] = state.suffix;
+        });
+    }
+
+    private static int CountDigits(int n) =>
+        n < 10 ? 1
+        : n < 100 ? 2
+        : n < 1000 ? 3
+        : n < 10000 ? 4
+        : n < 100000 ? 5
+        : n < 1000000 ? 6
+        : n < 10000000 ? 7
+        : n < 100000000 ? 8
+        : n < 1000000000 ? 9
+        : 10;
 
     private static void ConvertKeyConditionsToExpression(QueryRequest request)
     {
