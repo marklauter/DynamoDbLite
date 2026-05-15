@@ -46,21 +46,25 @@ public sealed class ServiceCollectionExtensionsTests
     }
 
     [Fact]
-    public void AddDynamoDbLite_Uses_Default_ConnectionString_When_Not_Configured()
+    public void OptionsBuilder_Without_Configure_Produces_Default_ConnectionString()
     {
-        using var provider = new ServiceCollection()
-            .AddDynamoDbLite(_ => { })
-            .BuildServiceProvider();
+        // The builder's default is what AddDynamoDbLite falls back to when configure() is a no-op.
+        // Test it directly instead of instantiating IAmazonDynamoDB — going through DI here would
+        // open the default-named shared-cache SQLite database, which collides with any other test
+        // that happens to use the same default in the same process.
+        var options = new DynamoDbLiteOptionsBuilder().Build();
 
-        var client = provider.GetRequiredService<IAmazonDynamoDB>();
-
-        _ = Assert.IsType<DynamoDbClient>(client);
+        Assert.Equal(new DynamoDbLiteOptions().ConnectionString, options.ConnectionString);
     }
 
     [Fact]
     public void AddDynamoDbLite_Does_Not_Override_Existing_Registration()
     {
-        using var existing = new DynamoDbClient();
+        // The pre-existing client uses a unique connection string so it cannot collide with the
+        // default shared cache. The assertion is about DI substitution semantics, not the
+        // connection string.
+        using var existing = new DynamoDbClient(new DynamoDbLiteOptions(
+            $"Data Source=Test_{Guid.NewGuid():N};Mode=Memory;Cache=Shared"));
         var services = new ServiceCollection();
         _ = services.AddSingleton<IAmazonDynamoDB>(existing);
 

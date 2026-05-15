@@ -114,7 +114,6 @@ internal abstract class SqliteStore
             """);
 
         EnsureTtlEpochColumn(connection);
-        EnsureSkNumColumn(connection);
 
         // Indexes are created in a separate Execute() call because
         // Microsoft.Data.Sqlite prepares every statement in a batch up front;
@@ -145,16 +144,6 @@ internal abstract class SqliteStore
             return;
 
         _ = connection.Execute("ALTER TABLE items ADD COLUMN ttl_epoch REAL");
-    }
-
-    private static void EnsureSkNumColumn(SqliteConnection connection)
-    {
-        var exists = connection.ExecuteScalar<long>(
-            "SELECT COUNT(*) FROM pragma_table_info('items') WHERE name = 'sk_num'");
-        if (exists > 0)
-            return;
-
-        _ = connection.Execute("ALTER TABLE items ADD COLUMN sk_num REAL");
     }
 
     protected abstract Task<DbConnection> OpenConnectionAsync(CancellationToken ct);
