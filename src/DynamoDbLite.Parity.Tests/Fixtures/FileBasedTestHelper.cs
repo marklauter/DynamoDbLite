@@ -1,0 +1,46 @@
+using Microsoft.Data.Sqlite;
+
+namespace DynamoDbLite.Parity.Tests.Fixtures;
+
+internal static class FileBasedTestHelper
+{
+    internal static (DynamoDbClient Client, string DbPath) CreateFileBasedClient()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"dynamo_parity_{Guid.NewGuid():N}.db");
+        return (new DynamoDbClient(new DynamoDbLiteOptions($"Data Source={path}")), path);
+    }
+
+    internal static void Cleanup(string? dbPath)
+    {
+        if (dbPath is null)
+            return;
+
+        // Clear only the pool for this specific database — ClearAllPools() is a global
+        // static that destroys pooled connections for ALL databases, breaking concurrent tests.
+        var builder = new SqliteConnectionStringBuilder($"Data Source={dbPath}")
+        {
+            Pooling = true,
+            Mode = SqliteOpenMode.ReadWriteCreate,
+            ForeignKeys = true,
+        };
+        using (var conn = new SqliteConnection(builder.ToString()))
+            SqliteConnection.ClearPool(conn);
+
+        TryDelete(dbPath);
+        TryDelete(dbPath + "-wal");
+        TryDelete(dbPath + "-shm");
+    }
+
+    private static void TryDelete(string path)
+    {
+        try
+        {
+            if (File.Exists(path))
+                File.Delete(path);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // best-effort cleanup
+        }
+    }
+}
