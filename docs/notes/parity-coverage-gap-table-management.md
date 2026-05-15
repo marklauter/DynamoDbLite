@@ -6,7 +6,7 @@ Every parity test uses CreateTable, but DescribeTable / UpdateTable / ListTables
 
 ## Observation
 
-The parity suite under `src/DynamoDbLite.Parity.Tests/` covers CRUD, queries, scans, transactions, batch, indexes (GSI + LSI), expressions, reserved words, projection variants, return values, parallel scan, and validation order. Each test calls `CreateTableAsync` as setup — but no test asserts the *shape* of what comes back from `DescribeTableAsync`, the behavior of `UpdateTableAsync` (adding a GSI in-place), or the pagination behavior of `ListTablesAsync`.
+The parity suite under `test/DynamoDbLite.Parity.Tests/` covers CRUD, queries, scans, transactions, batch, indexes (GSI + LSI), expressions, reserved words, projection variants, return values, parallel scan, and validation order. Each test calls `CreateTableAsync` as setup — but no test asserts the *shape* of what comes back from `DescribeTableAsync`, the behavior of `UpdateTableAsync` (adding a GSI in-place), or the pagination behavior of `ListTablesAsync`.
 
 See [`docs/parity.md`](../parity.md) for the current Coverage list.
 

@@ -21,15 +21,15 @@ jobs:
       uses: actions/cache@v4
       with:
         path: ~/.nuget/packages
-        key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', 'src/Directory.Packages.props') }}
+        key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', 'Directory.Packages.props') }}
         restore-keys: |
           ${{ runner.os }}-nuget-
 
     - name: Build
-      run: dotnet build "src/DynamoDbLite.slnx" -c Release
+      run: dotnet build "DynamoDbLite.slnx" -c Release
 
     - name: Test
-      run: dotnet test "src/DynamoDbLite.slnx" -c Release --no-build
+      run: dotnet test "DynamoDbLite.slnx" -c Release --no-build
 
   publish:
     needs: test
@@ -48,7 +48,7 @@ jobs:
       uses: actions/cache@v4
       with:
         path: ~/.nuget/packages
-        key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', 'src/Directory.Packages.props') }}
+        key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', 'Directory.Packages.props') }}
         restore-keys: |
           ${{ runner.os }}-nuget-
 

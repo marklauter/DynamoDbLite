@@ -6,7 +6,7 @@ Audit every public type and member in DynamoDbLite before tagging v1.0. ArchUnit
 
 ## Observation
 
-The architecture tests in [`ArchitectureTests.cs`](../../src/DynamoDbLite.Tests/Architecture/ArchitectureTests.cs) already enforce that types in `DynamoDbLite.SqliteStores`, `DynamoDbLite.SqliteStores.Models`, and `DynamoDbLite.Expressions` are not public. That removes one whole class of leak.
+The architecture tests in [`ArchitectureTests.cs`](../../test/DynamoDbLite.Tests/Architecture/ArchitectureTests.cs) already enforce that types in `DynamoDbLite.SqliteStores`, `DynamoDbLite.SqliteStores.Models`, and `DynamoDbLite.Expressions` are not public. That removes one whole class of leak.
 
 What ArchUnit does *not* check: whether the public types living in the top-level `DynamoDbLite` namespace are the right public surface. `DynamoDbClient`, `DynamoDbLiteOptions`, `DynamoDbLiteOptionsBuilder`, `DynamoDbLiteConfigurationException`, `ServiceCollectionExtensions` — these are all public by intent. The audit is about the *members* on those types and any other public types we may not have considered.
 

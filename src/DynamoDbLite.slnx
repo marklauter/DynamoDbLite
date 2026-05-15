@@ -1,5 +1,0 @@
-<Solution>
-  <Project Path="DynamoDbLite.Parity.Tests/DynamoDbLite.Parity.Tests.csproj" />
-  <Project Path="DynamoDbLite.Tests/DynamoDbLite.Tests.csproj" />
-  <Project Path="DynamoDbLite/DynamoDbLite.csproj" />
-</Solution>

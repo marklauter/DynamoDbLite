@@ -10,4 +10,4 @@
 
 ## Setup
 
-Any project named `*.Tests` is auto-configured by [`src/Directory.Build.props`](../../src/Directory.Build.props). Create the project, add a `ProjectReference` to the system under test, and the test packages, global usings, and analyzer suppressions come along for free.
+Any project named `*.Tests` is auto-configured by [`Directory.Build.props`](../../Directory.Build.props). Create the project under `test/`, add a `ProjectReference` to the system under test, and the test packages, global usings, and analyzer suppressions come along for free.

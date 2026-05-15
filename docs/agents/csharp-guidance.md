@@ -2,11 +2,11 @@
 
 ## Commands
 
-- Build: `dotnet build "src/DynamoDbLite.slnx"`
-- Test: `dotnet test "src/DynamoDbLite.slnx"`
-- Single test: `dotnet test "src/DynamoDbLite.slnx" --filter "FullyQualifiedClassName~MethodName"`
-- Format (fix): `dotnet format "src/DynamoDbLite.slnx" --severity info`
-- Format (verify, CI-style): `dotnet format "src/DynamoDbLite.slnx" --severity info --verify-no-changes`
+- Build: `dotnet build "DynamoDbLite.slnx"`
+- Test: `dotnet test "DynamoDbLite.slnx"`
+- Single test: `dotnet test "DynamoDbLite.slnx" --filter "FullyQualifiedClassName~MethodName"`
+- Format (fix): `dotnet format "DynamoDbLite.slnx" --severity info`
+- Format (verify, CI-style): `dotnet format "DynamoDbLite.slnx" --severity info --verify-no-changes`
 
 `.editorconfig` and `AnalysisLevel=latest-all` enforce most style rules — run the format command above and fix everything before committing. The conventions below are the ones tooling does *not* catch.
 
