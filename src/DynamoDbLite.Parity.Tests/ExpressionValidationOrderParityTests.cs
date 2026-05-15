@@ -114,9 +114,6 @@ public sealed class ExpressionValidationOrderParityTests(DynamoDbFixture fixture
     [InlineData(ParityBackend.DynamoDbLocal)]
     public async Task TransactGetItems_with_raw_reserved_word_in_ProjectionExpression_throws(ParityBackend backend)
     {
-        if (backend is ParityBackend.DdbLite or ParityBackend.DdbLiteFile)
-            Assert.Skip("DynamoDbLite TransactGetItems does not validate reserved words in ProjectionExpression — tracked in docs/parity.md Library gaps");
-
         var ct = TestContext.Current.CancellationToken;
         var client = await fixture.ClientAsync(backend, ct);
         var tableName = TestTables.UniqueName("evo_tget");
@@ -147,9 +144,6 @@ public sealed class ExpressionValidationOrderParityTests(DynamoDbFixture fixture
     [InlineData(ParityBackend.DynamoDbLocal)]
     public async Task BatchGetItem_with_raw_reserved_word_in_ProjectionExpression_throws(ParityBackend backend)
     {
-        if (backend is ParityBackend.DdbLite or ParityBackend.DdbLiteFile)
-            Assert.Skip("DynamoDbLite BatchGetItem does not validate reserved words in ProjectionExpression — tracked in docs/parity.md Library gaps");
-
         var ct = TestContext.Current.CancellationToken;
         var client = await fixture.ClientAsync(backend, ct);
         var tableName = TestTables.UniqueName("evo_bget");

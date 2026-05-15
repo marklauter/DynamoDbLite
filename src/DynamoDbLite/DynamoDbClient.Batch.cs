@@ -40,6 +40,7 @@ public sealed partial class DynamoDbClient
 
         var allKeys = new List<(string TableName, string Pk, string Sk)>(totalKeys);
         var keyInfoByTable = new Dictionary<string, KeySchemaInfo>();
+        var projectionPathsByTable = new Dictionary<string, IReadOnlyList<Expressions.AttributePath>>();
 
         foreach (var (tableName, keysAndAttributes) in request.RequestItems)
         {
@@ -47,6 +48,12 @@ public sealed partial class DynamoDbClient
                 ?? throw new ResourceNotFoundException($"Requested resource not found: Table: {tableName} not found");
 
             keyInfoByTable[tableName] = keyInfo;
+
+            // Parse the projection expression upfront so a malformed expression throws ValidationException
+            // before any item lookup, matching GetItem behavior and real DynamoDB's validation order.
+            if (!string.IsNullOrEmpty(keysAndAttributes.ProjectionExpression))
+                projectionPathsByTable[tableName] = Expressions.ProjectionExpressionParser.Parse(
+                    keysAndAttributes.ProjectionExpression, keysAndAttributes.ExpressionAttributeNames);
 
             foreach (var key in keysAndAttributes.Keys)
             {
@@ -71,13 +78,8 @@ public sealed partial class DynamoDbClient
 
             var item = AttributeValueSerializer.Deserialize(itemJson);
 
-            if (request.RequestItems.TryGetValue(tableName, out var ka)
-                && !string.IsNullOrEmpty(ka.ProjectionExpression))
-            {
-                var paths = Expressions.ProjectionExpressionParser.Parse(
-                    ka.ProjectionExpression, ka.ExpressionAttributeNames);
+            if (projectionPathsByTable.TryGetValue(tableName, out var paths))
                 item = Expressions.ProjectionExpressionEvaluator.Apply(item, paths);
-            }
 
             list.Add(item);
         }

@@ -283,6 +283,13 @@ public sealed partial class DynamoDbClient
                 ?? throw new ResourceNotFoundException(
                     $"Requested resource not found: Table: {get.TableName} not found");
 
+            // Parse the projection expression upfront so a malformed expression throws ValidationException
+            // before any item lookup, matching GetItem behavior and real DynamoDB's validation order.
+            IReadOnlyList<Expressions.AttributePath>? projectionPaths = null;
+            if (!string.IsNullOrEmpty(get.ProjectionExpression))
+                projectionPaths = Expressions.ProjectionExpressionParser.Parse(
+                    get.ProjectionExpression, get.ExpressionAttributeNames);
+
             if (cleanedTables.Add(get.TableName))
                 TriggerBackgroundCleanup(get.TableName);
 
@@ -293,12 +300,8 @@ public sealed partial class DynamoDbClient
             {
                 var item = AttributeValueSerializer.Deserialize(itemJson);
 
-                if (!string.IsNullOrEmpty(get.ProjectionExpression))
-                {
-                    var paths = Expressions.ProjectionExpressionParser.Parse(
-                        get.ProjectionExpression, get.ExpressionAttributeNames);
-                    item = Expressions.ProjectionExpressionEvaluator.Apply(item, paths);
-                }
+                if (projectionPaths is not null)
+                    item = Expressions.ProjectionExpressionEvaluator.Apply(item, projectionPaths);
 
                 responses.Add(new ItemResponse { Item = item });
             }

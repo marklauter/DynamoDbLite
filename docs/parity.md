@@ -65,7 +65,7 @@ Scenarios map one-to-one against parity claims in `README.md`:
 - [`TransactGetItemsParityTests`](../src/DynamoDbLite.Parity.Tests/TransactGetItemsParityTests.cs) — `TransactGetItems` happy path across two tables in request order; missing key returns empty `Item` at that response index without throwing.
 - [`SelectCountParityTests`](../src/DynamoDbLite.Parity.Tests/SelectCountParityTests.cs) — `Select = COUNT` on Query and Scan populates `Count`/`ScannedCount` and returns no items.
 - [`ReturnValuesParityTests`](../src/DynamoDbLite.Parity.Tests/ReturnValuesParityTests.cs) — `ReturnValues` variants across `PutItem` (`ALL_OLD`, `NONE`), `UpdateItem` (`ALL_OLD`, `UPDATED_OLD`, `ALL_NEW`, `UPDATED_NEW`), and `DeleteItem` (`ALL_OLD`).
-- [`ExpressionValidationOrderParityTests`](../src/DynamoDbLite.Parity.Tests/ExpressionValidationOrderParityTests.cs) — raw reserved words in expressions are rejected with `ValidationException` *before* any lookup or mutation, across `DeleteItem`, `Query`, `Scan`, `TransactWriteItems`, `TransactGetItems`, and `BatchGetItem` (DdbLite/DdbLiteFile skipped on `TransactGetItems` and `BatchGetItem` — see Library gaps).
+- [`ExpressionValidationOrderParityTests`](../src/DynamoDbLite.Parity.Tests/ExpressionValidationOrderParityTests.cs) — raw reserved words in expressions are rejected with `ValidationException` *before* any lookup or mutation, across `DeleteItem`, `Query`, `Scan`, `TransactWriteItems`, `TransactGetItems`, and `BatchGetItem`.
 - [`BatchParityTests`](../src/DynamoDbLite.Parity.Tests/BatchParityTests.cs) — `BatchGetItem` happy path; `BatchWriteItem` with put + delete in a single batch; `BatchWriteItem` across two tables.
 - [`SecondaryIndexParityTests`](../src/DynamoDbLite.Parity.Tests/SecondaryIndexParityTests.cs) — GSI query across projection variants: `INCLUDE` returns projected attributes only; `KEYS_ONLY` returns only table + index keys; `ALL` returns every attribute.
 - [`LocalSecondaryIndexParityTests`](../src/DynamoDbLite.Parity.Tests/LocalSecondaryIndexParityTests.cs) — LSI query with `begins_with` on the alternate sort key; `INCLUDE` projection returns projected attributes only.
@@ -95,7 +95,6 @@ The initial planned scenarios — mapped to README parity claims — are covered
 Tracked here until either fixed or accepted as known limitations.
 
 - **Parallel scan (`Segment`/`TotalSegments`).** `DynamoDbClient` ignores the partitioning and returns every item in every segment, so the parallel-scan test in [`ScanParityTests`](../src/DynamoDbLite.Parity.Tests/ScanParityTests.cs) is skipped on `DdbLite`/`DdbLiteFile`. Real DynamoDB and `amazon/dynamodb-local` partition items by hash so segment results sum to the full table. Un-skip the lite backends once `SqliteStore` honors segmentation.
-- **Reserved-word validation on `TransactGetItems` and `BatchGetItem` `ProjectionExpression`.** Both APIs silently accept raw reserved words in `ProjectionExpression` instead of throwing `ValidationException`. The two affected tests in [`ExpressionValidationOrderParityTests`](../src/DynamoDbLite.Parity.Tests/ExpressionValidationOrderParityTests.cs) are skipped on `DdbLite`/`DdbLiteFile`. The corresponding `DeleteItem`, `Query`, `Scan`, and `TransactWriteItems` surfaces already validate correctly; only the two read-side batch/transact APIs are missing the guard.
 
 ### Deferred indefinitely
 
