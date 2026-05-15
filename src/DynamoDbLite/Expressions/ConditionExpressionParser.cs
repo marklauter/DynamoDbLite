@@ -10,7 +10,12 @@ internal static class ConditionExpressionParser
     // ── Path parsing ───────────────────────────────────────────────────
 
     private static readonly TokenListParser<DynamoDbToken, PathElement> IdentifierPathElement =
-        Token.EqualTo(DynamoDbToken.Identifier).Select(static t => (PathElement)new AttributeNameElement(t.ToStringValue()))
+        Token.EqualTo(DynamoDbToken.Identifier).Select(static t =>
+        {
+            var name = t.ToStringValue();
+            DynamoDbReservedWords.Validate(name, "ConditionExpression");
+            return (PathElement)new AttributeNameElement(name);
+        })
         .Or(Token.EqualTo(DynamoDbToken.ExpressionAttrName).Select(static t => (PathElement)new AttributeNameElement(t.ToStringValue())));
 
     private static readonly TokenListParser<DynamoDbToken, PathElement> IndexPathElement =

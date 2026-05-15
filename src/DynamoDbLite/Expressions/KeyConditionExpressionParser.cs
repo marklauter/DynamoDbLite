@@ -10,8 +10,12 @@ internal static class KeyConditionExpressionParser
     // ── Path parsing (top-level identifiers only) ───────────────────
 
     private static readonly TokenListParser<DynamoDbToken, Operand> PathOperand =
-        Token.EqualTo(DynamoDbToken.Identifier).Select(static t => (Operand)new PathOperand(
-            new AttributePath([new AttributeNameElement(t.ToStringValue())])))
+        Token.EqualTo(DynamoDbToken.Identifier).Select(static t =>
+        {
+            var name = t.ToStringValue();
+            DynamoDbReservedWords.Validate(name, "KeyConditionExpression");
+            return (Operand)new PathOperand(new AttributePath([new AttributeNameElement(name)]));
+        })
         .Or(Token.EqualTo(DynamoDbToken.ExpressionAttrName).Select(static t => (Operand)new PathOperand(
             new AttributePath([new AttributeNameElement(t.ToStringValue())]))));
 

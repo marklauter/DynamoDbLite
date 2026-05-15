@@ -10,17 +10,17 @@ public sealed class ProjectionExpressionTests
     [Fact]
     public void Parse_SingleAttribute_ReturnsSinglePath()
     {
-        var paths = ProjectionExpressionParser.Parse("name");
+        var paths = ProjectionExpressionParser.Parse("firstname");
 
         _ = Assert.Single(paths);
         _ = Assert.Single(paths[0].Elements);
-        Assert.Equal("name", ((AttributeNameElement)paths[0].Elements[0]).Name);
+        Assert.Equal("firstname", ((AttributeNameElement)paths[0].Elements[0]).Name);
     }
 
     [Fact]
     public void Parse_MultipleAttributes_ReturnsMultiplePaths()
     {
-        var paths = ProjectionExpressionParser.Parse("name, age, email");
+        var paths = ProjectionExpressionParser.Parse("firstname, age, email");
 
         Assert.Equal(3, paths.Count);
     }
@@ -39,11 +39,11 @@ public sealed class ProjectionExpressionTests
     [Fact]
     public void Parse_ListIndex_ReturnsIndexElement()
     {
-        var paths = ProjectionExpressionParser.Parse("items[0]");
+        var paths = ProjectionExpressionParser.Parse("entries[0]");
 
         _ = Assert.Single(paths);
         Assert.Equal(2, paths[0].Elements.Count);
-        Assert.Equal("items", ((AttributeNameElement)paths[0].Elements[0]).Name);
+        Assert.Equal("entries", ((AttributeNameElement)paths[0].Elements[0]).Name);
         Assert.Equal(0, ((ListIndexElement)paths[0].Elements[1]).Index);
     }
 
@@ -53,12 +53,12 @@ public sealed class ProjectionExpressionTests
         var paths = ProjectionExpressionParser.Parse("#n, #a",
             new Dictionary<string, string>
             {
-                ["#n"] = "name",
+                ["#n"] = "firstname",
                 ["#a"] = "age"
             });
 
         Assert.Equal(2, paths.Count);
-        Assert.Equal("name", ((AttributeNameElement)paths[0].Elements[0]).Name);
+        Assert.Equal("firstname", ((AttributeNameElement)paths[0].Elements[0]).Name);
         Assert.Equal("age", ((AttributeNameElement)paths[1].Elements[0]).Name);
     }
 
@@ -70,15 +70,15 @@ public sealed class ProjectionExpressionTests
         var item = new Dictionary<string, AttributeValue>
         {
             ["PK"] = new() { S = "USER#1" },
-            ["name"] = new() { S = "Alice" },
+            ["firstname"] = new() { S = "Alice" },
             ["age"] = new() { N = "30" }
         };
 
-        var paths = ProjectionExpressionParser.Parse("name");
+        var paths = ProjectionExpressionParser.Parse("firstname");
         var result = ProjectionExpressionEvaluator.Apply(item, paths);
 
         _ = Assert.Single(result);
-        Assert.Equal("Alice", result["name"].S);
+        Assert.Equal("Alice", result["firstname"].S);
     }
 
     [Fact]
@@ -87,16 +87,16 @@ public sealed class ProjectionExpressionTests
         var item = new Dictionary<string, AttributeValue>
         {
             ["PK"] = new() { S = "USER#1" },
-            ["name"] = new() { S = "Alice" },
+            ["firstname"] = new() { S = "Alice" },
             ["age"] = new() { N = "30" },
             ["email"] = new() { S = "alice@example.com" }
         };
 
-        var paths = ProjectionExpressionParser.Parse("name, age");
+        var paths = ProjectionExpressionParser.Parse("firstname, age");
         var result = ProjectionExpressionEvaluator.Apply(item, paths);
 
         Assert.Equal(2, result.Count);
-        Assert.Equal("Alice", result["name"].S);
+        Assert.Equal("Alice", result["firstname"].S);
         Assert.Equal("30", result["age"].N);
     }
 
@@ -129,14 +129,14 @@ public sealed class ProjectionExpressionTests
         var item = new Dictionary<string, AttributeValue>
         {
             ["PK"] = new() { S = "USER#1" },
-            ["name"] = new() { S = "Alice" }
+            ["firstname"] = new() { S = "Alice" }
         };
 
-        var paths = ProjectionExpressionParser.Parse("name, email");
+        var paths = ProjectionExpressionParser.Parse("firstname, email");
         var result = ProjectionExpressionEvaluator.Apply(item, paths);
 
         _ = Assert.Single(result);
-        Assert.Equal("Alice", result["name"].S);
+        Assert.Equal("Alice", result["firstname"].S);
     }
 
     [Fact]
@@ -145,23 +145,23 @@ public sealed class ProjectionExpressionTests
         var item = new Dictionary<string, AttributeValue>
         {
             ["PK"] = new() { S = "USER#1" },
-            ["items"] = new()
+            ["entries"] = new()
             {
                 L =
                 [
-                    new() { M = new Dictionary<string, AttributeValue> { ["name"] = new() { S = "a" } } },
-                    new() { M = new Dictionary<string, AttributeValue> { ["name"] = new() { S = "b" } } }
+                    new() { M = new Dictionary<string, AttributeValue> { ["firstname"] = new() { S = "a" } } },
+                    new() { M = new Dictionary<string, AttributeValue> { ["firstname"] = new() { S = "b" } } }
                 ]
             }
         };
 
-        var paths = ProjectionExpressionParser.Parse("items[1].name");
+        var paths = ProjectionExpressionParser.Parse("entries[1].firstname");
         var result = ProjectionExpressionEvaluator.Apply(item, paths);
 
         // Result should have items as a list (not a map)
-        Assert.Null(result["items"].M);
-        Assert.NotNull(result["items"].L);
-        Assert.Equal("b", result["items"].L[1].M["name"].S);
+        Assert.Null(result["entries"].M);
+        Assert.NotNull(result["entries"].L);
+        Assert.Equal("b", result["entries"].L[1].M["firstname"].S);
     }
 
     [Fact]
@@ -170,7 +170,7 @@ public sealed class ProjectionExpressionTests
         var item = new Dictionary<string, AttributeValue>
         {
             ["PK"] = new() { S = "USER#1" },
-            ["items"] = new()
+            ["entries"] = new()
             {
                 L =
                 [
@@ -180,11 +180,11 @@ public sealed class ProjectionExpressionTests
             }
         };
 
-        var paths = ProjectionExpressionParser.Parse("items[0]");
+        var paths = ProjectionExpressionParser.Parse("entries[0]");
         var result = ProjectionExpressionEvaluator.Apply(item, paths);
 
-        Assert.NotNull(result["items"].L);
-        Assert.Equal("alpha", result["items"].L[0].S);
+        Assert.NotNull(result["entries"].L);
+        Assert.Equal("alpha", result["entries"].L[0].S);
     }
 
     [Fact]
@@ -193,20 +193,20 @@ public sealed class ProjectionExpressionTests
         var item = new Dictionary<string, AttributeValue>
         {
             ["PK"] = new() { S = "USER#1" },
-            ["items"] = new()
+            ["entries"] = new()
             {
                 L =
                 [
-                    new() { M = new Dictionary<string, AttributeValue> { ["name"] = new() { S = "a" } } },
-                    new() { M = new Dictionary<string, AttributeValue> { ["name"] = new() { S = "b" } } }
+                    new() { M = new Dictionary<string, AttributeValue> { ["firstname"] = new() { S = "a" } } },
+                    new() { M = new Dictionary<string, AttributeValue> { ["firstname"] = new() { S = "b" } } }
                 ]
             }
         };
 
-        var paths = ProjectionExpressionParser.Parse("items[5].name");
+        var paths = ProjectionExpressionParser.Parse("entries[5].firstname");
         var result = ProjectionExpressionEvaluator.Apply(item, paths);
 
-        Assert.False(result.ContainsKey("items"));
+        Assert.False(result.ContainsKey("entries"));
     }
 
     [Fact]
@@ -215,7 +215,7 @@ public sealed class ProjectionExpressionTests
         var item = new Dictionary<string, AttributeValue>
         {
             ["PK"] = new() { S = "USER#1" },
-            ["data"] = new()
+            ["payload"] = new()
             {
                 M = new Dictionary<string, AttributeValue>
                 {
@@ -231,14 +231,14 @@ public sealed class ProjectionExpressionTests
             }
         };
 
-        var paths = ProjectionExpressionParser.Parse("data.tags[0]");
+        var paths = ProjectionExpressionParser.Parse("payload.tags[0]");
         var result = ProjectionExpressionEvaluator.Apply(item, paths);
 
-        Assert.NotNull(result["data"].M);
-        Assert.Null(result["data"].L);
-        Assert.NotNull(result["data"].M["tags"].L);
-        Assert.Null(result["data"].M["tags"].M);
-        Assert.Equal("red", result["data"].M["tags"].L[0].S);
+        Assert.NotNull(result["payload"].M);
+        Assert.Null(result["payload"].L);
+        Assert.NotNull(result["payload"].M["tags"].L);
+        Assert.Null(result["payload"].M["tags"].M);
+        Assert.Equal("red", result["payload"].M["tags"].L[0].S);
     }
 
     [Fact]
@@ -272,22 +272,22 @@ public sealed class ProjectionExpressionTests
         var item = new Dictionary<string, AttributeValue>
         {
             ["PK"] = new() { S = "USER#1" },
-            ["items"] = new()
+            ["entries"] = new()
             {
                 L =
                 [
-                    new() { M = new Dictionary<string, AttributeValue> { ["name"] = new() { S = "a" } } },
-                    new() { M = new Dictionary<string, AttributeValue> { ["name"] = new() { S = "b" } } }
+                    new() { M = new Dictionary<string, AttributeValue> { ["firstname"] = new() { S = "a" } } },
+                    new() { M = new Dictionary<string, AttributeValue> { ["firstname"] = new() { S = "b" } } }
                 ]
             }
         };
 
-        var paths = ProjectionExpressionParser.Parse("items[0].name, items[1].name");
+        var paths = ProjectionExpressionParser.Parse("entries[0].firstname, entries[1].firstname");
         var result = ProjectionExpressionEvaluator.Apply(item, paths);
 
-        Assert.Equal(2, result["items"].L.Count);
-        Assert.Equal("a", result["items"].L[0].M["name"].S);
-        Assert.Equal("b", result["items"].L[1].M["name"].S);
+        Assert.Equal(2, result["entries"].L.Count);
+        Assert.Equal("a", result["entries"].L[0].M["firstname"].S);
+        Assert.Equal("b", result["entries"].L[1].M["firstname"].S);
     }
 
     [Fact]
@@ -296,24 +296,24 @@ public sealed class ProjectionExpressionTests
         var item = new Dictionary<string, AttributeValue>
         {
             ["PK"] = new() { S = "USER#1" },
-            ["items"] = new()
+            ["entries"] = new()
             {
                 L =
                 [
-                    new() { M = new Dictionary<string, AttributeValue> { ["name"] = new() { S = "a" } } },
-                    new() { M = new Dictionary<string, AttributeValue> { ["name"] = new() { S = "b" } } },
-                    new() { M = new Dictionary<string, AttributeValue> { ["name"] = new() { S = "c" } } }
+                    new() { M = new Dictionary<string, AttributeValue> { ["firstname"] = new() { S = "a" } } },
+                    new() { M = new Dictionary<string, AttributeValue> { ["firstname"] = new() { S = "b" } } },
+                    new() { M = new Dictionary<string, AttributeValue> { ["firstname"] = new() { S = "c" } } }
                 ]
             }
         };
 
-        var paths = ProjectionExpressionParser.Parse("items[0].name, items[2].name");
+        var paths = ProjectionExpressionParser.Parse("entries[0].firstname, entries[2].firstname");
         var result = ProjectionExpressionEvaluator.Apply(item, paths);
 
-        Assert.Equal(3, result["items"].L.Count);
-        Assert.Equal("a", result["items"].L[0].M["name"].S);
-        Assert.True(result["items"].L[1].NULL);
-        Assert.Equal("c", result["items"].L[2].M["name"].S);
+        Assert.Equal(3, result["entries"].L.Count);
+        Assert.Equal("a", result["entries"].L[0].M["firstname"].S);
+        Assert.True(result["entries"].L[1].NULL);
+        Assert.Equal("c", result["entries"].L[2].M["firstname"].S);
     }
 
     [Fact]
@@ -322,12 +322,38 @@ public sealed class ProjectionExpressionTests
         var item = new Dictionary<string, AttributeValue>
         {
             ["PK"] = new() { S = "USER#1" },
-            ["name"] = new() { S = "Alice" }
+            ["firstname"] = new() { S = "Alice" }
         };
 
-        var paths = ProjectionExpressionParser.Parse("missing.city");
+        var paths = ProjectionExpressionParser.Parse("absent.city");
         var result = ProjectionExpressionEvaluator.Apply(item, paths);
 
-        Assert.False(result.ContainsKey("missing"));
+        Assert.False(result.ContainsKey("absent"));
+    }
+
+    // ── Reserved-word rejection ────────────────────────────────────────
+
+    [Fact]
+    public void Reserved_TopLevelIdentifier_Throws()
+    {
+        var ex = Assert.Throws<ArgumentException>(() =>
+            ProjectionExpressionParser.Parse("name"));
+
+        Assert.Contains("ProjectionExpression", ex.Message);
+        Assert.Contains("reserved keyword", ex.Message);
+    }
+
+    [Fact]
+    public void Reserved_NestedPathElement_Throws() =>
+        Assert.Throws<ArgumentException>(() =>
+            ProjectionExpressionParser.Parse("a.status"));
+
+    [Fact]
+    public void Reserved_EscapedViaExpressionAttributeName_Allowed()
+    {
+        var paths = ProjectionExpressionParser.Parse("#n",
+            new Dictionary<string, string> { ["#n"] = "name" });
+
+        Assert.Equal("name", ((AttributeNameElement)paths[0].Elements[0]).Name);
     }
 }

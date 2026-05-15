@@ -7,8 +7,14 @@ internal static class ProjectionExpressionParser
 {
     private static readonly Tokenizer<DynamoDbToken> Tokenizer = DynamoDbTokenizer.Instance;
 
+    private static AttributeNameElement IdentifierToPath(string name)
+    {
+        DynamoDbReservedWords.Validate(name, "ProjectionExpression");
+        return new AttributeNameElement(name);
+    }
+
     private static readonly TokenListParser<DynamoDbToken, PathElement> IdentifierElement =
-        Token.EqualTo(DynamoDbToken.Identifier).Select(static t => (PathElement)new AttributeNameElement(t.ToStringValue()))
+        Token.EqualTo(DynamoDbToken.Identifier).Select(static t => (PathElement)IdentifierToPath(t.ToStringValue()))
         .Or(Token.EqualTo(DynamoDbToken.ExpressionAttrName).Select(static t => (PathElement)new AttributeNameElement(t.ToStringValue())));
 
     private static readonly TokenListParser<DynamoDbToken, PathElement> ListIndexElement =
@@ -19,7 +25,7 @@ internal static class ProjectionExpressionParser
 
     private static readonly TokenListParser<DynamoDbToken, PathElement> DotElement =
         from dot in Token.EqualTo(DynamoDbToken.Dot)
-        from name in Token.EqualTo(DynamoDbToken.Identifier).Select(static t => (PathElement)new AttributeNameElement(t.ToStringValue()))
+        from name in Token.EqualTo(DynamoDbToken.Identifier).Select(static t => (PathElement)IdentifierToPath(t.ToStringValue()))
             .Or(Token.EqualTo(DynamoDbToken.ExpressionAttrName).Select(static t => (PathElement)new AttributeNameElement(t.ToStringValue())))
         select name;
 

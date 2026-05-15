@@ -41,4 +41,87 @@ public sealed class ScanParityTests(DynamoDbFixture fixture)
         Assert.Equal(2, response.Count);
         Assert.Equal(3, response.ScannedCount);
     }
+
+    [Theory]
+    [InlineData(ParityBackend.DdbLite)]
+    [InlineData(ParityBackend.DdbLiteFile)]
+    [InlineData(ParityBackend.DynamoDbLocal)]
+    public async Task Scan_with_contains_on_string_set_returns_matching_items(ParityBackend backend)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var client = await fixture.ClientAsync(backend, ct);
+        var tableName = TestTables.UniqueName("scan_contains");
+        await TestTables.CreateAndWaitAsync(client, TestTables.HashKeyString(tableName), ct);
+
+        _ = await client.PutItemAsync(new PutItemRequest
+        {
+            TableName = tableName,
+            Item = new Dictionary<string, AttributeValue>
+            {
+                ["PK"] = new() { S = "user-1" },
+                ["permissions"] = new() { SS = ["admin", "owner"] },
+            },
+        }, ct);
+        _ = await client.PutItemAsync(new PutItemRequest
+        {
+            TableName = tableName,
+            Item = new Dictionary<string, AttributeValue>
+            {
+                ["PK"] = new() { S = "user-2" },
+                ["permissions"] = new() { SS = ["viewer"] },
+            },
+        }, ct);
+
+        var response = await client.ScanAsync(new ScanRequest
+        {
+            TableName = tableName,
+            FilterExpression = "contains(#p, :v)",
+            ExpressionAttributeNames = new Dictionary<string, string> { ["#p"] = "permissions" },
+            ExpressionAttributeValues = new Dictionary<string, AttributeValue> { [":v"] = new() { S = "admin" } },
+        }, ct);
+
+        Assert.Equal(1, response.Count);
+        Assert.Equal(2, response.ScannedCount);
+        Assert.Equal("user-1", response.Items[0]["PK"].S);
+    }
+
+    [Theory]
+    [InlineData(ParityBackend.DdbLite)]
+    [InlineData(ParityBackend.DdbLiteFile)]
+    [InlineData(ParityBackend.DynamoDbLocal)]
+    public async Task Scan_with_IN_returns_items_whose_attribute_matches_any_value(ParityBackend backend)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var client = await fixture.ClientAsync(backend, ct);
+        var tableName = TestTables.UniqueName("scan_in");
+        await TestTables.CreateAndWaitAsync(client, TestTables.HashKeyString(tableName), ct);
+
+        foreach (var (pk, category) in new[] { ("a", "alpha"), ("b", "beta"), ("c", "gamma"), ("d", "delta") })
+        {
+            _ = await client.PutItemAsync(new PutItemRequest
+            {
+                TableName = tableName,
+                Item = new Dictionary<string, AttributeValue>
+                {
+                    ["PK"] = new() { S = pk },
+                    ["category"] = new() { S = category },
+                },
+            }, ct);
+        }
+
+        var response = await client.ScanAsync(new ScanRequest
+        {
+            TableName = tableName,
+            FilterExpression = "#c IN (:v1, :v2)",
+            ExpressionAttributeNames = new Dictionary<string, string> { ["#c"] = "category" },
+            ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+            {
+                [":v1"] = new() { S = "alpha" },
+                [":v2"] = new() { S = "gamma" },
+            },
+        }, ct);
+
+        Assert.Equal(2, response.Count);
+        Assert.Equal(4, response.ScannedCount);
+    }
 }

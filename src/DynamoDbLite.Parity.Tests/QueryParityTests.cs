@@ -95,6 +95,35 @@ public sealed class QueryParityTests(DynamoDbFixture fixture)
         Assert.True(page2.LastEvaluatedKey is null || page2.LastEvaluatedKey.Count == 0);
     }
 
+    [Theory]
+    [InlineData(ParityBackend.DdbLite)]
+    [InlineData(ParityBackend.DdbLiteFile)]
+    [InlineData(ParityBackend.DynamoDbLocal)]
+    public async Task Query_with_begins_with_on_sort_key_returns_prefix_matches(ParityBackend backend)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var client = await fixture.ClientAsync(backend, ct);
+        var tableName = TestTables.UniqueName("query_begins");
+        await TestTables.CreateAndWaitAsync(client, TestTables.HashKeyStringSortKeyString(tableName), ct);
+
+        await SeedThreeAsync(client, tableName, "USER#1", ["city#portland", "city#seattle", "state#wa"], ct);
+
+        var response = await client.QueryAsync(new QueryRequest
+        {
+            TableName = tableName,
+            KeyConditionExpression = "PK = :pk AND begins_with(SK, :prefix)",
+            ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+            {
+                [":pk"] = new() { S = "USER#1" },
+                [":prefix"] = new() { S = "city#" },
+            },
+        }, ct);
+
+        Assert.Equal(2, response.Count);
+        Assert.Equal("city#portland", response.Items[0]["SK"].S);
+        Assert.Equal("city#seattle", response.Items[1]["SK"].S);
+    }
+
     private static async Task SeedThreeAsync(IAmazonDynamoDB client, string tableName, string pk, string[] sks, CancellationToken ct)
     {
         foreach (var sk in sks)

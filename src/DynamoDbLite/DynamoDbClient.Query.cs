@@ -415,12 +415,17 @@ public sealed partial class DynamoDbClient
     public Task<ScanResponse> ScanAsync(
         string tableName,
         List<string> attributesToGet,
-        CancellationToken cancellationToken = default) =>
-        ScanAsync(new ScanRequest
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(attributesToGet);
+        var (projection, attrNames) = BuildProjectionFromAttributesToGet(attributesToGet);
+        return ScanAsync(new ScanRequest
         {
             TableName = tableName,
-            ProjectionExpression = string.Join(", ", attributesToGet),
+            ProjectionExpression = projection,
+            ExpressionAttributeNames = attrNames,
         }, cancellationToken);
+    }
 
     public Task<ScanResponse> ScanAsync(
         string tableName,
@@ -444,16 +449,35 @@ public sealed partial class DynamoDbClient
         Dictionary<string, Condition> scanFilter,
         CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(attributesToGet);
         ArgumentNullException.ThrowIfNull(scanFilter);
         var (filterExpression, attrNames, attrValues) = ConvertConditionsToExpression(scanFilter);
+        var (projection, projectionNames) = BuildProjectionFromAttributesToGet(attributesToGet);
+        foreach (var (k, v) in projectionNames)
+            attrNames[k] = v;
         return ScanAsync(new ScanRequest
         {
             TableName = tableName,
-            ProjectionExpression = string.Join(", ", attributesToGet),
+            ProjectionExpression = projection,
             FilterExpression = filterExpression,
             ExpressionAttributeNames = attrNames,
             ExpressionAttributeValues = attrValues,
         }, cancellationToken);
+    }
+
+    private static (string Projection, Dictionary<string, string> Names) BuildProjectionFromAttributesToGet(
+        List<string> attributesToGet)
+    {
+        var names = new Dictionary<string, string>(attributesToGet.Count);
+        var aliases = new string[attributesToGet.Count];
+        for (var i = 0; i < attributesToGet.Count; i++)
+        {
+            var alias = $"#ag{i}";
+            names[alias] = attributesToGet[i];
+            aliases[i] = alias;
+        }
+
+        return (string.Join(", ", aliases), names);
     }
 
     // ── Helpers ─────────────────────────────────────────────────────

@@ -25,7 +25,7 @@ Three backends close the file-vs-memory drift surface; the in-memory and file-ba
 
 One container for the entire parity-test run, started in [`DynamoDbFixture.InitializeAsync`](../src/DynamoDbLite.Parity.Tests/Fixtures/DynamoDbFixture.cs). Container start is the slow step; per-test container start would push the suite into the minute range.
 
-Each test creates its own table with a unique name from `TestTables.UniqueName(prefix)` and leaves it. No per-test teardown — the fixture disposes the three backends at the end of the run, and accumulation across ~14 tests is negligible for SQLite and irrelevant for the container.
+Each test creates its own table with a unique name from `TestTables.UniqueName(prefix)` and leaves it. No per-test teardown — the fixture disposes the three backends at the end of the run, and accumulation across the suite is negligible for SQLite and irrelevant for the container.
 
 `DisposeAsync` order matters: the file-based `DynamoDbClient` disposes before `FileBasedTestHelper.Cleanup` runs, so the SQLite handle is closed before `File.Delete` touches the `.db` file. Skipping that order causes `File.Delete` to throw `IOException` on Windows.
 
@@ -50,21 +50,22 @@ This is the surface where `amazon/dynamodb-local` sometimes diverges from real D
 
 ## Reserved Keywords
 
-DynamoDB's [reserved word list](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/ReservedWords.html) covers ~570 identifiers. `amazon/dynamodb-local` rejects unescaped reserved words in expressions; DynamoDbLite does not. Tests using attribute names like `name`, `counter`, `status`, or `count` must escape via `ExpressionAttributeNames` to avoid failing against the container backend. The reserved-name failure mode is real DynamoDB's behavior — DynamoDbLite's permissiveness is the gap.
+DynamoDB's [reserved word list](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/ReservedWords.html) covers ~570 identifiers. Real DynamoDB and `amazon/dynamodb-local` reject unescaped reserved words in expressions. DynamoDbLite matches: each parser checks raw identifiers against [`DynamoDbReservedWords`](../src/DynamoDbLite/Expressions/DynamoDbReservedWords.cs) and throws `ArgumentException` on a match. Names escaped via `ExpressionAttributeNames` (`#name`) bypass the check, as in real DynamoDB.
 
 ## Coverage
 
-Initial slice covers 14 scenarios across seven test files, mapping one-to-one against parity claims in `README.md`:
+Initial slice covers 25 scenarios across eight test files, mapping one-to-one against parity claims in `README.md`:
 
-- [`ItemCrudParityTests`](../src/DynamoDbLite.Parity.Tests/ItemCrudParityTests.cs) — `PutItem` + `GetItem` round-trip across S/N/BOOL/L/M; `attribute_not_exists` condition on `PutItem` (success and `ConditionalCheckFailedException`); `attribute_exists` condition on `DeleteItem` failure.
-- [`UpdateExpressionParityTests`](../src/DynamoDbLite.Parity.Tests/UpdateExpressionParityTests.cs) — `SET` with `if_not_exists`, `ADD` on number, `REMOVE`.
-- [`QueryParityTests`](../src/DynamoDbLite.Parity.Tests/QueryParityTests.cs) — `KeyConditionExpression`; `ScanIndexForward = false`; `Limit` + `LastEvaluatedKey` pagination.
-- [`ScanParityTests`](../src/DynamoDbLite.Parity.Tests/ScanParityTests.cs) — `FilterExpression` with correct `Count` and `ScannedCount`.
+- [`ItemCrudParityTests`](../src/DynamoDbLite.Parity.Tests/ItemCrudParityTests.cs) — `PutItem` + `GetItem` round-trip across S/N/BOOL/L/M, plus B/NULL/SS/NS/BS round-trips; `attribute_not_exists` condition on `PutItem` (success and `ConditionalCheckFailedException`); `attribute_exists` condition on `DeleteItem` failure.
+- [`UpdateExpressionParityTests`](../src/DynamoDbLite.Parity.Tests/UpdateExpressionParityTests.cs) — `SET` with `if_not_exists`, `SET` with `list_append`, `ADD` on number, `REMOVE`, `DELETE` on string set.
+- [`QueryParityTests`](../src/DynamoDbLite.Parity.Tests/QueryParityTests.cs) — `KeyConditionExpression`; `begins_with` on sort key; `ScanIndexForward = false`; `Limit` + `LastEvaluatedKey` pagination.
+- [`QueryNumericSortKeyParityTests`](../src/DynamoDbLite.Parity.Tests/QueryNumericSortKeyParityTests.cs) — `BETWEEN` on numeric sort key returns inclusive range in ascending order.
+- [`ScanParityTests`](../src/DynamoDbLite.Parity.Tests/ScanParityTests.cs) — `FilterExpression` with correct `Count` and `ScannedCount`; `contains` on string set; `IN` against a value list.
 - [`TransactionParityTests`](../src/DynamoDbLite.Parity.Tests/TransactionParityTests.cs) — `TransactWriteItems` all-or-nothing rollback with `CancellationReasons[i].Code == "ConditionalCheckFailed"`.
 - [`BatchParityTests`](../src/DynamoDbLite.Parity.Tests/BatchParityTests.cs) — `BatchGetItem` happy path.
 - [`SecondaryIndexParityTests`](../src/DynamoDbLite.Parity.Tests/SecondaryIndexParityTests.cs) — GSI query with `INCLUDE` projection returns projected attributes only.
 
-14 scenarios × 3 backends = 42 test executions per parity run.
+25 scenarios × 3 backends = 75 test executions per parity run.
 
 ## Configuration
 
@@ -83,10 +84,8 @@ Docker Desktop users need no file — defaults work. Linux runners (CI) use the 
 
 Mapped to README parity claims, in rough priority order:
 
-- **Attribute types not yet round-tripped:** B (binary), NULL, SS, NS, BS. Real DynamoDB once rejected empty strings; current behavior allows them — worth a scenario.
-- **Condition operators not yet exercised:** `begins_with`, `contains`, `size`, `between`, `IN`.
-- **Update operators not yet exercised:** `DELETE` (set element removal), `list_append`.
-- **Numeric sort key:** all current tests use string SK. Numeric SK ordering and range comparisons need their own coverage (use `TestTables.HashKeyStringSortKeyNumber`).
+- **Empty-string scalar values:** real DynamoDB once rejected them; current behavior allows them — worth a dedicated scenario.
+- **Condition operators not yet exercised:** `size`.
 - **LSI:** GSI coverage exists; LSI is structurally different (shared partition, table-level provisioning) and untested.
 - **GSI projection variants:** `KEYS_ONLY` and `ALL` (currently only `INCLUDE`).
 - **`BatchWriteItem`:** put and delete in one batch, mixed-table batches.
@@ -100,7 +99,7 @@ Mapped to README parity claims, in rough priority order:
 
 Tracked here until either fixed or accepted as known limitations.
 
-- **Reserved keyword permissiveness.** DynamoDbLite accepts reserved words in `UpdateExpression`/`ConditionExpression`/`KeyConditionExpression`/`FilterExpression` without `ExpressionAttributeNames` escaping. Real DynamoDB and `amazon/dynamodb-local` reject them. Discovered via the `ADD counter :inc` test in [`UpdateExpressionParityTests`](../src/DynamoDbLite.Parity.Tests/UpdateExpressionParityTests.cs). The expression parser at `src/DynamoDbLite/Expressions/` would gain a reserved-word check at parse time.
+_None currently open._
 
 ### Deferred indefinitely
 

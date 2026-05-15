@@ -13,9 +13,9 @@ public sealed class ConditionExpressionTests
         ["active"] = new() { BOOL = true },
         ["tags"] = new() { SS = ["admin", "user"] },
         ["scores"] = new() { NS = ["10", "20", "30"] },
-        ["blob"] = new() { B = new MemoryStream([0x01, 0x02, 0x03]) },
+        ["bin"] = new() { B = new MemoryStream([0x01, 0x02, 0x03]) },
         ["blobs"] = new() { BS = [new MemoryStream([0xFF]), new MemoryStream([0xEE])] },
-        ["items"] = new() { L = [new() { S = "x" }, new() { N = "1" }] },
+        ["entries"] = new() { L = [new() { S = "x" }, new() { N = "1" }] },
         ["meta"] = new() { M = new Dictionary<string, AttributeValue> { ["k"] = new() { S = "v" } } },
         ["null_attr"] = new() { NULL = true },
     };
@@ -430,11 +430,11 @@ public sealed class ConditionExpressionTests
 
     [Theory]
     [InlineData("age", 2)]
-    [InlineData("blob", 3)]
+    [InlineData("bin", 3)]
     [InlineData("tags", 2)]
     [InlineData("scores", 3)]
     [InlineData("blobs", 2)]
-    [InlineData("items", 2)]
+    [InlineData("entries", 2)]
     [InlineData("meta", 1)]
     public void Size_AllTypes_ReturnsExpectedCount(string attr, int expected)
     {
@@ -460,10 +460,10 @@ public sealed class ConditionExpressionTests
     // ── attribute_type across all types ────────────────────────────────
 
     [Theory]
-    [InlineData("blob", "B")]
+    [InlineData("bin", "B")]
     [InlineData("scores", "NS")]
     [InlineData("blobs", "BS")]
-    [InlineData("items", "L")]
+    [InlineData("entries", "L")]
     [InlineData("meta", "M")]
     [InlineData("active", "BOOL")]
     [InlineData("null_attr", "NULL")]
@@ -526,7 +526,7 @@ public sealed class ConditionExpressionTests
     [Fact]
     public void Contains_List_TrueWhenElementMatches()
     {
-        var ast = ConditionExpressionParser.Parse("contains(items, :v)");
+        var ast = ConditionExpressionParser.Parse("contains(entries, :v)");
         var result = ConditionExpressionEvaluator.Evaluate(
             ast, TestItem, null,
             new Dictionary<string, AttributeValue> { [":v"] = new() { S = "x" } });
@@ -539,7 +539,7 @@ public sealed class ConditionExpressionTests
     [Fact]
     public void Equality_Binary_True()
     {
-        var ast = ConditionExpressionParser.Parse("blob = :v");
+        var ast = ConditionExpressionParser.Parse("bin = :v");
         var result = ConditionExpressionEvaluator.Evaluate(
             ast, TestItem, null,
             new Dictionary<string, AttributeValue> { [":v"] = new() { B = new MemoryStream([0x01, 0x02, 0x03]) } });
@@ -550,7 +550,7 @@ public sealed class ConditionExpressionTests
     [Fact]
     public void Equality_Binary_False()
     {
-        var ast = ConditionExpressionParser.Parse("blob = :v");
+        var ast = ConditionExpressionParser.Parse("bin = :v");
         var result = ConditionExpressionEvaluator.Evaluate(
             ast, TestItem, null,
             new Dictionary<string, AttributeValue> { [":v"] = new() { B = new MemoryStream([0x01, 0x02]) } });
@@ -583,11 +583,36 @@ public sealed class ConditionExpressionTests
     [Fact]
     public void Equality_ListElement_ResolvesByIndex()
     {
-        var ast = ConditionExpressionParser.Parse("items[0] = :v");
+        var ast = ConditionExpressionParser.Parse("entries[0] = :v");
         var result = ConditionExpressionEvaluator.Evaluate(
             ast, TestItem, null,
             new Dictionary<string, AttributeValue> { [":v"] = new() { S = "x" } });
 
         Assert.True(result);
+    }
+
+    // ── Reserved-word rejection ────────────────────────────────────────
+
+    [Fact]
+    public void Reserved_TopLevelIdentifier_Throws()
+    {
+        var ex = Assert.Throws<ArgumentException>(() =>
+            ConditionExpressionParser.Parse("name = :v"));
+
+        Assert.Contains("ConditionExpression", ex.Message);
+        Assert.Contains("reserved keyword", ex.Message);
+        Assert.Contains("name", ex.Message);
+    }
+
+    [Fact]
+    public void Reserved_InFunctionArgument_Throws() =>
+        Assert.Throws<ArgumentException>(() =>
+            ConditionExpressionParser.Parse("attribute_exists(name)"));
+
+    [Fact]
+    public void Reserved_EscapedViaExpressionAttributeName_Allowed()
+    {
+        var ast = ConditionExpressionParser.Parse("#n = :v");
+        Assert.NotNull(ast);
     }
 }

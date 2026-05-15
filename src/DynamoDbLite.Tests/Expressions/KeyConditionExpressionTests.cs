@@ -104,4 +104,28 @@ public sealed class KeyConditionExpressionTests
         var skPath = Assert.IsType<PathOperand>(sk.KeyPath);
         Assert.Equal("#sk", ((AttributeNameElement)skPath.Path.Elements[0]).Name);
     }
+
+    // ── Reserved-word rejection ────────────────────────────────────────
+
+    [Fact]
+    public void Reserved_PartitionKey_Throws()
+    {
+        var ex = Assert.Throws<ArgumentException>(() =>
+            KeyConditionExpressionParser.Parse("name = :pk"));
+
+        Assert.Contains("KeyConditionExpression", ex.Message);
+        Assert.Contains("reserved keyword", ex.Message);
+    }
+
+    [Fact]
+    public void Reserved_SortKey_Throws() =>
+        Assert.Throws<ArgumentException>(() =>
+            KeyConditionExpressionParser.Parse("PK = :pk AND status = :sk"));
+
+    [Fact]
+    public void Reserved_EscapedViaExpressionAttributeName_Allowed()
+    {
+        var result = KeyConditionExpressionParser.Parse("#n = :pk");
+        Assert.NotNull(result);
+    }
 }

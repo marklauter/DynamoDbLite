@@ -93,10 +93,10 @@ public sealed class UpdateExpressionTests
         var item = new Dictionary<string, AttributeValue>
         {
             ["PK"] = new() { S = "USER#1" },
-            ["items"] = new() { L = [new() { S = "a" }] }
+            ["entries"] = new() { L = [new() { S = "a" }] }
         };
 
-        var ast = UpdateExpressionParser.Parse("SET items = list_append(items, :newItems)");
+        var ast = UpdateExpressionParser.Parse("SET entries = list_append(entries, :newItems)");
         var (result, _) = UpdateExpressionEvaluator.Apply(
             ast, item, null,
             new Dictionary<string, AttributeValue>
@@ -104,10 +104,10 @@ public sealed class UpdateExpressionTests
                 [":newItems"] = new() { L = [new() { S = "b" }, new() { S = "c" }] }
             });
 
-        Assert.Equal(3, result["items"].L.Count);
-        Assert.Equal("a", result["items"].L[0].S);
-        Assert.Equal("b", result["items"].L[1].S);
-        Assert.Equal("c", result["items"].L[2].S);
+        Assert.Equal(3, result["entries"].L.Count);
+        Assert.Equal("a", result["entries"].L[0].S);
+        Assert.Equal("b", result["entries"].L[1].S);
+        Assert.Equal("c", result["entries"].L[2].S);
     }
 
     // ── REMOVE ─────────────────────────────────────────────────────────
@@ -253,10 +253,10 @@ public sealed class UpdateExpressionTests
         var item = new Dictionary<string, AttributeValue>
         {
             ["PK"] = new() { S = "USER#1" },
-            ["items"] = new() { L = [new() { S = "a" }] },
+            ["entries"] = new() { L = [new() { S = "a" }] },
         };
 
-        var ast = UpdateExpressionParser.Parse("SET items = list_append(:val, items)");
+        var ast = UpdateExpressionParser.Parse("SET entries = list_append(:val, entries)");
         var ex = Assert.Throws<ArgumentException>(() =>
             UpdateExpressionEvaluator.Apply(
                 ast, item, null,
@@ -271,10 +271,10 @@ public sealed class UpdateExpressionTests
         var item = new Dictionary<string, AttributeValue>
         {
             ["PK"] = new() { S = "USER#1" },
-            ["items"] = new() { L = [new() { S = "a" }] },
+            ["entries"] = new() { L = [new() { S = "a" }] },
         };
 
-        var ast = UpdateExpressionParser.Parse("SET items = list_append(items, :val)");
+        var ast = UpdateExpressionParser.Parse("SET entries = list_append(entries, :val)");
         var ex = Assert.Throws<ArgumentException>(() =>
             UpdateExpressionEvaluator.Apply(
                 ast, item, null,
@@ -291,7 +291,7 @@ public sealed class UpdateExpressionTests
             ["PK"] = new() { S = "USER#1" },
         };
 
-        var ast = UpdateExpressionParser.Parse("SET items = list_append(:a, :b)");
+        var ast = UpdateExpressionParser.Parse("SET entries = list_append(:a, :b)");
         var ex = Assert.Throws<ArgumentException>(() =>
             UpdateExpressionEvaluator.Apply(
                 ast, item, null,
@@ -411,12 +411,12 @@ public sealed class UpdateExpressionTests
     public void Delete_OnMissingPath_NoOp()
     {
         var item = CreateTestItem();
-        var ast = UpdateExpressionParser.Parse("DELETE missing :v");
+        var ast = UpdateExpressionParser.Parse("DELETE absent :v");
         var (result, _) = UpdateExpressionEvaluator.Apply(
             ast, item, null,
             new Dictionary<string, AttributeValue> { [":v"] = new() { SS = ["x"] } });
 
-        Assert.False(result.ContainsKey("missing"));
+        Assert.False(result.ContainsKey("absent"));
         Assert.Equal("Alice", result["name"].S);
     }
 
@@ -428,18 +428,18 @@ public sealed class UpdateExpressionTests
         var item = new Dictionary<string, AttributeValue>
         {
             ["PK"] = new() { S = "USER#1" },
-            ["items"] = new() { L = [new() { S = "a" }, new() { S = "b" }, new() { S = "c" }] }
+            ["entries"] = new() { L = [new() { S = "a" }, new() { S = "b" }, new() { S = "c" }] }
         };
 
-        var ast = UpdateExpressionParser.Parse("SET items[1] = :v");
+        var ast = UpdateExpressionParser.Parse("SET entries[1] = :v");
         var (result, _) = UpdateExpressionEvaluator.Apply(
             ast, item, null,
             new Dictionary<string, AttributeValue> { [":v"] = new() { S = "B" } });
 
-        Assert.Equal(3, result["items"].L.Count);
-        Assert.Equal("a", result["items"].L[0].S);
-        Assert.Equal("B", result["items"].L[1].S);
-        Assert.Equal("c", result["items"].L[2].S);
+        Assert.Equal(3, result["entries"].L.Count);
+        Assert.Equal("a", result["entries"].L[0].S);
+        Assert.Equal("B", result["entries"].L[1].S);
+        Assert.Equal("c", result["entries"].L[2].S);
     }
 
     [Fact]
@@ -448,19 +448,19 @@ public sealed class UpdateExpressionTests
         var item = new Dictionary<string, AttributeValue>
         {
             ["PK"] = new() { S = "USER#1" },
-            ["items"] = new() { L = [new() { S = "a" }] }
+            ["entries"] = new() { L = [new() { S = "a" }] }
         };
 
-        var ast = UpdateExpressionParser.Parse("SET items[3] = :v");
+        var ast = UpdateExpressionParser.Parse("SET entries[3] = :v");
         var (result, _) = UpdateExpressionEvaluator.Apply(
             ast, item, null,
             new Dictionary<string, AttributeValue> { [":v"] = new() { S = "X" } });
 
-        Assert.Equal(4, result["items"].L.Count);
-        Assert.Equal("a", result["items"].L[0].S);
-        Assert.True(result["items"].L[1].NULL);
-        Assert.True(result["items"].L[2].NULL);
-        Assert.Equal("X", result["items"].L[3].S);
+        Assert.Equal(4, result["entries"].L.Count);
+        Assert.Equal("a", result["entries"].L[0].S);
+        Assert.True(result["entries"].L[1].NULL);
+        Assert.True(result["entries"].L[2].NULL);
+        Assert.Equal("X", result["entries"].L[3].S);
     }
 
     [Fact]
@@ -469,15 +469,15 @@ public sealed class UpdateExpressionTests
         var item = new Dictionary<string, AttributeValue>
         {
             ["PK"] = new() { S = "USER#1" },
-            ["items"] = new() { L = [new() { S = "a" }, new() { S = "b" }, new() { S = "c" }] }
+            ["entries"] = new() { L = [new() { S = "a" }, new() { S = "b" }, new() { S = "c" }] }
         };
 
-        var ast = UpdateExpressionParser.Parse("REMOVE items[1]");
+        var ast = UpdateExpressionParser.Parse("REMOVE entries[1]");
         var (result, _) = UpdateExpressionEvaluator.Apply(ast, item, null, null);
 
-        Assert.Equal(2, result["items"].L.Count);
-        Assert.Equal("a", result["items"].L[0].S);
-        Assert.Equal("c", result["items"].L[1].S);
+        Assert.Equal(2, result["entries"].L.Count);
+        Assert.Equal("a", result["entries"].L[0].S);
+        Assert.Equal("c", result["entries"].L[1].S);
     }
 
     [Fact]
@@ -490,18 +490,18 @@ public sealed class UpdateExpressionTests
             {
                 M = new Dictionary<string, AttributeValue>
                 {
-                    ["list"] = new() { L = [new() { S = "a" }, new() { S = "b" }] }
+                    ["child"] = new() { L = [new() { S = "a" }, new() { S = "b" }] }
                 }
             }
         };
 
-        var ast = UpdateExpressionParser.Parse("SET nested.list[0] = :v");
+        var ast = UpdateExpressionParser.Parse("SET nested.child[0] = :v");
         var (result, _) = UpdateExpressionEvaluator.Apply(
             ast, item, null,
             new Dictionary<string, AttributeValue> { [":v"] = new() { S = "A" } });
 
-        Assert.Equal("A", result["nested"].M["list"].L[0].S);
-        Assert.Equal("b", result["nested"].M["list"].L[1].S);
+        Assert.Equal("A", result["nested"].M["child"].L[0].S);
+        Assert.Equal("b", result["nested"].M["child"].L[1].S);
     }
 
     [Fact]
@@ -514,17 +514,17 @@ public sealed class UpdateExpressionTests
             {
                 M = new Dictionary<string, AttributeValue>
                 {
-                    ["list"] = new() { L = [new() { S = "a" }, new() { S = "b" }, new() { S = "c" }] }
+                    ["child"] = new() { L = [new() { S = "a" }, new() { S = "b" }, new() { S = "c" }] }
                 }
             }
         };
 
-        var ast = UpdateExpressionParser.Parse("REMOVE nested.list[1]");
+        var ast = UpdateExpressionParser.Parse("REMOVE nested.child[1]");
         var (result, _) = UpdateExpressionEvaluator.Apply(ast, item, null, null);
 
-        Assert.Equal(2, result["nested"].M["list"].L.Count);
-        Assert.Equal("a", result["nested"].M["list"].L[0].S);
-        Assert.Equal("c", result["nested"].M["list"].L[1].S);
+        Assert.Equal(2, result["nested"].M["child"].L.Count);
+        Assert.Equal("a", result["nested"].M["child"].L[0].S);
+        Assert.Equal("c", result["nested"].M["child"].L[1].S);
     }
 
     [Fact]
@@ -544,6 +544,37 @@ public sealed class UpdateExpressionTests
         Assert.NotNull(result["nested"].M);
         Assert.True(result["nested"].M.ContainsKey("deep"));
         Assert.Equal("found", result["nested"].M["deep"].M["field"].S);
+    }
+
+    // ── Reserved-word rejection ────────────────────────────────────────
+
+    [Fact]
+    public void Reserved_TopLevelIdentifier_Throws()
+    {
+        var ex = Assert.Throws<ArgumentException>(() =>
+            UpdateExpressionParser.Parse("SET name = :v"));
+
+        Assert.Contains("UpdateExpression", ex.Message);
+        Assert.Contains("reserved keyword", ex.Message);
+        Assert.Contains("name", ex.Message);
+    }
+
+    [Fact]
+    public void Reserved_NestedPathElement_Throws() =>
+        Assert.Throws<ArgumentException>(() =>
+            UpdateExpressionParser.Parse("SET a.status = :v"));
+
+    [Fact]
+    public void Reserved_CaseInsensitive_Throws() =>
+        Assert.Throws<ArgumentException>(() =>
+            UpdateExpressionParser.Parse("SET NaMe = :v"));
+
+    [Fact]
+    public void Reserved_EscapedViaExpressionAttributeName_Allowed()
+    {
+        var ast = UpdateExpressionParser.Parse("SET #n = :v");
+
+        _ = Assert.Single(ast.Sets);
     }
 
     // ── Helpers ─────────────────────────────────────────────────────────

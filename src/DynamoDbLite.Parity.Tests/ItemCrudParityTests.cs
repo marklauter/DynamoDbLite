@@ -107,4 +107,176 @@ public sealed class ItemCrudParityTests(DynamoDbFixture fixture)
             ConditionExpression = "attribute_exists(PK)",
         }, ct));
     }
+
+    [Theory]
+    [InlineData(ParityBackend.DdbLite)]
+    [InlineData(ParityBackend.DdbLiteFile)]
+    [InlineData(ParityBackend.DynamoDbLocal)]
+    public async Task PutItem_then_GetItem_round_trips_binary_attribute(ParityBackend backend)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var client = await fixture.ClientAsync(backend, ct);
+        var tableName = TestTables.UniqueName("crud_binary");
+        await TestTables.CreateAndWaitAsync(client, TestTables.HashKeyString(tableName), ct);
+
+        var expected = new byte[] { 0x01, 0x02, 0x03, 0xFF };
+        _ = await client.PutItemAsync(new PutItemRequest
+        {
+            TableName = tableName,
+            Item = new Dictionary<string, AttributeValue>
+            {
+                ["PK"] = new() { S = "user-1" },
+                ["payload"] = new() { B = new MemoryStream(expected) },
+            },
+        }, ct);
+
+        var response = await client.GetItemAsync(new GetItemRequest
+        {
+            TableName = tableName,
+            Key = new Dictionary<string, AttributeValue> { ["PK"] = new() { S = "user-1" } },
+        }, ct);
+
+        Assert.True(response.IsItemSet);
+        Assert.Equal(expected, response.Item["payload"].B.ToArray());
+    }
+
+    [Theory]
+    [InlineData(ParityBackend.DdbLite)]
+    [InlineData(ParityBackend.DdbLiteFile)]
+    [InlineData(ParityBackend.DynamoDbLocal)]
+    public async Task PutItem_then_GetItem_round_trips_null_attribute(ParityBackend backend)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var client = await fixture.ClientAsync(backend, ct);
+        var tableName = TestTables.UniqueName("crud_null");
+        await TestTables.CreateAndWaitAsync(client, TestTables.HashKeyString(tableName), ct);
+
+        _ = await client.PutItemAsync(new PutItemRequest
+        {
+            TableName = tableName,
+            Item = new Dictionary<string, AttributeValue>
+            {
+                ["PK"] = new() { S = "user-1" },
+                ["deleted_at"] = new() { NULL = true },
+            },
+        }, ct);
+
+        var response = await client.GetItemAsync(new GetItemRequest
+        {
+            TableName = tableName,
+            Key = new Dictionary<string, AttributeValue> { ["PK"] = new() { S = "user-1" } },
+        }, ct);
+
+        Assert.True(response.IsItemSet);
+        Assert.True(response.Item["deleted_at"].NULL);
+    }
+
+    [Theory]
+    [InlineData(ParityBackend.DdbLite)]
+    [InlineData(ParityBackend.DdbLiteFile)]
+    [InlineData(ParityBackend.DynamoDbLocal)]
+    public async Task PutItem_then_GetItem_round_trips_string_set_attribute(ParityBackend backend)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var client = await fixture.ClientAsync(backend, ct);
+        var tableName = TestTables.UniqueName("crud_ss");
+        await TestTables.CreateAndWaitAsync(client, TestTables.HashKeyString(tableName), ct);
+
+        _ = await client.PutItemAsync(new PutItemRequest
+        {
+            TableName = tableName,
+            Item = new Dictionary<string, AttributeValue>
+            {
+                ["PK"] = new() { S = "user-1" },
+                ["permissions"] = new() { SS = ["admin", "owner", "viewer"] },
+            },
+        }, ct);
+
+        var response = await client.GetItemAsync(new GetItemRequest
+        {
+            TableName = tableName,
+            Key = new Dictionary<string, AttributeValue> { ["PK"] = new() { S = "user-1" } },
+        }, ct);
+
+        Assert.True(response.IsItemSet);
+        var sorted = response.Item["permissions"].SS.OrderBy(s => s, StringComparer.Ordinal).ToList();
+        Assert.Equal(3, sorted.Count);
+        Assert.Equal("admin", sorted[0]);
+        Assert.Equal("owner", sorted[1]);
+        Assert.Equal("viewer", sorted[2]);
+    }
+
+    [Theory]
+    [InlineData(ParityBackend.DdbLite)]
+    [InlineData(ParityBackend.DdbLiteFile)]
+    [InlineData(ParityBackend.DynamoDbLocal)]
+    public async Task PutItem_then_GetItem_round_trips_number_set_attribute(ParityBackend backend)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var client = await fixture.ClientAsync(backend, ct);
+        var tableName = TestTables.UniqueName("crud_ns");
+        await TestTables.CreateAndWaitAsync(client, TestTables.HashKeyString(tableName), ct);
+
+        _ = await client.PutItemAsync(new PutItemRequest
+        {
+            TableName = tableName,
+            Item = new Dictionary<string, AttributeValue>
+            {
+                ["PK"] = new() { S = "user-1" },
+                ["scores"] = new() { NS = ["1", "2", "3"] },
+            },
+        }, ct);
+
+        var response = await client.GetItemAsync(new GetItemRequest
+        {
+            TableName = tableName,
+            Key = new Dictionary<string, AttributeValue> { ["PK"] = new() { S = "user-1" } },
+        }, ct);
+
+        Assert.True(response.IsItemSet);
+        var sorted = response.Item["scores"].NS.OrderBy(s => s, StringComparer.Ordinal).ToList();
+        Assert.Equal(3, sorted.Count);
+        Assert.Equal("1", sorted[0]);
+        Assert.Equal("2", sorted[1]);
+        Assert.Equal("3", sorted[2]);
+    }
+
+    [Theory]
+    [InlineData(ParityBackend.DdbLite)]
+    [InlineData(ParityBackend.DdbLiteFile)]
+    [InlineData(ParityBackend.DynamoDbLocal)]
+    public async Task PutItem_then_GetItem_round_trips_binary_set_attribute(ParityBackend backend)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var client = await fixture.ClientAsync(backend, ct);
+        var tableName = TestTables.UniqueName("crud_bs");
+        await TestTables.CreateAndWaitAsync(client, TestTables.HashKeyString(tableName), ct);
+
+        var first = new byte[] { 0x01, 0x02 };
+        var second = new byte[] { 0x03, 0x04, 0x05 };
+        _ = await client.PutItemAsync(new PutItemRequest
+        {
+            TableName = tableName,
+            Item = new Dictionary<string, AttributeValue>
+            {
+                ["PK"] = new() { S = "user-1" },
+                ["chunks"] = new() { BS = [new MemoryStream(first), new MemoryStream(second)] },
+            },
+        }, ct);
+
+        var response = await client.GetItemAsync(new GetItemRequest
+        {
+            TableName = tableName,
+            Key = new Dictionary<string, AttributeValue> { ["PK"] = new() { S = "user-1" } },
+        }, ct);
+
+        Assert.True(response.IsItemSet);
+        var actual = response.Item["chunks"].BS
+            .Select(s => Convert.ToBase64String(s.ToArray()))
+            .OrderBy(s => s, StringComparer.Ordinal)
+            .ToList();
+        Assert.Equal(2, actual.Count);
+        Assert.Equal(Convert.ToBase64String(first), actual[0]);
+        Assert.Equal(Convert.ToBase64String(second), actual[1]);
+    }
 }
