@@ -1,10 +1,10 @@
 using Amazon.DynamoDBv2;
-using DynamoDbLite.Tests.Fixtures;
+using DynamoDbLite.Parity.Tests.Fixtures;
 
-namespace DynamoDbLite.Tests;
+namespace DynamoDbLite.Parity.Tests;
 
 [Collection("DynamoDbFixtureCollection")]
-public sealed class TestcontainersSmokeTest(DynamoDbFixture fixture)
+public sealed class SmokeTest(DynamoDbFixture fixture)
 {
     [Fact]
     public async Task DynamoDbLocal_Container_Starts_And_TestTable_Is_Active()

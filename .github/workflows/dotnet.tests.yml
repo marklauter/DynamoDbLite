@@ -16,7 +16,7 @@ permissions:
   contents: read
 
 jobs:
-  test:
+  unit-tests:
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -38,10 +38,10 @@ jobs:
           ${{ runner.os }}-nuget-
 
     - name: Build
-      run: dotnet build "src/DynamoDbLite.slnx" -c ${{ matrix.configuration }}
+      run: dotnet build "src/DynamoDbLite.Tests/DynamoDbLite.Tests.csproj" -c ${{ matrix.configuration }}
 
     - name: Test
-      run: dotnet test "src/DynamoDbLite.slnx" -c ${{ matrix.configuration }} --no-build
+      run: dotnet test "src/DynamoDbLite.Tests/DynamoDbLite.Tests.csproj" -c ${{ matrix.configuration }} --no-build
 
     - name: Upload coverage report
       if: always() && matrix.configuration == 'Debug'
@@ -49,4 +49,36 @@ jobs:
       with:
         name: coverage-cobertura
         path: src/DynamoDbLite.Tests/coverage.cobertura.xml
+        if-no-files-found: error
+
+  parity-tests:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 10.0.x
+
+    - name: Cache NuGet packages
+      uses: actions/cache@v4
+      with:
+        path: ~/.nuget/packages
+        key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', 'src/Directory.Packages.props') }}
+        restore-keys: |
+          ${{ runner.os }}-nuget-
+
+    - name: Build
+      run: dotnet build "src/DynamoDbLite.Parity.Tests/DynamoDbLite.Parity.Tests.csproj" -c Debug
+
+    - name: Test
+      run: dotnet test "src/DynamoDbLite.Parity.Tests/DynamoDbLite.Parity.Tests.csproj" -c Debug --no-build
+
+    - name: Upload coverage report
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-parity-cobertura
+        path: src/DynamoDbLite.Parity.Tests/coverage.cobertura.xml
         if-no-files-found: error

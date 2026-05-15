@@ -7,5 +7,4 @@ public enum StoreType
 {
     DdbLite,
     DdbLiteFile,
-    DynamoDbLocal,
 }

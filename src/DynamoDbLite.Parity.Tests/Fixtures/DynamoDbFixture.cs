@@ -4,7 +4,7 @@ using Amazon.Runtime;
 using System.Diagnostics.CodeAnalysis;
 using Testcontainers.DynamoDb;
 
-namespace DynamoDbLite.Tests.Fixtures;
+namespace DynamoDbLite.Parity.Tests.Fixtures;
 
 [SuppressMessage("Maintainability", "CA1515:Consider making public types internal", Justification = "required for xUnit collection fixture injection")]
 public class DynamoDbFixture
@@ -50,13 +50,8 @@ public class DynamoDbFixture
 
     public async ValueTask DisposeAsync()
     {
-        await DisposeAsyncCore();
-        GC.SuppressFinalize(this);
-    }
-
-    protected virtual async ValueTask DisposeAsyncCore()
-    {
         client?.Dispose();
         await container.DisposeAsync();
+        GC.SuppressFinalize(this);
     }
 }

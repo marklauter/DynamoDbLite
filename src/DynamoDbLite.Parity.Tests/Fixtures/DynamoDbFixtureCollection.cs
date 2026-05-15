@@ -1,6 +1,6 @@
-﻿using System.Diagnostics.CodeAnalysis;
+using System.Diagnostics.CodeAnalysis;
 
-namespace DynamoDbLite.Tests.Fixtures;
+namespace DynamoDbLite.Parity.Tests.Fixtures;
 
 [CollectionDefinition("DynamoDbFixtureCollection")]
 [SuppressMessage("Naming", "CA1711:Identifiers should not have incorrect suffix", Justification = "test convention")]
