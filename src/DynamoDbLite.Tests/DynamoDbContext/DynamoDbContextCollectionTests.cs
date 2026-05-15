@@ -7,8 +7,8 @@ public class DynamoDbContextCollectionTests
     : DynamoDbContextFixture
 {
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task SaveAndLoad_ListOfStrings_RoundTrips(StoreType st)
     {
         var context = Context(st);
@@ -21,8 +21,8 @@ public class DynamoDbContextCollectionTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task SaveAndLoad_DictionaryOfStringInt_RoundTrips(StoreType st)
     {
         var context = Context(st);
@@ -40,8 +40,8 @@ public class DynamoDbContextCollectionTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task SaveAndLoad_HashSetOfStrings_RoundTrips(StoreType st)
     {
         var context = Context(st);
@@ -57,8 +57,8 @@ public class DynamoDbContextCollectionTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task SaveAndLoad_HashSetOfInts_RoundTrips(StoreType st)
     {
         var context = Context(st);
@@ -74,8 +74,8 @@ public class DynamoDbContextCollectionTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task SaveAndLoad_EmptyList_RoundTrips(StoreType st)
     {
         var context = Context(st);
@@ -89,8 +89,8 @@ public class DynamoDbContextCollectionTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task SaveAndLoad_EmptyDictionary_RoundTrips(StoreType st)
     {
         var context = Context(st);

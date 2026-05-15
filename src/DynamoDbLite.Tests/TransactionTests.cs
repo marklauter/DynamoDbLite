@@ -9,8 +9,8 @@ public sealed class TransactionTests
 {
     protected override async ValueTask SetupAsync(CancellationToken ct)
     {
-        await CreateTestTableAsync(Client(StoreType.MemoryBased), ct);
-        await CreateTestTableAsync(Client(StoreType.FileBased), ct);
+        await CreateTestTableAsync(Client(StoreType.DdbLite), ct);
+        await CreateTestTableAsync(Client(StoreType.DdbLiteFile), ct);
     }
 
     private static async Task PutTestItemAsync(DynamoDbClient client, string pk, string sk, string name)
@@ -58,8 +58,8 @@ public sealed class TransactionTests
     // -- TransactWriteItems -- happy path ------------------------------------
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task TransactWriteItems_PutMultipleItems_AllWritten(StoreType st)
     {
         var client = Client(st);
@@ -107,8 +107,8 @@ public sealed class TransactionTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task TransactWriteItems_UpdateAndDelete_BothApplied(StoreType st)
     {
         var client = Client(st);
@@ -160,8 +160,8 @@ public sealed class TransactionTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task TransactWriteItems_ConditionCheckPasses_WritesSucceed(StoreType st)
     {
         var client = Client(st);
@@ -206,8 +206,8 @@ public sealed class TransactionTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task TransactWriteItems_MultipleTablesWork(StoreType st)
     {
         var client = Client(st);
@@ -265,8 +265,8 @@ public sealed class TransactionTests
     // -- TransactWriteItems -- condition failures ----------------------------
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task TransactWriteItems_ConditionFails_ThrowsTransactionCanceledException(StoreType st)
     {
         var client = Client(st);
@@ -319,8 +319,8 @@ public sealed class TransactionTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task TransactWriteItems_ConditionFails_ReturnValuesOnFailure_ReturnsOldItem(StoreType st)
     {
         var client = Client(st);
@@ -356,8 +356,8 @@ public sealed class TransactionTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task TransactWriteItems_ConditionCheckFails_NoWritesOccur(StoreType st)
     {
         var client = Client(st);
@@ -409,8 +409,8 @@ public sealed class TransactionTests
     // -- TransactWriteItems -- validation errors -----------------------------
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task TransactWriteItems_MoreThan100Actions_Throws(StoreType st)
     {
         var client = Client(st);
@@ -435,8 +435,8 @@ public sealed class TransactionTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task TransactWriteItems_DuplicateKeys_Throws(StoreType st)
         => _ = await Assert.ThrowsAsync<AmazonDynamoDBException>(()
             => Client(st).TransactWriteItemsAsync(new TransactWriteItemsRequest
@@ -472,8 +472,8 @@ public sealed class TransactionTests
             }, TestContext.Current.CancellationToken));
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task TransactWriteItems_MissingTable_ThrowsResourceNotFound(StoreType st)
         => _ = await Assert.ThrowsAsync<ResourceNotFoundException>(()
             => Client(st).TransactWriteItemsAsync(new TransactWriteItemsRequest
@@ -496,8 +496,8 @@ public sealed class TransactionTests
             }, TestContext.Current.CancellationToken));
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task TransactWriteItems_EmptyTransactItems_Throws(StoreType st)
         => _ = await Assert.ThrowsAsync<AmazonDynamoDBException>(()
             => Client(st).TransactWriteItemsAsync(new TransactWriteItemsRequest
@@ -508,8 +508,8 @@ public sealed class TransactionTests
     // -- TransactWriteItems -- idempotency -----------------------------------
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task TransactWriteItems_SameClientRequestToken_ReturnsCachedResponse(StoreType st)
     {
         var client = Client(st);
@@ -549,8 +549,8 @@ public sealed class TransactionTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task TransactWriteItems_DifferentToken_ExecutesNormally(StoreType st)
     {
         var client = Client(st);
@@ -603,8 +603,8 @@ public sealed class TransactionTests
     // -- TransactGetItems ----------------------------------------------------
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task TransactGetItems_MultipleItems_ReturnsAll(StoreType st)
     {
         var client = Client(st);
@@ -649,8 +649,8 @@ public sealed class TransactionTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task TransactGetItems_WithProjectionExpression_FiltersAttributes(StoreType st)
     {
         var client = Client(st);
@@ -683,8 +683,8 @@ public sealed class TransactionTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task TransactGetItems_NonexistentItem_ReturnsNullItem(StoreType st)
     {
         var client = Client(st);
@@ -712,8 +712,8 @@ public sealed class TransactionTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task TransactGetItems_MoreThan100Items_Throws(StoreType st)
     {
         var client = Client(st);
@@ -740,8 +740,8 @@ public sealed class TransactionTests
     // -- TransactWriteItems -- index maintenance -----------------------------
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task TransactWriteItems_WithGSI_IndexMaintained(StoreType st)
     {
         var client = Client(st);
@@ -815,8 +815,8 @@ public sealed class TransactionTests
     // -- TransactWriteItems -- Update creates new item -----------------------
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task TransactWriteItems_UpdateNonexistentItem_CreatesIt(StoreType st)
     {
         var client = Client(st);
@@ -853,8 +853,8 @@ public sealed class TransactionTests
     // -- TransactWriteItems -- Update with failing condition ------------------
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task TransactWriteItems_UpdateWithFailingCondition_Throws(StoreType st)
     {
         var client = Client(st);
@@ -899,8 +899,8 @@ public sealed class TransactionTests
     // -- TransactWriteItems -- Update without UpdateExpression ----------------
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task TransactWriteItems_UpdateWithoutUpdateExpression_Throws(StoreType st)
         => _ = await Assert.ThrowsAsync<AmazonDynamoDBException>(()
             => Client(st).TransactWriteItemsAsync(new TransactWriteItemsRequest
@@ -925,8 +925,8 @@ public sealed class TransactionTests
     // -- TransactGetItems -- missing table ------------------------------------
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task TransactGetItems_MissingTable_ThrowsResourceNotFound(StoreType st)
         => _ = await Assert.ThrowsAsync<ResourceNotFoundException>(()
             => Client(st).TransactGetItemsAsync(new TransactGetItemsRequest

@@ -7,8 +7,8 @@ public sealed class DynamoDbContextEdgeCaseTests
     : DynamoDbContextFixture
 {
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task SaveAsync_EmptyStringProperty_HandledCorrectly(StoreType st)
     {
         var context = Context(st);
@@ -21,8 +21,8 @@ public sealed class DynamoDbContextEdgeCaseTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task SaveAsync_VeryLargeItem_Succeeds(StoreType st)
     {
         var context = Context(st);
@@ -36,8 +36,8 @@ public sealed class DynamoDbContextEdgeCaseTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task LoadAsync_AfterDelete_ReturnsNull(StoreType st)
     {
         var context = Context(st);
@@ -51,8 +51,8 @@ public sealed class DynamoDbContextEdgeCaseTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task QueryAsync_GetRemainingAsync_ReturnsAll(StoreType st)
     {
         var context = Context(st);

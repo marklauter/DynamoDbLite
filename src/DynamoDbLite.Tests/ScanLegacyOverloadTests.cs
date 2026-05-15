@@ -10,10 +10,10 @@ public sealed class ScanLegacyOverloadTests
 {
     protected override async ValueTask SetupAsync(CancellationToken ct)
     {
-        await CreateTestTableAsync(Client(StoreType.MemoryBased), ct);
-        await CreateTestTableAsync(Client(StoreType.FileBased), ct);
-        await SeedDataAsync(Client(StoreType.MemoryBased), ct);
-        await SeedDataAsync(Client(StoreType.FileBased), ct);
+        await CreateTestTableAsync(Client(StoreType.DdbLite), ct);
+        await CreateTestTableAsync(Client(StoreType.DdbLiteFile), ct);
+        await SeedDataAsync(Client(StoreType.DdbLite), ct);
+        await SeedDataAsync(Client(StoreType.DdbLiteFile), ct);
     }
 
     private static async Task SeedDataAsync(DynamoDbClient client, CancellationToken ct)
@@ -44,8 +44,8 @@ public sealed class ScanLegacyOverloadTests
     // -- attributesToGet overload ------------------------------------------
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task ScanAsync_AttributesToGet_ProjectsAttributes(StoreType st)
     {
         var client = Client(st);
@@ -66,8 +66,8 @@ public sealed class ScanLegacyOverloadTests
     // -- scanFilter overload -----------------------------------------------
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task ScanAsync_ScanFilter_EQ_FiltersResults(StoreType st)
     {
         var client = Client(st);
@@ -89,8 +89,8 @@ public sealed class ScanLegacyOverloadTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task ScanAsync_ScanFilter_GT_FiltersResults(StoreType st)
     {
         var client = Client(st);
@@ -111,8 +111,8 @@ public sealed class ScanLegacyOverloadTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task ScanAsync_ScanFilter_BEGINS_WITH_FiltersResults(StoreType st)
     {
         var client = Client(st);
@@ -134,8 +134,8 @@ public sealed class ScanLegacyOverloadTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task ScanAsync_ScanFilter_BETWEEN_FiltersResults(StoreType st)
     {
         var client = Client(st);
@@ -160,8 +160,8 @@ public sealed class ScanLegacyOverloadTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task ScanAsync_ScanFilter_NOT_NULL_FiltersResults(StoreType st)
     {
         var client = Client(st);
@@ -183,8 +183,8 @@ public sealed class ScanLegacyOverloadTests
     // -- attributesToGet + scanFilter combined overload ---------------------
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task ScanAsync_AttributesToGetAndScanFilter_BothApplied(StoreType st)
     {
         var client = Client(st);

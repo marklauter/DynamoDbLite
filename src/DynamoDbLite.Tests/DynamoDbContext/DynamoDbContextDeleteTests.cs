@@ -7,8 +7,8 @@ public sealed class DynamoDbContextDeleteTests
     : DynamoDbContextFixture
 {
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task DeleteAsync_ExistingItem_RemovesItem(StoreType st)
     {
         var context = Context(st);
@@ -23,8 +23,8 @@ public sealed class DynamoDbContextDeleteTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task DeleteAsync_ByHashKey_RemovesItem(StoreType st)
     {
         var context = Context(st);
@@ -38,8 +38,8 @@ public sealed class DynamoDbContextDeleteTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task DeleteAsync_ByCompositeKey_RemovesItem(StoreType st)
     {
         var context = Context(st);
@@ -53,8 +53,8 @@ public sealed class DynamoDbContextDeleteTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task DeleteAsync_NonExistentItem_Succeeds(StoreType st)
     {
         var context = Context(st);

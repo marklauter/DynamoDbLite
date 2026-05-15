@@ -7,8 +7,8 @@ public class DynamoDbContextBatchGetTests
     : DynamoDbContextFixture
 {
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task BatchGet_MultipleItems_ReturnsAll(StoreType st)
     {
         var context = Context(st);
@@ -28,8 +28,8 @@ public class DynamoDbContextBatchGetTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task BatchGet_NonExistentKeys_Skipped(StoreType st)
     {
         var context = Context(st);
@@ -47,8 +47,8 @@ public class DynamoDbContextBatchGetTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task BatchGet_MultiTable_ReturnsFromBoth(StoreType st)
     {
         var context = Context(st);

@@ -15,8 +15,8 @@ public class DynamoDbClientFixture
     public DynamoDbClient Client(StoreType st) =>
         st switch
         {
-            StoreType.FileBased => fbf.Client,
-            StoreType.MemoryBased => imf.Client,
+            StoreType.DdbLiteFile => fbf.Client,
+            StoreType.DdbLite => imf.Client,
             _ => throw new ArgumentOutOfRangeException(nameof(st), st, null),
         };
 

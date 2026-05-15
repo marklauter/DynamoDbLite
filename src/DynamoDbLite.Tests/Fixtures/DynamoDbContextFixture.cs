@@ -15,16 +15,16 @@ public class DynamoDbContextFixture
     public DynamoDbClient Client(StoreType st)
         => st switch
         {
-            StoreType.FileBased => fbf.Client,
-            StoreType.MemoryBased => imf.Client,
+            StoreType.DdbLiteFile => fbf.Client,
+            StoreType.DdbLite => imf.Client,
             _ => throw new ArgumentOutOfRangeException(nameof(st), st, null)
         };
 
     public DynamoDBContext Context(StoreType st)
         => st switch
         {
-            StoreType.FileBased => fbf.Context,
-            StoreType.MemoryBased => imf.Context,
+            StoreType.DdbLiteFile => fbf.Context,
+            StoreType.DdbLite => imf.Context,
             _ => throw new ArgumentOutOfRangeException(nameof(st), st, null)
         };
 

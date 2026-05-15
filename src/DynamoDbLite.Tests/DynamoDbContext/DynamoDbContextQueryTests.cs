@@ -9,8 +9,8 @@ public sealed class DynamoDbContextQueryTests
     : DynamoDbContextFixture
 {
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task QueryAsync_ByHashKey_ReturnsAllItems(StoreType st)
     {
         var context = Context(st);
@@ -28,8 +28,8 @@ public sealed class DynamoDbContextQueryTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task QueryAsync_ByHashKey_EmptyResults_ReturnsEmptyList(StoreType st)
     {
         var context = Context(st);
@@ -41,8 +41,8 @@ public sealed class DynamoDbContextQueryTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task QueryAsync_WithPagination_ReturnsPages(StoreType st)
     {
         var context = Context(st);
@@ -59,8 +59,8 @@ public sealed class DynamoDbContextQueryTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task QueryAsync_AllPages_ReturnsAllItems(StoreType st)
     {
         var context = Context(st);
@@ -76,8 +76,8 @@ public sealed class DynamoDbContextQueryTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task QueryAsync_BackwardDirection_ReturnsDescending(StoreType st)
     {
         var context = Context(st);
@@ -97,8 +97,8 @@ public sealed class DynamoDbContextQueryTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task QueryAsync_WithRangeKeyCondition_FiltersOnSortKey(StoreType st)
     {
         var context = Context(st);
@@ -118,8 +118,8 @@ public sealed class DynamoDbContextQueryTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task QueryAsync_OnGsi_ReturnsCorrectItems(StoreType st)
     {
         var context = Context(st);

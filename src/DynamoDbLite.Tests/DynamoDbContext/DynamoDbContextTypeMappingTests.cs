@@ -7,8 +7,8 @@ public sealed class DynamoDbContextTypeMappingTests
     : DynamoDbContextFixture
 {
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task SaveAndLoad_IntProperty_RoundTrips(StoreType st)
     {
         var context = Context(st);
@@ -20,8 +20,8 @@ public sealed class DynamoDbContextTypeMappingTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task SaveAndLoad_DoubleProperty_RoundTrips(StoreType st)
     {
         var context = Context(st);
@@ -33,8 +33,8 @@ public sealed class DynamoDbContextTypeMappingTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task SaveAndLoad_BoolProperty_RoundTrips(StoreType st)
     {
         var context = Context(st);
@@ -46,8 +46,8 @@ public sealed class DynamoDbContextTypeMappingTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task SaveAndLoad_DateTimeProperty_RoundTrips(StoreType st)
     {
         var context = Context(st);
@@ -61,8 +61,8 @@ public sealed class DynamoDbContextTypeMappingTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task SaveAndLoad_EnumProperty_RoundTrips(StoreType st)
     {
         var context = Context(st);
@@ -74,8 +74,8 @@ public sealed class DynamoDbContextTypeMappingTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task SaveAndLoad_NullableProperty_PreservesNull(StoreType st)
     {
         var context = Context(st);
@@ -87,8 +87,8 @@ public sealed class DynamoDbContextTypeMappingTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task SaveAndLoad_StringProperty_RoundTrips(StoreType st)
     {
         var context = Context(st);

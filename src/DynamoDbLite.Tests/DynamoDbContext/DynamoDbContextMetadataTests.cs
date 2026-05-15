@@ -8,8 +8,8 @@ public sealed class DynamoDbContextMetadataTests
     : DynamoDbContextFixture
 {
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task DynamoDBContext_WithDefaultConfig_WorksWithDisabledMetadata(StoreType st)
     {
         var client = Client(st);

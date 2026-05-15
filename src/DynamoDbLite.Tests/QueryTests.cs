@@ -9,10 +9,10 @@ public sealed class QueryTests
 {
     protected override async ValueTask SetupAsync(CancellationToken ct)
     {
-        await CreateTestTableAsync(Client(StoreType.MemoryBased), ct);
-        await CreateTestTableAsync(Client(StoreType.FileBased), ct);
-        await SeedTestDataAsync(Client(StoreType.MemoryBased), ct);
-        await SeedTestDataAsync(Client(StoreType.FileBased), ct);
+        await CreateTestTableAsync(Client(StoreType.DdbLite), ct);
+        await CreateTestTableAsync(Client(StoreType.DdbLiteFile), ct);
+        await SeedTestDataAsync(Client(StoreType.DdbLite), ct);
+        await SeedTestDataAsync(Client(StoreType.DdbLiteFile), ct);
     }
 
     private static async Task SeedTestDataAsync(DynamoDbClient client, CancellationToken ct)
@@ -48,8 +48,8 @@ public sealed class QueryTests
     // ── PK-only query ───────────────────────────────────────────────
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task QueryAsync_PkOnly_ReturnsAllItemsForPartition(StoreType st)
     {
         var client = Client(st);
@@ -70,8 +70,8 @@ public sealed class QueryTests
     // ── SK equality ─────────────────────────────────────────────────
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task QueryAsync_SkEquality_ReturnsSingleItem(StoreType st)
     {
         var client = Client(st);
@@ -93,8 +93,8 @@ public sealed class QueryTests
     // ── SK comparison operators ─────────────────────────────────────
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task QueryAsync_SkLessThan_ReturnsCorrectItems(StoreType st)
     {
         var client = Client(st);
@@ -115,8 +115,8 @@ public sealed class QueryTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task QueryAsync_SkGreaterThanOrEqual_ReturnsCorrectItems(StoreType st)
     {
         var client = Client(st);
@@ -139,8 +139,8 @@ public sealed class QueryTests
     // ── SK BETWEEN ──────────────────────────────────────────────────
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task QueryAsync_SkBetween_ReturnsItemsInRange(StoreType st)
     {
         var client = Client(st);
@@ -165,8 +165,8 @@ public sealed class QueryTests
     // ── begins_with ─────────────────────────────────────────────────
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task QueryAsync_BeginsWith_ReturnsMatchingItems(StoreType st)
     {
         var client = Client(st);
@@ -220,8 +220,8 @@ public sealed class QueryTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task QueryAsync_BeginsWith_TrailingMaxChar_ReturnsMatchingItems(StoreType st)
     {
         var client = Client(st);
@@ -264,8 +264,8 @@ public sealed class QueryTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task QueryAsync_BeginsWith_AllMaxChars_ReturnsMatchingItems(StoreType st)
     {
         var client = Client(st);
@@ -310,8 +310,8 @@ public sealed class QueryTests
     // ── ScanIndexForward = false ────────────────────────────────────
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task QueryAsync_ScanIndexForwardFalse_ReturnsDescending(StoreType st)
     {
         var client = Client(st);
@@ -337,8 +337,8 @@ public sealed class QueryTests
     // ── Limit + LastEvaluatedKey pagination ─────────────────────────
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task QueryAsync_Limit_ReturnsLimitedResultsWithLastEvaluatedKey(StoreType st)
     {
         var client = Client(st);
@@ -360,8 +360,8 @@ public sealed class QueryTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task QueryAsync_PaginationLoop_ReturnsAllItems(StoreType st)
     {
         var client = Client(st);
@@ -395,8 +395,8 @@ public sealed class QueryTests
     // ── FilterExpression ────────────────────────────────────────────
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task QueryAsync_FilterExpression_FiltersResults(StoreType st)
     {
         var client = Client(st);
@@ -420,8 +420,8 @@ public sealed class QueryTests
     // ── ProjectionExpression ────────────────────────────────────────
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task QueryAsync_ProjectionExpression_ReturnsOnlyRequestedAttributes(StoreType st)
     {
         var client = Client(st);
@@ -449,8 +449,8 @@ public sealed class QueryTests
     // ── Select.COUNT ────────────────────────────────────────────────
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task QueryAsync_SelectCount_ReturnsCountOnly(StoreType st)
     {
         var client = Client(st);
@@ -472,8 +472,8 @@ public sealed class QueryTests
     // ── Non-existent table ──────────────────────────────────────────
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task QueryAsync_NonExistentTable_ThrowsResourceNotFoundException(StoreType st)
         => _ = await Assert.ThrowsAsync<ResourceNotFoundException>(()
             => Client(st).QueryAsync(new QueryRequest
@@ -489,8 +489,8 @@ public sealed class QueryTests
     // ── Empty results ───────────────────────────────────────────────
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task QueryAsync_NoMatchingItems_ReturnsEmptyResult(StoreType st)
     {
         var client = Client(st);

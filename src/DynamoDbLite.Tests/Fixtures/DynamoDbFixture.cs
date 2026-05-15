@@ -1,11 +1,13 @@
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
 using Amazon.Runtime;
+using System.Diagnostics.CodeAnalysis;
 using Testcontainers.DynamoDb;
 
 namespace DynamoDbLite.Tests.Fixtures;
 
-internal class DynamoDbFixture
+[SuppressMessage("Maintainability", "CA1515:Consider making public types internal", Justification = "required for xUnit collection fixture injection")]
+public class DynamoDbFixture
     : IAsyncLifetime
 {
     private readonly DynamoDbContainer container =
@@ -43,9 +45,7 @@ internal class DynamoDbFixture
         client?.Dispose();
         client = new AmazonDynamoDBClient(credentials, config);
 
-        var request = CreateTableRequest();
-        _ = await Client.CreateTableAsync(request);
-        await WaitForTableActiveAsync(request.TableName);
+        _ = await Client.CreateTableAsync(CreateTableRequest());
     }
 
     public async ValueTask DisposeAsync()
@@ -58,19 +58,5 @@ internal class DynamoDbFixture
     {
         client?.Dispose();
         await container.DisposeAsync();
-    }
-
-    private async Task WaitForTableActiveAsync(string tableName)
-    {
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-
-        while (!cts.Token.IsCancellationRequested)
-        {
-            var response = await Client.DescribeTableAsync(tableName, cts.Token);
-            if (response.Table.TableStatus == TableStatus.ACTIVE)
-                return;
-
-            await Task.Delay(200, cts.Token);
-        }
     }
 }

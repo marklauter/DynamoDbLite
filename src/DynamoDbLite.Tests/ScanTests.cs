@@ -9,8 +9,8 @@ public sealed class ScanTests
 {
     protected override async ValueTask SetupAsync(CancellationToken ct)
     {
-        await CreateTestTableAsync(Client(StoreType.MemoryBased), ct);
-        await CreateTestTableAsync(Client(StoreType.FileBased), ct);
+        await CreateTestTableAsync(Client(StoreType.DdbLite), ct);
+        await CreateTestTableAsync(Client(StoreType.DdbLiteFile), ct);
     }
 
     private static async Task SeedItemsAsync(DynamoDbClient client, int count)
@@ -34,8 +34,8 @@ public sealed class ScanTests
     // ── Empty table ─────────────────────────────────────────────────
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task ScanAsync_EmptyTable_ReturnsEmptyResult(StoreType st)
     {
         var client = Client(st);
@@ -51,8 +51,8 @@ public sealed class ScanTests
     // ── All items returned ──────────────────────────────────────────
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task ScanAsync_AllItems_ReturnsAll(StoreType st)
     {
         var client = Client(st);
@@ -70,8 +70,8 @@ public sealed class ScanTests
     // ── Limit + pagination ──────────────────────────────────────────
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task ScanAsync_Limit_ReturnsLimitedResults(StoreType st)
     {
         var client = Client(st);
@@ -88,8 +88,8 @@ public sealed class ScanTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task ScanAsync_PaginationLoop_ReturnsAllItems(StoreType st)
     {
         var client = Client(st);
@@ -118,8 +118,8 @@ public sealed class ScanTests
     // ── FilterExpression ────────────────────────────────────────────
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task ScanAsync_FilterExpression_FiltersResults(StoreType st)
     {
         var client = Client(st);
@@ -142,8 +142,8 @@ public sealed class ScanTests
     // ── ProjectionExpression ────────────────────────────────────────
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task ScanAsync_ProjectionExpression_ReturnsOnlyRequestedAttributes(StoreType st)
     {
         var client = Client(st);
@@ -170,8 +170,8 @@ public sealed class ScanTests
     // ── Select.COUNT ────────────────────────────────────────────────
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task ScanAsync_SelectCount_ReturnsCountOnly(StoreType st)
     {
         var client = Client(st);
@@ -190,8 +190,8 @@ public sealed class ScanTests
     // ── Non-existent table ──────────────────────────────────────────
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task ScanAsync_NonExistentTable_ThrowsResourceNotFoundException(StoreType st)
         => _ = await Assert.ThrowsAsync<ResourceNotFoundException>(()
             => Client(st).ScanAsync(new ScanRequest

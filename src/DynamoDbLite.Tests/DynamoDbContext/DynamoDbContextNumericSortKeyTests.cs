@@ -7,8 +7,8 @@ public sealed class DynamoDbContextNumericSortKeyTests
     : DynamoDbContextFixture
 {
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task SaveAndLoad_NumericRangeKey_RoundTrips(StoreType st)
     {
         var context = Context(st);
@@ -22,8 +22,8 @@ public sealed class DynamoDbContextNumericSortKeyTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task QueryAsync_NumericRangeKey_OrderedCorrectly(StoreType st)
     {
         var context = Context(st);

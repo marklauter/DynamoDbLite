@@ -9,8 +9,8 @@ public sealed class BatchOperationsTests
 {
     protected override async ValueTask SetupAsync(CancellationToken ct)
     {
-        await CreateTestTableAsync(Client(StoreType.MemoryBased), ct);
-        await CreateTestTableAsync(Client(StoreType.FileBased), ct);
+        await CreateTestTableAsync(Client(StoreType.DdbLite), ct);
+        await CreateTestTableAsync(Client(StoreType.DdbLiteFile), ct);
     }
 
     private static async Task PutTestItemAsync(DynamoDbClient client, string pk, string sk, string name)
@@ -44,8 +44,8 @@ public sealed class BatchOperationsTests
     // ── BatchGetItemAsync ──────────────────────────────────────────────
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task BatchGetItemAsync_MultipleItems_ReturnsAll(StoreType st)
     {
         var client = Client(st);
@@ -87,8 +87,8 @@ public sealed class BatchOperationsTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task BatchGetItemAsync_SimpleOverload_Succeeds(StoreType st)
     {
         var client = Client(st);
@@ -117,8 +117,8 @@ public sealed class BatchOperationsTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task BatchGetItemAsync_DictionaryOverload_Succeeds(StoreType st)
     {
         var client = Client(st);
@@ -146,8 +146,8 @@ public sealed class BatchOperationsTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task BatchGetItemAsync_WithProjectionExpression_ReturnsProjected(StoreType st)
     {
         var client = Client(st);
@@ -183,8 +183,8 @@ public sealed class BatchOperationsTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task BatchGetItemAsync_NonExistentKey_OmittedFromResponse(StoreType st)
     {
         var client = Client(st);
@@ -218,8 +218,8 @@ public sealed class BatchOperationsTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task BatchGetItemAsync_MultipleTables_ReturnsFromBoth(StoreType st)
     {
         var client = Client(st);
@@ -273,8 +273,8 @@ public sealed class BatchOperationsTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task BatchGetItemAsync_ExceedsLimit_ThrowsException(StoreType st)
     {
         var client = Client(st);
@@ -297,8 +297,8 @@ public sealed class BatchOperationsTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task BatchGetItemAsync_NonExistentTable_ThrowsResourceNotFoundException(StoreType st)
         => _ = await Assert.ThrowsAsync<ResourceNotFoundException>(()
             => Client(st).BatchGetItemAsync(new BatchGetItemRequest
@@ -320,8 +320,8 @@ public sealed class BatchOperationsTests
             }, TestContext.Current.CancellationToken));
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task BatchGetItemAsync_EmptyRequestItems_ThrowsException(StoreType st)
     {
         var client = Client(st);
@@ -366,8 +366,8 @@ public sealed class BatchOperationsTests
     // ── BatchWriteItemAsync ────────────────────────────────────────────
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task BatchWriteItemAsync_MultiplePuts_AllSucceed(StoreType st)
     {
         var client = Client(st);
@@ -412,8 +412,8 @@ public sealed class BatchOperationsTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task BatchWriteItemAsync_SimpleOverload_Succeeds(StoreType st)
     {
         var client = Client(st);
@@ -434,8 +434,8 @@ public sealed class BatchOperationsTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task BatchWriteItemAsync_MultipleDeletes_AllSucceed(StoreType st)
     {
         var client = Client(st);
@@ -472,8 +472,8 @@ public sealed class BatchOperationsTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task BatchWriteItemAsync_MixedPutAndDelete_Succeeds(StoreType st)
     {
         var client = Client(st);
@@ -509,8 +509,8 @@ public sealed class BatchOperationsTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task BatchWriteItemAsync_MultipleTables_Succeeds(StoreType st)
     {
         var client = Client(st);
@@ -549,8 +549,8 @@ public sealed class BatchOperationsTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task BatchWriteItemAsync_ExceedsLimit_ThrowsException(StoreType st)
     {
         var client = Client(st);
@@ -581,8 +581,8 @@ public sealed class BatchOperationsTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task BatchWriteItemAsync_DuplicateKeys_ThrowsException(StoreType st)
     {
         var client = Client(st);
@@ -609,8 +609,8 @@ public sealed class BatchOperationsTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task BatchWriteItemAsync_NonExistentTable_ThrowsResourceNotFoundException(StoreType st)
         => _ = await Assert.ThrowsAsync<ResourceNotFoundException>(()
             => Client(st).BatchWriteItemAsync(new BatchWriteItemRequest
@@ -635,8 +635,8 @@ public sealed class BatchOperationsTests
             }, TestContext.Current.CancellationToken));
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task BatchWriteItemAsync_EmptyRequestItems_ThrowsException(StoreType st)
     {
         var client = Client(st);

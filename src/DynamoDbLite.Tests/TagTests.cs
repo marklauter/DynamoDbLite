@@ -11,13 +11,13 @@ public sealed class TagTests
 
     protected override async ValueTask SetupAsync(CancellationToken ct)
     {
-        await CreateTestTableAsync(Client(StoreType.MemoryBased), ct);
-        await CreateTestTableAsync(Client(StoreType.FileBased), ct);
+        await CreateTestTableAsync(Client(StoreType.DdbLite), ct);
+        await CreateTestTableAsync(Client(StoreType.DdbLiteFile), ct);
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task TagResource_Adds_Tags_To_Table(StoreType st)
     {
         var client = Client(st);
@@ -31,8 +31,8 @@ public sealed class TagTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task ListTagsOfResource_Returns_Empty_For_Untagged_Table(StoreType st)
     {
         var client = Client(st);
@@ -45,8 +45,8 @@ public sealed class TagTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task ListTagsOfResource_Returns_Tags_After_Tagging(StoreType st)
     {
         var client = Client(st);
@@ -71,8 +71,8 @@ public sealed class TagTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task UntagResource_Removes_Specified_Keys(StoreType st)
     {
         var client = Client(st);
@@ -102,8 +102,8 @@ public sealed class TagTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task TagResource_Overwrites_Existing_Tag_Value(StoreType st)
     {
         var client = Client(st);
@@ -129,8 +129,8 @@ public sealed class TagTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task TagResource_Preserves_Existing_Tags_When_Adding_New(StoreType st)
     {
         var client = Client(st);
@@ -162,8 +162,8 @@ public sealed class TagTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task TagResource_Validates_Max_50_Tags(StoreType st)
     {
         var client = Client(st);
@@ -181,8 +181,8 @@ public sealed class TagTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task TagResource_Validates_Key_Length(StoreType st)
     {
         var client = Client(st);
@@ -196,8 +196,8 @@ public sealed class TagTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task TagResource_Validates_Value_Length(StoreType st)
     {
         var client = Client(st);
@@ -211,8 +211,8 @@ public sealed class TagTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task TagResource_Throws_For_Nonexistent_Table(StoreType st)
     {
         var client = Client(st);
@@ -226,8 +226,8 @@ public sealed class TagTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task UntagResource_Throws_For_Nonexistent_Table(StoreType st)
     {
         var client = Client(st);
@@ -241,8 +241,8 @@ public sealed class TagTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task ListTagsOfResource_Throws_For_Nonexistent_Table(StoreType st)
     {
         var client = Client(st);
@@ -255,8 +255,8 @@ public sealed class TagTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task CreateTable_Persists_Tags(StoreType st)
     {
         var client = Client(st);
@@ -285,8 +285,8 @@ public sealed class TagTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task DeleteTable_Removes_Tags(StoreType st)
     {
         var client = Client(st);

@@ -70,8 +70,8 @@ public sealed class SecondaryIndexTests
     // -- GSI Creation ----------------------------------------------------
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task CreateTable_WithGsi_DescribeShowsGsi(StoreType st)
     {
         var client = Client(st);
@@ -93,8 +93,8 @@ public sealed class SecondaryIndexTests
     // -- LSI Creation ----------------------------------------------------
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task CreateTable_WithLsi_DescribeShowsLsi(StoreType st)
     {
         var client = Client(st);
@@ -114,8 +114,8 @@ public sealed class SecondaryIndexTests
     // -- Validation: Too many GSIs ---------------------------------------
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task CreateTable_TooManyGsis_Throws(StoreType st)
     {
         var client = Client(st);
@@ -146,8 +146,8 @@ public sealed class SecondaryIndexTests
     // -- Validation: Too many LSIs ---------------------------------------
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task CreateTable_TooManyLsis_Throws(StoreType st)
     {
         var client = Client(st);
@@ -187,8 +187,8 @@ public sealed class SecondaryIndexTests
     // -- Validation: LSI must share table PK -----------------------------
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task CreateTable_LsiDifferentPk_Throws(StoreType st)
         => _ = await Assert.ThrowsAsync<AmazonDynamoDBException>(() =>
             Client(st).CreateTableAsync(new CreateTableRequest
@@ -223,8 +223,8 @@ public sealed class SecondaryIndexTests
     // -- Validation: Missing attribute definition ------------------------
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task CreateTable_GsiKeyNotInAttributeDefinitions_Throws(StoreType st)
         => _ = await Assert.ThrowsAsync<AmazonDynamoDBException>(() =>
             Client(st).CreateTableAsync(new CreateTableRequest
@@ -249,8 +249,8 @@ public sealed class SecondaryIndexTests
     // -- Validation: Unused attribute definitions ------------------------
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task CreateTable_UnusedAttributeDefinitions_Throws(StoreType st)
         => _ = await Assert.ThrowsAsync<AmazonDynamoDBException>(() =>
             Client(st).CreateTableAsync(new CreateTableRequest
@@ -267,8 +267,8 @@ public sealed class SecondaryIndexTests
     // -- Validation: Duplicate index names -------------------------------
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task CreateTable_DuplicateGsiNames_Throws(StoreType st)
         => _ = await Assert.ThrowsAsync<AmazonDynamoDBException>(() =>
             Client(st).CreateTableAsync(new CreateTableRequest
@@ -300,8 +300,8 @@ public sealed class SecondaryIndexTests
     // -- GSI Query -------------------------------------------------------
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task QueryAsync_GsiIndex_ReturnsCorrectResults(StoreType st)
     {
         var client = Client(st);
@@ -365,8 +365,8 @@ public sealed class SecondaryIndexTests
     // -- GSI Scan --------------------------------------------------------
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task ScanAsync_GsiIndex_ReturnsAllIndexItems(StoreType st)
     {
         var client = Client(st);
@@ -408,8 +408,8 @@ public sealed class SecondaryIndexTests
     // -- LSI Query -------------------------------------------------------
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task QueryAsync_LsiIndex_ReturnsCorrectResults(StoreType st)
     {
         var client = Client(st);
@@ -459,8 +459,8 @@ public sealed class SecondaryIndexTests
     // -- Sparse indexes --------------------------------------------------
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task QueryAsync_SparseIndex_ExcludesItemsMissingKeys(StoreType st)
     {
         var client = Client(st);
@@ -505,8 +505,8 @@ public sealed class SecondaryIndexTests
     // -- Projection: KEYS_ONLY ------------------------------------------
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task QueryAsync_KeysOnlyProjection_ReturnsOnlyKeys(StoreType st)
     {
         var client = Client(st);
@@ -570,8 +570,8 @@ public sealed class SecondaryIndexTests
     // -- Projection: INCLUDE --------------------------------------------
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task QueryAsync_IncludeProjection_ReturnsKeysAndIncludedAttributes(StoreType st)
     {
         var client = Client(st);
@@ -640,8 +640,8 @@ public sealed class SecondaryIndexTests
     // -- Index maintenance: update ---------------------------------------
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task UpdateItem_ChangesIndexKey_UpdatesIndex(StoreType st)
     {
         var client = Client(st);
@@ -705,8 +705,8 @@ public sealed class SecondaryIndexTests
     // -- Index maintenance: delete ---------------------------------------
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task DeleteItem_RemovesFromIndex(StoreType st)
     {
         var client = Client(st);
@@ -751,8 +751,8 @@ public sealed class SecondaryIndexTests
     // -- Batch write with indexes ----------------------------------------
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task BatchWriteItem_UpdatesIndexes(StoreType st)
     {
         var client = Client(st);
@@ -811,8 +811,8 @@ public sealed class SecondaryIndexTests
     // -- GSI Query with FilterExpression ---------------------------------
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task QueryAsync_GsiWithFilter_FiltersResults(StoreType st)
     {
         var client = Client(st);
@@ -865,8 +865,8 @@ public sealed class SecondaryIndexTests
     // -- Pagination on index ---------------------------------------------
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task QueryAsync_GsiPagination_WorksCorrectly(StoreType st)
     {
         var client = Client(st);
@@ -916,8 +916,8 @@ public sealed class SecondaryIndexTests
     // -- ConsistentRead on GSI throws ------------------------------------
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task QueryAsync_ConsistentReadOnGsi_Throws(StoreType st)
     {
         var client = Client(st);
@@ -938,8 +938,8 @@ public sealed class SecondaryIndexTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task ScanAsync_ConsistentReadOnGsi_Throws(StoreType st)
     {
         var client = Client(st);
@@ -957,8 +957,8 @@ public sealed class SecondaryIndexTests
     // -- UpdateTable: Create GSI with backfill ---------------------------
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task UpdateTableAsync_CreateGsi_BackfillsExistingItems(StoreType st)
     {
         var client = Client(st);
@@ -1058,8 +1058,8 @@ public sealed class SecondaryIndexTests
     // -- UpdateTable: Delete GSI -----------------------------------------
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task UpdateTableAsync_DeleteGsi_RemovesIndex(StoreType st)
     {
         var client = Client(st);
@@ -1087,8 +1087,8 @@ public sealed class SecondaryIndexTests
     // -- DeleteTable drops index tables ----------------------------------
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task DeleteTable_WithIndexes_Succeeds(StoreType st)
     {
         var client = Client(st);
@@ -1115,8 +1115,8 @@ public sealed class SecondaryIndexTests
     // -- GSI Query with SK condition -------------------------------------
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task QueryAsync_GsiWithSkCondition_FiltersCorrectly(StoreType st)
     {
         var client = Client(st);
@@ -1157,8 +1157,8 @@ public sealed class SecondaryIndexTests
     // -- Select.ALL_PROJECTED_ATTRIBUTES ---------------------------------
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task QueryAsync_SelectAllProjectedAttributes_ReturnsProjectedOnly(StoreType st)
     {
         var client = Client(st);
@@ -1228,8 +1228,8 @@ public sealed class SecondaryIndexTests
     // -- ScanIndexForward on GSI -----------------------------------------
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task QueryAsync_GsiDescending_ReturnsReverseOrder(StoreType st)
     {
         var client = Client(st);
@@ -1271,8 +1271,8 @@ public sealed class SecondaryIndexTests
     // -- Non-existent index ----------------------------------------------
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task QueryAsync_NonExistentIndex_Throws(StoreType st)
     {
         var client = Client(st);
@@ -1294,8 +1294,8 @@ public sealed class SecondaryIndexTests
     // -- UpdateTable: legacy throughput overload --------------------------
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task UpdateTableAsync_LegacyThroughput_ReturnsDescription(StoreType st)
     {
         var client = Client(st);
@@ -1313,8 +1313,8 @@ public sealed class SecondaryIndexTests
     // -- Scan pagination on index ----------------------------------------
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task ScanAsync_GsiPagination_WorksCorrectly(StoreType st)
     {
         var client = Client(st);
@@ -1359,8 +1359,8 @@ public sealed class SecondaryIndexTests
     // -- GSI with ProjectionExpression -----------------------------------
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task QueryAsync_GsiWithProjectionExpression_AppliesProjection(StoreType st)
     {
         var client = Client(st);
@@ -1404,8 +1404,8 @@ public sealed class SecondaryIndexTests
     // -- PutItem overwrites updates index correctly ----------------------
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task PutItem_Overwrite_UpdatesIndex(StoreType st)
     {
         var client = Client(st);

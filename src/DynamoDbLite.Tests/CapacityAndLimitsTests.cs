@@ -8,13 +8,13 @@ public sealed class CapacityAndLimitsTests
 {
     protected override async ValueTask SetupAsync(CancellationToken ct)
     {
-        await CreateHashOnlyTableAsync(Client(StoreType.MemoryBased), "TestTable", ct);
-        await CreateHashOnlyTableAsync(Client(StoreType.FileBased), "TestTable", ct);
+        await CreateHashOnlyTableAsync(Client(StoreType.DdbLite), "TestTable", ct);
+        await CreateHashOnlyTableAsync(Client(StoreType.DdbLiteFile), "TestTable", ct);
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task DescribeEndpoints_Returns_Localhost_Endpoint(StoreType st)
     {
         var client = Client(st);
@@ -28,8 +28,8 @@ public sealed class CapacityAndLimitsTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task DescribeLimits_Returns_Default_Capacity_Values(StoreType st)
     {
         var client = Client(st);
@@ -44,8 +44,8 @@ public sealed class CapacityAndLimitsTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public void DetermineServiceOperationEndpoint_Returns_Localhost_Url(StoreType st)
     {
         var client = Client(st);

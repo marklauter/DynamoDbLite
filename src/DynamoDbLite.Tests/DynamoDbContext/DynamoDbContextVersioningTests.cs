@@ -8,8 +8,8 @@ public sealed class DynamoDbContextVersioningTests
     : DynamoDbContextFixture
 {
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task SaveAsync_NewVersionedItem_SetsVersionToZero(StoreType st)
     {
         var context = Context(st);
@@ -23,8 +23,8 @@ public sealed class DynamoDbContextVersioningTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task SaveAsync_ExistingVersionedItem_IncrementsVersion(StoreType st)
     {
         var context = Context(st);
@@ -42,8 +42,8 @@ public sealed class DynamoDbContextVersioningTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task SaveAsync_StaleVersion_ThrowsConditionalCheckFailed(StoreType st)
     {
         var context = Context(st);
@@ -63,8 +63,8 @@ public sealed class DynamoDbContextVersioningTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task LoadAsync_VersionedItem_ReturnsCurrentVersion(StoreType st)
     {
         var context = Context(st);

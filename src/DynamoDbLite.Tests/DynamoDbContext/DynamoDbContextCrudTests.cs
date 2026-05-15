@@ -7,8 +7,8 @@ public sealed class DynamoDbContextCrudTests
     : DynamoDbContextFixture
 {
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task SaveAsync_NewSimpleItem_CanBeLoaded(StoreType st)
     {
         var context = Context(st);
@@ -26,8 +26,8 @@ public sealed class DynamoDbContextCrudTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task SaveAsync_CompositeKey_CanBeLoadedByKeys(StoreType st)
     {
         var context = Context(st);
@@ -43,8 +43,8 @@ public sealed class DynamoDbContextCrudTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task SaveAsync_Overwrite_UpdatesExistingItem(StoreType st)
     {
         var context = Context(st);
@@ -60,8 +60,8 @@ public sealed class DynamoDbContextCrudTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task LoadAsync_NonExistentItem_ReturnsNull(StoreType st)
     {
         var context = Context(st);
@@ -71,8 +71,8 @@ public sealed class DynamoDbContextCrudTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task LoadAsync_ByHashKeyOnly_ReturnsItem(StoreType st)
     {
         var context = Context(st);
@@ -85,8 +85,8 @@ public sealed class DynamoDbContextCrudTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task LoadAsync_ByCompositeKey_ReturnsItem(StoreType st)
     {
         var context = Context(st);
@@ -100,8 +100,8 @@ public sealed class DynamoDbContextCrudTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task SaveAsync_WithNullOptionalProperty_Succeeds(StoreType st)
     {
         var context = Context(st);
@@ -115,8 +115,8 @@ public sealed class DynamoDbContextCrudTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task SaveAsync_IgnoredProperty_NotPersisted(StoreType st)
     {
         var context = Context(st);

@@ -9,15 +9,15 @@ public sealed class ItemCrudTests
 {
     protected override async ValueTask SetupAsync(CancellationToken ct)
     {
-        await CreateTestTableAsync(Client(StoreType.MemoryBased), ct);
-        await CreateTestTableAsync(Client(StoreType.FileBased), ct);
+        await CreateTestTableAsync(Client(StoreType.DdbLite), ct);
+        await CreateTestTableAsync(Client(StoreType.DdbLiteFile), ct);
     }
 
     // ── PutItemAsync ───────────────────────────────────────────────────
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task PutItemAsync_NewItem_Succeeds(StoreType st)
     {
         var client = Client(st);
@@ -37,8 +37,8 @@ public sealed class ItemCrudTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task PutItemAsync_SimpleOverload_Succeeds(StoreType st)
     {
         var client = Client(st);
@@ -57,8 +57,8 @@ public sealed class ItemCrudTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task PutItemAsync_ReturnValues_AllOld_ReturnsOldItem(StoreType st)
     {
         var client = Client(st);
@@ -81,8 +81,8 @@ public sealed class ItemCrudTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task PutItemAsync_ReturnValues_None_ReturnsNoAttributes(StoreType st)
     {
         var client = Client(st);
@@ -104,8 +104,8 @@ public sealed class ItemCrudTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task PutItemAsync_NonExistentTable_ThrowsResourceNotFoundException(StoreType st)
         => _ = await Assert.ThrowsAsync<ResourceNotFoundException>(() =>
             Client(st).PutItemAsync(new PutItemRequest
@@ -119,8 +119,8 @@ public sealed class ItemCrudTests
             }, TestContext.Current.CancellationToken));
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task PutItemAsync_MissingKeyAttribute_ThrowsException(StoreType st)
         => _ = await Assert.ThrowsAsync<AmazonDynamoDBException>(() =>
             Client(st).PutItemAsync(new PutItemRequest
@@ -134,8 +134,8 @@ public sealed class ItemCrudTests
             }, TestContext.Current.CancellationToken));
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task PutItemAsync_WrongKeyType_ThrowsException(StoreType st)
         => _ = await Assert.ThrowsAsync<AmazonDynamoDBException>(() =>
             Client(st).PutItemAsync(new PutItemRequest
@@ -149,8 +149,8 @@ public sealed class ItemCrudTests
             }, TestContext.Current.CancellationToken));
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task PutItemAsync_ConditionExpression_Passes(StoreType st)
     {
         var client = Client(st);
@@ -171,8 +171,8 @@ public sealed class ItemCrudTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task PutItemAsync_ConditionExpression_Fails_ThrowsConditionalCheckFailedException(StoreType st)
     {
         var client = Client(st);
@@ -195,8 +195,8 @@ public sealed class ItemCrudTests
     // ── GetItemAsync ───────────────────────────────────────────────────
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task GetItemAsync_ExistingItem_ReturnsItem(StoreType st)
     {
         var client = Client(st);
@@ -218,8 +218,8 @@ public sealed class ItemCrudTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task GetItemAsync_SimpleOverload_ReturnsItem(StoreType st)
     {
         var client = Client(st);
@@ -238,8 +238,8 @@ public sealed class ItemCrudTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task GetItemAsync_NonExistentItem_ReturnsEmptyResponse(StoreType st)
     {
         var client = Client(st);
@@ -258,8 +258,8 @@ public sealed class ItemCrudTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task GetItemAsync_WithProjectionExpression_ReturnsSubset(StoreType st)
     {
         var client = Client(st);
@@ -286,8 +286,8 @@ public sealed class ItemCrudTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task GetItemAsync_ConsistentRead_AcceptedAsNoOp(StoreType st)
     {
         var client = Client(st);
@@ -309,8 +309,8 @@ public sealed class ItemCrudTests
     // ── DeleteItemAsync ────────────────────────────────────────────────
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task DeleteItemAsync_ExistingItem_RemovesItem(StoreType st)
     {
         var client = Client(st);
@@ -340,8 +340,8 @@ public sealed class ItemCrudTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task DeleteItemAsync_SimpleOverload_RemovesItem(StoreType st)
     {
         var client = Client(st);
@@ -369,8 +369,8 @@ public sealed class ItemCrudTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task DeleteItemAsync_ReturnValues_AllOld_ReturnsOldItem(StoreType st)
     {
         var client = Client(st);
@@ -392,8 +392,8 @@ public sealed class ItemCrudTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task DeleteItemAsync_NonExistentItem_Succeeds(StoreType st)
     {
         var client = Client(st);
@@ -412,8 +412,8 @@ public sealed class ItemCrudTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task DeleteItemAsync_ConditionExpression_Passes(StoreType st)
     {
         var client = Client(st);
@@ -434,8 +434,8 @@ public sealed class ItemCrudTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task DeleteItemAsync_ConditionExpression_Fails_ThrowsConditionalCheckFailedException(StoreType st)
         => _ = await Assert.ThrowsAsync<ConditionalCheckFailedException>(() =>
             Client(st).DeleteItemAsync(new DeleteItemRequest
@@ -452,8 +452,8 @@ public sealed class ItemCrudTests
     // ── UpdateItemAsync ────────────────────────────────────────────────
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task UpdateItemAsync_SetAttribute_UpdatesValue(StoreType st)
     {
         var client = Client(st);
@@ -489,8 +489,8 @@ public sealed class ItemCrudTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task UpdateItemAsync_ReturnValues_AllNew_ReturnsUpdatedItem(StoreType st)
     {
         var client = Client(st);
@@ -519,8 +519,8 @@ public sealed class ItemCrudTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task UpdateItemAsync_ReturnValues_AllOld_ReturnsOldItem(StoreType st)
     {
         var client = Client(st);
@@ -548,8 +548,8 @@ public sealed class ItemCrudTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task UpdateItemAsync_RemoveAttribute_RemovesFromItem(StoreType st)
     {
         var client = Client(st);
@@ -592,8 +592,8 @@ public sealed class ItemCrudTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task UpdateItemAsync_ArithmeticAdd_IncrementsNumber(StoreType st)
     {
         var client = Client(st);
@@ -639,8 +639,8 @@ public sealed class ItemCrudTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task UpdateItemAsync_IfNotExists_SetsDefault(StoreType st)
     {
         var client = Client(st);
@@ -675,8 +675,8 @@ public sealed class ItemCrudTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task UpdateItemAsync_NonExistentItem_CreatesNewItem(StoreType st)
     {
         var client = Client(st);
@@ -712,8 +712,8 @@ public sealed class ItemCrudTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task UpdateItemAsync_ConditionExpression_Fails_ThrowsConditionalCheckFailedException(StoreType st)
         => _ = await Assert.ThrowsAsync<ConditionalCheckFailedException>(() =>
             Client(st).UpdateItemAsync(new UpdateItemRequest
@@ -734,8 +734,8 @@ public sealed class ItemCrudTests
             }, TestContext.Current.CancellationToken));
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task UpdateItemAsync_ModifyKeyAttribute_ThrowsException(StoreType st)
     {
         var client = Client(st);
@@ -759,8 +759,8 @@ public sealed class ItemCrudTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task UpdateItemAsync_ReturnValues_UpdatedOld_ReturnsModifiedAttributes(StoreType st)
     {
         var client = Client(st);
@@ -789,8 +789,8 @@ public sealed class ItemCrudTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task UpdateItemAsync_ReturnValues_UpdatedNew_ReturnsModifiedAttributes(StoreType st)
     {
         var client = Client(st);
@@ -821,8 +821,8 @@ public sealed class ItemCrudTests
     // ── Item count tracking ────────────────────────────────────────────
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task PutItem_UpdatesItemCount(StoreType st)
     {
         var client = Client(st);
@@ -835,8 +835,8 @@ public sealed class ItemCrudTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task DeleteItem_UpdatesItemCount(StoreType st)
     {
         var client = Client(st);
@@ -861,8 +861,8 @@ public sealed class ItemCrudTests
     // ── Disposal ───────────────────────────────────────────────────────
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task PutItem_AfterDispose_ThrowsObjectDisposedException(StoreType st)
     {
 #pragma warning disable IDISP016, IDISP017
@@ -884,8 +884,8 @@ public sealed class ItemCrudTests
     // ── Binary-typed keys ──────────────────────────────────────────────
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task PutItem_GetItem_BinaryKey_RoundTrip(StoreType st)
     {
         var client = Client(st);
@@ -926,8 +926,8 @@ public sealed class ItemCrudTests
     // ── Convenience overloads with ReturnValue ─────────────────────────
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task PutItem_StringOverload_WithReturnValue_DelegatesCorrectly(StoreType st)
     {
         var client = Client(st);
@@ -948,8 +948,8 @@ public sealed class ItemCrudTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task DeleteItem_StringOverload_WithReturnValue_ReturnsOldItem(StoreType st)
     {
         var client = Client(st);

@@ -8,8 +8,8 @@ public abstract class DynamoDbContextAttributeMappingTests
     : DynamoDbContextFixture
 {
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task SaveAndLoad_PropertyWithCustomName_UsesAttributeName(StoreType st)
     {
         var context = Context(st);
@@ -39,8 +39,8 @@ public abstract class DynamoDbContextAttributeMappingTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task SaveAndLoad_IgnoredProperty_NotStoredOrRetrieved(StoreType st)
     {
         var context = Context(st);
@@ -64,8 +64,8 @@ public abstract class DynamoDbContextAttributeMappingTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task SaveAndLoad_GsiKeyProperties_RoundTrip(StoreType st)
     {
         var context = Context(st);

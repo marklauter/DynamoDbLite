@@ -9,8 +9,8 @@ public sealed class DynamoDbContextScanTests
     : DynamoDbContextFixture
 {
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task ScanAsync_NoFilter_ReturnsAllItems(StoreType st)
     {
         var context = Context(st);
@@ -26,8 +26,8 @@ public sealed class DynamoDbContextScanTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task ScanAsync_WithCondition_FiltersResults(StoreType st)
     {
         var context = Context(st);
@@ -47,8 +47,8 @@ public sealed class DynamoDbContextScanTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task ScanAsync_AllPages_ReturnsAllItems(StoreType st)
     {
         var context = Context(st);
@@ -64,8 +64,8 @@ public sealed class DynamoDbContextScanTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task ScanAsync_OnGsi_ReturnsIndexItems(StoreType st)
     {
         var context = Context(st);

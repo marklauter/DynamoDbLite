@@ -7,8 +7,8 @@ public sealed class DynamoDbContextBatchWriteTests
     : DynamoDbContextFixture
 {
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task BatchWrite_MultiplePuts_AllPersisted(StoreType st)
     {
         var context = Context(st);
@@ -26,8 +26,8 @@ public sealed class DynamoDbContextBatchWriteTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task BatchWrite_MultipleDeletes_AllRemoved(StoreType st)
     {
         var context = Context(st);
@@ -46,8 +46,8 @@ public sealed class DynamoDbContextBatchWriteTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task BatchWrite_MixedPutAndDelete_Succeeds(StoreType st)
     {
         var context = Context(st);
@@ -65,8 +65,8 @@ public sealed class DynamoDbContextBatchWriteTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task BatchWrite_MultiTable_Succeeds(StoreType st)
     {
         var context = Context(st);

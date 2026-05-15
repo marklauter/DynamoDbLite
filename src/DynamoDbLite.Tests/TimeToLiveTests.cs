@@ -10,8 +10,8 @@ public sealed class TimeToLiveTests
 {
     protected override async ValueTask SetupAsync(CancellationToken ct)
     {
-        await CreateTestTableAsync(Client(StoreType.MemoryBased), ct);
-        await CreateTestTableAsync(Client(StoreType.FileBased), ct);
+        await CreateTestTableAsync(Client(StoreType.DdbLite), ct);
+        await CreateTestTableAsync(Client(StoreType.DdbLiteFile), ct);
     }
 
     private static long FutureEpoch() => DateTimeOffset.UtcNow.ToUnixTimeSeconds() + 86400;
@@ -64,8 +64,8 @@ public sealed class TimeToLiveTests
     // -- TTL Config API ----------------------------------------------------
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task DescribeTimeToLive_Disabled_By_Default(StoreType st)
     {
         var client = Client(st);
@@ -77,8 +77,8 @@ public sealed class TimeToLiveTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task DescribeTimeToLive_Missing_Table_Throws(StoreType st)
     {
         var client = Client(st);
@@ -89,8 +89,8 @@ public sealed class TimeToLiveTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task Enable_Disable_Roundtrip(StoreType st)
     {
         var client = Client(st);
@@ -121,8 +121,8 @@ public sealed class TimeToLiveTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task Enable_When_Already_Enabled_Throws(StoreType st)
     {
         var client = Client(st);
@@ -138,8 +138,8 @@ public sealed class TimeToLiveTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task Disable_When_Already_Disabled_Throws(StoreType st)
     {
         var client = Client(st);
@@ -154,8 +154,8 @@ public sealed class TimeToLiveTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task Enable_On_Missing_Table_Throws(StoreType st)
     {
         var client = Client(st);
@@ -170,8 +170,8 @@ public sealed class TimeToLiveTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task DescribeTimeToLive_With_Request_Object(StoreType st)
     {
         var client = Client(st);
@@ -189,8 +189,8 @@ public sealed class TimeToLiveTests
     // -- Read Filtering ----------------------------------------------------
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task GetItem_Expired_Item_Returns_Null(StoreType st)
     {
         var client = Client(st);
@@ -202,8 +202,8 @@ public sealed class TimeToLiveTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task GetItem_NonExpired_Item_Returns_Item(StoreType st)
     {
         var client = Client(st);
@@ -216,8 +216,8 @@ public sealed class TimeToLiveTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task GetItem_Missing_Ttl_Attribute_Returns_Item(StoreType st)
     {
         var client = Client(st);
@@ -229,8 +229,8 @@ public sealed class TimeToLiveTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task GetItem_NonNumeric_Ttl_Attribute_Returns_Item(StoreType st)
     {
         var client = Client(st);
@@ -251,8 +251,8 @@ public sealed class TimeToLiveTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task Query_Excludes_Expired_Items(StoreType st)
     {
         var client = Client(st);
@@ -276,8 +276,8 @@ public sealed class TimeToLiveTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task Scan_Excludes_Expired_Items(StoreType st)
     {
         var client = Client(st);
@@ -295,8 +295,8 @@ public sealed class TimeToLiveTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task BatchGetItem_Excludes_Expired_Items(StoreType st)
     {
         var client = Client(st);
@@ -332,8 +332,8 @@ public sealed class TimeToLiveTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task TransactGetItems_Excludes_Expired_Items(StoreType st)
     {
         var client = Client(st);
@@ -379,8 +379,8 @@ public sealed class TimeToLiveTests
     // -- Write Path --------------------------------------------------------
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task PutItem_With_Ttl_Stores_TtlEpoch(StoreType st)
     {
         var client = Client(st);
@@ -394,8 +394,8 @@ public sealed class TimeToLiveTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task UpdateItem_With_Ttl_Stores_TtlEpoch(StoreType st)
     {
         var client = Client(st);
@@ -425,8 +425,8 @@ public sealed class TimeToLiveTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task BatchWrite_With_Ttl_Stores_TtlEpoch(StoreType st)
     {
         var client = Client(st);
@@ -461,8 +461,8 @@ public sealed class TimeToLiveTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task TransactWrite_With_Ttl_Stores_TtlEpoch(StoreType st)
     {
         var client = Client(st);
@@ -496,8 +496,8 @@ public sealed class TimeToLiveTests
     // -- Config Changes ----------------------------------------------------
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task Disable_Ttl_Makes_Expired_Items_Visible_Again(StoreType st)
     {
         var client = Client(st);
@@ -520,8 +520,8 @@ public sealed class TimeToLiveTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task Enable_Ttl_Backfills_Existing_Items(StoreType st)
     {
         var client = Client(st);
@@ -545,8 +545,8 @@ public sealed class TimeToLiveTests
     // -- Condition Expressions ---------------------------------------------
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task Condition_On_Expired_Item_Treats_As_NonExistent(StoreType st)
     {
         var client = Client(st);
@@ -575,8 +575,8 @@ public sealed class TimeToLiveTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task Update_On_Expired_Item_Behaves_Like_New_Item(StoreType st)
     {
         var client = Client(st);
@@ -614,8 +614,8 @@ public sealed class TimeToLiveTests
     // -- Index Integration -------------------------------------------------
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task Query_On_Gsi_Filters_Expired_Items(StoreType st)
     {
         var client = Client(st);
@@ -692,8 +692,8 @@ public sealed class TimeToLiveTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task Scan_On_Gsi_Filters_Expired_Items(StoreType st)
     {
         var client = Client(st);
@@ -765,8 +765,8 @@ public sealed class TimeToLiveTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task Gsi_Created_After_Ttl_Enabled_Backfills_TtlEpoch(StoreType st)
     {
         var client = Client(st);
@@ -859,8 +859,8 @@ public sealed class TimeToLiveTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task Query_On_Lsi_Filters_Expired_Items(StoreType st)
     {
         var client = Client(st);
@@ -942,8 +942,8 @@ public sealed class TimeToLiveTests
     // -- Cleanup -----------------------------------------------------------
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task DeleteTable_Cleans_Up_TtlConfig(StoreType st)
     {
         var client = Client(st);
@@ -974,8 +974,8 @@ public sealed class TimeToLiveTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task Background_Cleanup_Removes_Expired_Rows(StoreType st)
     {
         var client = Client(st);

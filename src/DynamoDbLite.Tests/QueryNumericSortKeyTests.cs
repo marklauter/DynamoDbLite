@@ -8,10 +8,10 @@ public sealed class QueryNumericSortKeyTests
 {
     protected override async ValueTask SetupAsync(CancellationToken ct)
     {
-        await CreateNumericSortKeyTableAsync(Client(StoreType.MemoryBased), "NumericTable", ct);
-        await CreateNumericSortKeyTableAsync(Client(StoreType.FileBased), "NumericTable", ct);
-        await SeedDataAsync(Client(StoreType.MemoryBased), ct);
-        await SeedDataAsync(Client(StoreType.FileBased), ct);
+        await CreateNumericSortKeyTableAsync(Client(StoreType.DdbLite), "NumericTable", ct);
+        await CreateNumericSortKeyTableAsync(Client(StoreType.DdbLiteFile), "NumericTable", ct);
+        await SeedDataAsync(Client(StoreType.DdbLite), ct);
+        await SeedDataAsync(Client(StoreType.DdbLiteFile), ct);
     }
 
     private static async Task SeedDataAsync(DynamoDbClient client, CancellationToken ct)
@@ -38,8 +38,8 @@ public sealed class QueryNumericSortKeyTests
     // -- Numeric ordering --------------------------------------------------
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task QueryAsync_NumericSk_SortsNumerically(StoreType st)
     {
         var client = Client(st);
@@ -64,8 +64,8 @@ public sealed class QueryNumericSortKeyTests
     // -- Numeric comparison ------------------------------------------------
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task QueryAsync_NumericSk_LessThan_ComparesNumerically(StoreType st)
     {
         var client = Client(st);
@@ -89,8 +89,8 @@ public sealed class QueryNumericSortKeyTests
     // -- Numeric BETWEEN ---------------------------------------------------
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task QueryAsync_NumericSk_Between_ComparesNumerically(StoreType st)
     {
         var client = Client(st);
@@ -115,8 +115,8 @@ public sealed class QueryNumericSortKeyTests
     // -- Descending --------------------------------------------------------
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task QueryAsync_NumericSk_Descending_SortsNumericallyReversed(StoreType st)
     {
         var client = Client(st);
@@ -142,8 +142,8 @@ public sealed class QueryNumericSortKeyTests
     // -- Pagination with numeric SK ----------------------------------------
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task QueryAsync_NumericSk_Pagination_WorksCorrectly(StoreType st)
     {
         var client = Client(st);
@@ -178,8 +178,8 @@ public sealed class QueryNumericSortKeyTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task QueryAsync_NumericSk_LastEvaluatedKey_HasNumericSk(StoreType st)
     {
         var client = Client(st);

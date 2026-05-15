@@ -28,8 +28,8 @@ public sealed class ExportImportRoundTripTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task Export_And_Import_Preserves_All_Data(StoreType st)
     {
         var client = Client(st);
@@ -189,8 +189,8 @@ public sealed class ExportImportRoundTripTests
     }
 
     [Theory]
-    [InlineData(StoreType.FileBased)]
-    [InlineData(StoreType.MemoryBased)]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task Export_And_Import_With_GSI_PreservesIndex(StoreType st)
     {
         var client = Client(st);
