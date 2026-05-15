@@ -83,6 +83,73 @@ internal static class TestTables
         BillingMode = BillingMode.PAY_PER_REQUEST,
     };
 
+    public static CreateTableRequest HashKeyStringSortKeyStringWithGsiProjection(string tableName, string indexName, ProjectionType projectionType) => new()
+    {
+        TableName = tableName,
+        KeySchema =
+        [
+            new KeySchemaElement { AttributeName = "PK", KeyType = KeyType.HASH },
+            new KeySchemaElement { AttributeName = "SK", KeyType = KeyType.RANGE },
+        ],
+        AttributeDefinitions =
+        [
+            new AttributeDefinition { AttributeName = "PK", AttributeType = ScalarAttributeType.S },
+            new AttributeDefinition { AttributeName = "SK", AttributeType = ScalarAttributeType.S },
+            new AttributeDefinition { AttributeName = "GsiPK", AttributeType = ScalarAttributeType.S },
+            new AttributeDefinition { AttributeName = "GsiSK", AttributeType = ScalarAttributeType.S },
+        ],
+        GlobalSecondaryIndexes =
+        [
+            new GlobalSecondaryIndex
+            {
+                IndexName = indexName,
+                KeySchema =
+                [
+                    new KeySchemaElement { AttributeName = "GsiPK", KeyType = KeyType.HASH },
+                    new KeySchemaElement { AttributeName = "GsiSK", KeyType = KeyType.RANGE },
+                ],
+                Projection = projectionType == ProjectionType.INCLUDE
+                    ? new Projection { ProjectionType = ProjectionType.INCLUDE, NonKeyAttributes = ["projected"] }
+                    : new Projection { ProjectionType = projectionType },
+            },
+        ],
+        BillingMode = BillingMode.PAY_PER_REQUEST,
+    };
+
+    public static CreateTableRequest HashKeyStringSortKeyStringWithLsi(string tableName, string indexName) => new()
+    {
+        TableName = tableName,
+        KeySchema =
+        [
+            new KeySchemaElement { AttributeName = "PK", KeyType = KeyType.HASH },
+            new KeySchemaElement { AttributeName = "SK", KeyType = KeyType.RANGE },
+        ],
+        AttributeDefinitions =
+        [
+            new AttributeDefinition { AttributeName = "PK", AttributeType = ScalarAttributeType.S },
+            new AttributeDefinition { AttributeName = "SK", AttributeType = ScalarAttributeType.S },
+            new AttributeDefinition { AttributeName = "LsiSK", AttributeType = ScalarAttributeType.S },
+        ],
+        LocalSecondaryIndexes =
+        [
+            new LocalSecondaryIndex
+            {
+                IndexName = indexName,
+                KeySchema =
+                [
+                    new KeySchemaElement { AttributeName = "PK", KeyType = KeyType.HASH },
+                    new KeySchemaElement { AttributeName = "LsiSK", KeyType = KeyType.RANGE },
+                ],
+                Projection = new Projection
+                {
+                    ProjectionType = ProjectionType.INCLUDE,
+                    NonKeyAttributes = ["projected"],
+                },
+            },
+        ],
+        BillingMode = BillingMode.PAY_PER_REQUEST,
+    };
+
     public static async Task CreateAndWaitAsync(IAmazonDynamoDB client, CreateTableRequest request, CancellationToken ct)
     {
         _ = await client.CreateTableAsync(request, ct);

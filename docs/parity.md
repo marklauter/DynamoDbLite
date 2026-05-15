@@ -54,19 +54,21 @@ DynamoDB's [reserved word list](https://docs.aws.amazon.com/amazondynamodb/lates
 
 ## Coverage
 
-Initial slice covers 25 scenarios across eight test files, mapping one-to-one against parity claims in `README.md`:
+Scenarios map one-to-one against parity claims in `README.md`:
 
 - [`ItemCrudParityTests`](../src/DynamoDbLite.Parity.Tests/ItemCrudParityTests.cs) — `PutItem` + `GetItem` round-trip across S/N/BOOL/L/M, plus B/NULL/SS/NS/BS round-trips; `attribute_not_exists` condition on `PutItem` (success and `ConditionalCheckFailedException`); `attribute_exists` condition on `DeleteItem` failure.
 - [`UpdateExpressionParityTests`](../src/DynamoDbLite.Parity.Tests/UpdateExpressionParityTests.cs) — `SET` with `if_not_exists`, `SET` with `list_append`, `ADD` on number, `REMOVE`, `DELETE` on string set.
 - [`QueryParityTests`](../src/DynamoDbLite.Parity.Tests/QueryParityTests.cs) — `KeyConditionExpression`; `begins_with` on sort key; `ScanIndexForward = false`; `Limit` + `LastEvaluatedKey` pagination.
 - [`QueryNumericSortKeyParityTests`](../src/DynamoDbLite.Parity.Tests/QueryNumericSortKeyParityTests.cs) — `BETWEEN` on numeric sort key returns inclusive range in ascending order.
 - [`ScanParityTests`](../src/DynamoDbLite.Parity.Tests/ScanParityTests.cs) — `FilterExpression` with correct `Count` and `ScannedCount`; `contains` on string set; `IN` against a value list.
-- [`TransactionParityTests`](../src/DynamoDbLite.Parity.Tests/TransactionParityTests.cs) — `TransactWriteItems` all-or-nothing rollback with `CancellationReasons[i].Code == "ConditionalCheckFailed"`.
-- [`BatchParityTests`](../src/DynamoDbLite.Parity.Tests/BatchParityTests.cs) — `BatchGetItem` happy path.
-- [`SecondaryIndexParityTests`](../src/DynamoDbLite.Parity.Tests/SecondaryIndexParityTests.cs) — GSI query with `INCLUDE` projection returns projected attributes only.
+- [`TransactionParityTests`](../src/DynamoDbLite.Parity.Tests/TransactionParityTests.cs) — `TransactWriteItems` all-or-nothing rollback with `CancellationReasons[i].Code == "ConditionalCheckFailed"`; multiple simultaneous condition failures populate each index; `ClientRequestToken` idempotency on replay; `ReturnValuesOnConditionCheckFailure = ALL_OLD` includes the prior item.
+- [`TransactGetItemsParityTests`](../src/DynamoDbLite.Parity.Tests/TransactGetItemsParityTests.cs) — `TransactGetItems` happy path across two tables in request order; missing key returns empty `Item` at that response index without throwing.
+- [`BatchParityTests`](../src/DynamoDbLite.Parity.Tests/BatchParityTests.cs) — `BatchGetItem` happy path; `BatchWriteItem` with put + delete in a single batch; `BatchWriteItem` across two tables.
+- [`SecondaryIndexParityTests`](../src/DynamoDbLite.Parity.Tests/SecondaryIndexParityTests.cs) — GSI query across projection variants: `INCLUDE` returns projected attributes only; `KEYS_ONLY` returns only table + index keys; `ALL` returns every attribute.
+- [`LocalSecondaryIndexParityTests`](../src/DynamoDbLite.Parity.Tests/LocalSecondaryIndexParityTests.cs) — LSI query with `begins_with` on the alternate sort key; `INCLUDE` projection returns projected attributes only.
 - [`ReservedWordParityTests`](../src/DynamoDbLite.Parity.Tests/ReservedWordParityTests.cs) — raw reserved words in `UpdateExpression`/`ConditionExpression`/`ProjectionExpression` throw `AmazonDynamoDBException` with `ErrorCode == "ValidationException"`; the same word escaped via `ExpressionAttributeNames` is accepted.
-
-29 scenarios × 3 backends = 87 test executions per parity run.
+- [`EmptyStringParityTests`](../src/DynamoDbLite.Parity.Tests/EmptyStringParityTests.cs) — empty-string scalar values round-trip through `PutItem` + `GetItem` (real DynamoDB rejected these pre-2020; current behavior accepts them).
+- [`SizeOperatorParityTests`](../src/DynamoDbLite.Parity.Tests/SizeOperatorParityTests.cs) — `size()` in `ConditionExpression` on `UpdateItem` (success and `ConditionalCheckFailedException`); `size()` in `FilterExpression` on `Scan`.
 
 ## Configuration
 
@@ -85,13 +87,6 @@ Docker Desktop users need no file — defaults work. Linux runners (CI) use the 
 
 Mapped to README parity claims, in rough priority order:
 
-- **Empty-string scalar values:** real DynamoDB once rejected them; current behavior allows them — worth a dedicated scenario.
-- **Condition operators not yet exercised:** `size`.
-- **LSI:** GSI coverage exists; LSI is structurally different (shared partition, table-level provisioning) and untested.
-- **GSI projection variants:** `KEYS_ONLY` and `ALL` (currently only `INCLUDE`).
-- **`BatchWriteItem`:** put and delete in one batch, mixed-table batches.
-- **`TransactGetItems`:** read-side transactional consistency.
-- **More transaction failure modes:** multiple simultaneous condition failures, `ClientRequestToken` idempotency, `ReturnValuesOnConditionCheckFailure`.
 - **`Select.COUNT`** on Query and Scan.
 - **`ReturnValues`** variants on `PutItem`, `UpdateItem`, `DeleteItem` (`ALL_OLD`, `UPDATED_NEW`, etc.).
 - **Pagination edge cases:** scan with `Segment`/`TotalSegments`, query that exits via `Limit` versus exits via end-of-data.
