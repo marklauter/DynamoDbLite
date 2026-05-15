@@ -10,7 +10,7 @@ using System.Diagnostics.CodeAnalysis;
 namespace DynamoDbLite;
 
 public sealed partial class DynamoDbClient(
-    DynamoDbLiteOptions? options = null,
+    DynamoDbLiteOptions options,
     ILogger<DynamoDbClient>? logger = null)
     : IAmazonDynamoDB
     , IAmazonService
@@ -19,7 +19,7 @@ public sealed partial class DynamoDbClient(
     private const int DefaultListTablesLimit = 100;
     private const int MaxTransactItems = 100;
 
-    private readonly SqliteStore store = CreateStore(options ?? new DynamoDbLiteOptions());
+    private readonly SqliteStore store = CreateStore(options);
     private readonly ConcurrentDictionary<string, (DateTime Expiry, TransactWriteItemsResponse Response)> transactWriteTokenCache = new();
     private readonly ILogger<DynamoDbClient> logger = logger ?? NullLogger<DynamoDbClient>.Instance;
     private bool disposed;
@@ -30,9 +30,10 @@ public sealed partial class DynamoDbClient(
 
     public static ClientConfig CreateDefaultClientConfig() => new AmazonDynamoDBConfig();
 
-    [SuppressMessage("IDisposableAnalyzers.Correctness", "IDISP005:Return type should indicate that the value should be disposed", Justification = "AWS defined the interface")]
     public static IAmazonService CreateDefaultServiceClient(AWSCredentials awsCredentials, ClientConfig clientConfig) =>
-        new DynamoDbClient();
+        throw new NotSupportedException(
+            "DynamoDbLite cannot be constructed from AWS credentials. " +
+            "Use new DynamoDbClient(new DynamoDbLiteOptions(...)) or services.AddDynamoDbLite(o => o.WithConnectionString(...)) instead.");
 
     public void Dispose()
     {
@@ -79,7 +80,9 @@ public sealed partial class DynamoDbClient(
 
     private static SqliteStore CreateStore(DynamoDbLiteOptions options)
     {
-        var cs = options.ConnectionString ?? string.Empty;
+        ArgumentNullException.ThrowIfNull(options);
+
+        var cs = options.ConnectionString;
         var isMemory = cs.Contains(":memory:", StringComparison.OrdinalIgnoreCase)
             || cs.Contains("Mode=Memory", StringComparison.OrdinalIgnoreCase);
         return isMemory

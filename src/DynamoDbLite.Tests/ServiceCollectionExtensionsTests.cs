@@ -46,23 +46,20 @@ public sealed class ServiceCollectionExtensionsTests
     }
 
     [Fact]
-    public void OptionsBuilder_Without_Configure_Produces_Default_ConnectionString()
+    public void AddDynamoDbLite_Without_Configure_Throws_At_Registration()
     {
-        // The builder's default is what AddDynamoDbLite falls back to when configure() is a no-op.
-        // Test it directly instead of instantiating IAmazonDynamoDB — going through DI here would
-        // open the default-named shared-cache SQLite database, which collides with any other test
-        // that happens to use the same default in the same process.
-        var options = new DynamoDbLiteOptionsBuilder().Build();
+        var services = new ServiceCollection();
 
-        Assert.Equal(new DynamoDbLiteOptions().ConnectionString, options.ConnectionString);
+        // AddDynamoDbLite calls builder.Build() eagerly during registration, so a configure lambda
+        // that never sets the connection string fails fast at AddDynamoDbLite() rather than later
+        // at service resolution. ConnectionString has no default — an empty configure block is a misuse.
+        var ex = Assert.Throws<DynamoDbLiteConfigurationException>(() => services.AddDynamoDbLite(_ => { }));
+        Assert.Contains("Connection string was not configured", ex.Message, StringComparison.Ordinal);
     }
 
     [Fact]
     public void AddDynamoDbLite_Does_Not_Override_Existing_Registration()
     {
-        // The pre-existing client uses a unique connection string so it cannot collide with the
-        // default shared cache. The assertion is about DI substitution semantics, not the
-        // connection string.
         using var existing = new DynamoDbClient(new DynamoDbLiteOptions(
             $"Data Source=Test_{Guid.NewGuid():N};Mode=Memory;Cache=Shared"));
         var services = new ServiceCollection();
