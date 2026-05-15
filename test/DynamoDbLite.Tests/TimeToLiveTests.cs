@@ -17,17 +17,17 @@ public sealed class TimeToLiveTests
     private static long FutureEpoch() => DateTimeOffset.UtcNow.ToUnixTimeSeconds() + 86400;
     private static long PastEpoch() => DateTimeOffset.UtcNow.ToUnixTimeSeconds() - 86400;
 
-    private static async Task EnableTtlAsync(DynamoDbClient client) =>
+    private async Task EnableTtlAsync(DynamoDbClient client) =>
         _ = await client.UpdateTimeToLiveAsync(new UpdateTimeToLiveRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             TimeToLiveSpecification = new TimeToLiveSpecification { Enabled = true, AttributeName = "ttl" }
         }, TestContext.Current.CancellationToken);
 
-    private static async Task PutItemWithTtlAsync(DynamoDbClient client, string pk, string sk, long ttlValue) =>
+    private async Task PutItemWithTtlAsync(DynamoDbClient client, string pk, string sk, long ttlValue) =>
         _ = await client.PutItemAsync(new PutItemRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             Item = new Dictionary<string, AttributeValue>
             {
                 ["PK"] = new() { S = pk },
@@ -36,10 +36,10 @@ public sealed class TimeToLiveTests
             }
         }, TestContext.Current.CancellationToken);
 
-    private static async Task PutItemWithoutTtlAsync(DynamoDbClient client, string pk, string sk) =>
+    private async Task PutItemWithoutTtlAsync(DynamoDbClient client, string pk, string sk) =>
         _ = await client.PutItemAsync(new PutItemRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             Item = new Dictionary<string, AttributeValue>
             {
                 ["PK"] = new() { S = pk },
@@ -47,11 +47,11 @@ public sealed class TimeToLiveTests
             }
         }, TestContext.Current.CancellationToken);
 
-    private static async Task<Dictionary<string, AttributeValue>?> GetItemAsync(DynamoDbClient client, string pk, string sk)
+    private async Task<Dictionary<string, AttributeValue>?> GetItemAsync(DynamoDbClient client, string pk, string sk)
     {
         var response = await client.GetItemAsync(new GetItemRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             Key = new Dictionary<string, AttributeValue>
             {
                 ["PK"] = new() { S = pk },
@@ -70,7 +70,7 @@ public sealed class TimeToLiveTests
     {
         var client = Client(st);
 
-        var response = await client.DescribeTimeToLiveAsync("TestTable", TestContext.Current.CancellationToken);
+        var response = await client.DescribeTimeToLiveAsync(TestTableName, TestContext.Current.CancellationToken);
 
         Assert.Equal(TimeToLiveStatus.DISABLED, response.TimeToLiveDescription.TimeToLiveStatus);
         Assert.Null(response.TimeToLiveDescription.AttributeName);
@@ -97,26 +97,26 @@ public sealed class TimeToLiveTests
 
         var enableResponse = await client.UpdateTimeToLiveAsync(new UpdateTimeToLiveRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             TimeToLiveSpecification = new TimeToLiveSpecification { Enabled = true, AttributeName = "ttl" }
         }, TestContext.Current.CancellationToken);
 
         Assert.True(enableResponse.TimeToLiveSpecification.Enabled);
         Assert.Equal("ttl", enableResponse.TimeToLiveSpecification.AttributeName);
 
-        var describe = await client.DescribeTimeToLiveAsync("TestTable", TestContext.Current.CancellationToken);
+        var describe = await client.DescribeTimeToLiveAsync(TestTableName, TestContext.Current.CancellationToken);
         Assert.Equal(TimeToLiveStatus.ENABLED, describe.TimeToLiveDescription.TimeToLiveStatus);
         Assert.Equal("ttl", describe.TimeToLiveDescription.AttributeName);
 
         var disableResponse = await client.UpdateTimeToLiveAsync(new UpdateTimeToLiveRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             TimeToLiveSpecification = new TimeToLiveSpecification { Enabled = false, AttributeName = "ttl" }
         }, TestContext.Current.CancellationToken);
 
         Assert.False(disableResponse.TimeToLiveSpecification.Enabled);
 
-        var describe2 = await client.DescribeTimeToLiveAsync("TestTable", TestContext.Current.CancellationToken);
+        var describe2 = await client.DescribeTimeToLiveAsync(TestTableName, TestContext.Current.CancellationToken);
         Assert.Equal(TimeToLiveStatus.DISABLED, describe2.TimeToLiveDescription.TimeToLiveStatus);
     }
 
@@ -131,7 +131,7 @@ public sealed class TimeToLiveTests
         var ex = await Assert.ThrowsAsync<AmazonDynamoDBException>(() =>
             client.UpdateTimeToLiveAsync(new UpdateTimeToLiveRequest
             {
-                TableName = "TestTable",
+                TableName = TestTableName,
                 TimeToLiveSpecification = new TimeToLiveSpecification { Enabled = true, AttributeName = "ttl" }
             }, TestContext.Current.CancellationToken));
         Assert.Contains("already enabled", ex.Message);
@@ -147,7 +147,7 @@ public sealed class TimeToLiveTests
         var ex = await Assert.ThrowsAsync<AmazonDynamoDBException>(() =>
             client.UpdateTimeToLiveAsync(new UpdateTimeToLiveRequest
             {
-                TableName = "TestTable",
+                TableName = TestTableName,
                 TimeToLiveSpecification = new TimeToLiveSpecification { Enabled = false, AttributeName = "ttl" }
             }, TestContext.Current.CancellationToken));
         Assert.Contains("already disabled", ex.Message);
@@ -179,7 +179,7 @@ public sealed class TimeToLiveTests
 
         var response = await client.DescribeTimeToLiveAsync(new DescribeTimeToLiveRequest
         {
-            TableName = "TestTable"
+            TableName = TestTableName
         }, TestContext.Current.CancellationToken);
 
         Assert.Equal(TimeToLiveStatus.ENABLED, response.TimeToLiveDescription.TimeToLiveStatus);
@@ -237,7 +237,7 @@ public sealed class TimeToLiveTests
         await EnableTtlAsync(client);
         _ = await client.PutItemAsync(new PutItemRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             Item = new Dictionary<string, AttributeValue>
             {
                 ["PK"] = new() { S = "pk1" },
@@ -263,7 +263,7 @@ public sealed class TimeToLiveTests
 
         var response = await client.QueryAsync(new QueryRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             KeyConditionExpression = "PK = :pk",
             ExpressionAttributeValues = new Dictionary<string, AttributeValue>
             {
@@ -287,7 +287,7 @@ public sealed class TimeToLiveTests
 
         var response = await client.ScanAsync(new ScanRequest
         {
-            TableName = "TestTable"
+            TableName = TestTableName
         }, TestContext.Current.CancellationToken);
 
         _ = Assert.Single(response.Items);
@@ -308,7 +308,7 @@ public sealed class TimeToLiveTests
         {
             RequestItems = new Dictionary<string, KeysAndAttributes>
             {
-                ["TestTable"] = new()
+                [TestTableName] = new()
                 {
                     Keys =
                     [
@@ -327,8 +327,8 @@ public sealed class TimeToLiveTests
             }
         }, TestContext.Current.CancellationToken);
 
-        _ = Assert.Single(response.Responses["TestTable"]);
-        Assert.Equal("pk2", response.Responses["TestTable"][0]["PK"].S);
+        _ = Assert.Single(response.Responses[TestTableName]);
+        Assert.Equal("pk2", response.Responses[TestTableName][0]["PK"].S);
     }
 
     [Theory]
@@ -349,7 +349,7 @@ public sealed class TimeToLiveTests
                 {
                     Get = new Get
                     {
-                        TableName = "TestTable",
+                        TableName = TestTableName,
                         Key = new Dictionary<string, AttributeValue>
                         {
                             ["PK"] = new() { S = "pk1" },
@@ -361,7 +361,7 @@ public sealed class TimeToLiveTests
                 {
                     Get = new Get
                     {
-                        TableName = "TestTable",
+                        TableName = TestTableName,
                         Key = new Dictionary<string, AttributeValue>
                         {
                             ["PK"] = new() { S = "pk2" },
@@ -405,7 +405,7 @@ public sealed class TimeToLiveTests
         var futureEpoch = FutureEpoch();
         _ = await client.UpdateItemAsync(new UpdateItemRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             Key = new Dictionary<string, AttributeValue>
             {
                 ["PK"] = new() { S = "pk1" },
@@ -437,7 +437,7 @@ public sealed class TimeToLiveTests
         {
             RequestItems = new Dictionary<string, List<WriteRequest>>
             {
-                ["TestTable"] =
+                [TestTableName] =
                 [
                     new WriteRequest
                     {
@@ -477,7 +477,7 @@ public sealed class TimeToLiveTests
                 {
                     Put = new Put
                     {
-                        TableName = "TestTable",
+                        TableName = TestTableName,
                         Item = new Dictionary<string, AttributeValue>
                         {
                             ["PK"] = new() { S = "pk1" },
@@ -510,7 +510,7 @@ public sealed class TimeToLiveTests
         // Disable TTL (clears ttl_epoch to NULL for all items)
         _ = await client.UpdateTimeToLiveAsync(new UpdateTimeToLiveRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             TimeToLiveSpecification = new TimeToLiveSpecification { Enabled = false, AttributeName = "ttl" }
         }, TestContext.Current.CancellationToken);
 
@@ -556,7 +556,7 @@ public sealed class TimeToLiveTests
         // attribute_not_exists should succeed because the expired item is treated as non-existent
         var response = await client.PutItemAsync(new PutItemRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             Item = new Dictionary<string, AttributeValue>
             {
                 ["PK"] = new() { S = "pk1" },
@@ -586,7 +586,7 @@ public sealed class TimeToLiveTests
         var futureEpoch = FutureEpoch();
         _ = await client.UpdateItemAsync(new UpdateItemRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             Key = new Dictionary<string, AttributeValue>
             {
                 ["PK"] = new() { S = "pk1" },
@@ -949,13 +949,13 @@ public sealed class TimeToLiveTests
         var client = Client(st);
         await EnableTtlAsync(client);
 
-        _ = await client.DeleteTableAsync(new DeleteTableRequest { TableName = "TestTable" },
+        _ = await client.DeleteTableAsync(new DeleteTableRequest { TableName = TestTableName },
             TestContext.Current.CancellationToken);
 
         // Re-create table
         _ = await client.CreateTableAsync(new CreateTableRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             KeySchema =
             [
                 new KeySchemaElement { AttributeName = "PK", KeyType = KeyType.HASH },
@@ -969,7 +969,7 @@ public sealed class TimeToLiveTests
         }, TestContext.Current.CancellationToken);
 
         // TTL should be disabled for the re-created table
-        var response = await client.DescribeTimeToLiveAsync("TestTable", TestContext.Current.CancellationToken);
+        var response = await client.DescribeTimeToLiveAsync(TestTableName, TestContext.Current.CancellationToken);
         Assert.Equal(TimeToLiveStatus.DISABLED, response.TimeToLiveDescription.TimeToLiveStatus);
     }
 
@@ -984,7 +984,7 @@ public sealed class TimeToLiveTests
         await PutItemWithTtlAsync(client, "pk2", "sk1", FutureEpoch());
 
         // Scan to see only non-expired items
-        var scanBefore = await client.ScanAsync(new ScanRequest { TableName = "TestTable" },
+        var scanBefore = await client.ScanAsync(new ScanRequest { TableName = TestTableName },
             TestContext.Current.CancellationToken);
         _ = Assert.Single(scanBefore.Items);
 
@@ -994,7 +994,7 @@ public sealed class TimeToLiveTests
         for (var i = 0; i < 50; i++)
         {
             await Task.Delay(100, TestContext.Current.CancellationToken);
-            var d = await client.DescribeTableAsync("TestTable", TestContext.Current.CancellationToken);
+            var d = await client.DescribeTableAsync(TestTableName, TestContext.Current.CancellationToken);
             if (d.Table.ItemCount == 1)
             {
                 description = d.Table;

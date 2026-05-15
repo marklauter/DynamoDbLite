@@ -16,7 +16,7 @@ public sealed class ScanLegacyOverloadTests
         await SeedDataAsync(Client(StoreType.DdbLiteFile), ct);
     }
 
-    private static async Task SeedDataAsync(DynamoDbClient client, CancellationToken ct)
+    private async Task SeedDataAsync(DynamoDbClient client, CancellationToken ct)
     {
         var items = new (string Pk, string Sk, string Name, int Age)[]
         {
@@ -29,7 +29,7 @@ public sealed class ScanLegacyOverloadTests
         {
             _ = await client.PutItemAsync(new PutItemRequest
             {
-                TableName = "TestTable",
+                TableName = TestTableName,
                 Item = new Dictionary<string, AttributeValue>
                 {
                     ["PK"] = new() { S = pk },
@@ -51,7 +51,7 @@ public sealed class ScanLegacyOverloadTests
         var client = Client(st);
 
         var response = await client.ScanAsync(
-            "TestTable",
+            TestTableName,
             ["name"],
             TestContext.Current.CancellationToken);
 
@@ -73,7 +73,7 @@ public sealed class ScanLegacyOverloadTests
         var client = Client(st);
 
         var response = await client.ScanAsync(
-            "TestTable",
+            TestTableName,
             new Dictionary<string, Condition>
             {
                 ["name"] = new()
@@ -96,7 +96,7 @@ public sealed class ScanLegacyOverloadTests
         var client = Client(st);
 
         var response = await client.ScanAsync(
-            "TestTable",
+            TestTableName,
             new Dictionary<string, Condition>
             {
                 ["age"] = new()
@@ -118,7 +118,7 @@ public sealed class ScanLegacyOverloadTests
         var client = Client(st);
 
         var response = await client.ScanAsync(
-            "TestTable",
+            TestTableName,
             new Dictionary<string, Condition>
             {
                 ["name"] = new()
@@ -141,7 +141,7 @@ public sealed class ScanLegacyOverloadTests
         var client = Client(st);
 
         var response = await client.ScanAsync(
-            "TestTable",
+            TestTableName,
             new Dictionary<string, Condition>
             {
                 ["age"] = new()
@@ -167,7 +167,7 @@ public sealed class ScanLegacyOverloadTests
         var client = Client(st);
 
         var response = await client.ScanAsync(
-            "TestTable",
+            TestTableName,
             new Dictionary<string, Condition>
             {
                 ["name"] = new()
@@ -190,7 +190,7 @@ public sealed class ScanLegacyOverloadTests
         var client = Client(st);
 
         var response = await client.ScanAsync(
-            "TestTable",
+            TestTableName,
             ["name"],
             new Dictionary<string, Condition>
             {

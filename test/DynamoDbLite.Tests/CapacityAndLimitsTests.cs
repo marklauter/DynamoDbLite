@@ -8,8 +8,8 @@ public sealed class CapacityAndLimitsTests
 {
     protected override async ValueTask SetupAsync(CancellationToken ct)
     {
-        await CreateHashOnlyTableAsync(Client(StoreType.DdbLite), "TestTable", ct);
-        await CreateHashOnlyTableAsync(Client(StoreType.DdbLiteFile), "TestTable", ct);
+        await CreateHashOnlyTableAsync(Client(StoreType.DdbLite), TestTableName, ct);
+        await CreateHashOnlyTableAsync(Client(StoreType.DdbLiteFile), TestTableName, ct);
     }
 
     [Theory]

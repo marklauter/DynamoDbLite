@@ -7,10 +7,10 @@ namespace DynamoDbLite.Tests;
 public sealed class SecondaryIndexTests
     : DynamoDbClientFixture
 {
-    private static async Task CreateTableWithGsiAsync(DynamoDbClient client, string tableName = "TestTable")
+    private async Task CreateTableWithGsiAsync(DynamoDbClient client)
         => _ = await client.CreateTableAsync(new CreateTableRequest
         {
-            TableName = tableName,
+            TableName = TestTableName,
             KeySchema =
             [
                 new KeySchemaElement { AttributeName = "PK", KeyType = KeyType.HASH },
@@ -38,9 +38,9 @@ public sealed class SecondaryIndexTests
             ]
         }, TestContext.Current.CancellationToken);
 
-    private static async Task CreateTableWithLsiAsync(DynamoDbClient client, string tableName = "TestTable") => _ = await client.CreateTableAsync(new CreateTableRequest
+    private async Task CreateTableWithLsiAsync(DynamoDbClient client) => _ = await client.CreateTableAsync(new CreateTableRequest
     {
-        TableName = tableName,
+        TableName = TestTableName,
         KeySchema =
             [
                 new KeySchemaElement { AttributeName = "PK", KeyType = KeyType.HASH },
@@ -77,7 +77,7 @@ public sealed class SecondaryIndexTests
         var client = Client(st);
         await CreateTableWithGsiAsync(client);
 
-        var response = await client.DescribeTableAsync("TestTable", TestContext.Current.CancellationToken);
+        var response = await client.DescribeTableAsync(TestTableName, TestContext.Current.CancellationToken);
 
         Assert.NotNull(response.Table.GlobalSecondaryIndexes);
         _ = Assert.Single(response.Table.GlobalSecondaryIndexes);
@@ -100,7 +100,7 @@ public sealed class SecondaryIndexTests
         var client = Client(st);
         await CreateTableWithLsiAsync(client);
 
-        var response = await client.DescribeTableAsync("TestTable", TestContext.Current.CancellationToken);
+        var response = await client.DescribeTableAsync(TestTableName, TestContext.Current.CancellationToken);
 
         Assert.NotNull(response.Table.LocalSecondaryIndexes);
         _ = Assert.Single(response.Table.LocalSecondaryIndexes);
@@ -136,7 +136,7 @@ public sealed class SecondaryIndexTests
         _ = await Assert.ThrowsAsync<AmazonDynamoDBException>(() =>
             client.CreateTableAsync(new CreateTableRequest
             {
-                TableName = "TestTable",
+                TableName = TestTableName,
                 KeySchema = [new KeySchemaElement { AttributeName = "PK", KeyType = KeyType.HASH }],
                 AttributeDefinitions = attrDefs,
                 GlobalSecondaryIndexes = gsis
@@ -173,7 +173,7 @@ public sealed class SecondaryIndexTests
         _ = await Assert.ThrowsAsync<AmazonDynamoDBException>(() =>
             client.CreateTableAsync(new CreateTableRequest
             {
-                TableName = "TestTable",
+                TableName = TestTableName,
                 KeySchema =
                 [
                     new KeySchemaElement { AttributeName = "PK", KeyType = KeyType.HASH },
@@ -193,7 +193,7 @@ public sealed class SecondaryIndexTests
         => _ = await Assert.ThrowsAsync<AmazonDynamoDBException>(() =>
             Client(st).CreateTableAsync(new CreateTableRequest
             {
-                TableName = "TestTable",
+                TableName = TestTableName,
                 KeySchema =
                 [
                     new KeySchemaElement { AttributeName = "PK", KeyType = KeyType.HASH },
@@ -229,7 +229,7 @@ public sealed class SecondaryIndexTests
         => _ = await Assert.ThrowsAsync<AmazonDynamoDBException>(() =>
             Client(st).CreateTableAsync(new CreateTableRequest
             {
-                TableName = "TestTable",
+                TableName = TestTableName,
                 KeySchema = [new KeySchemaElement { AttributeName = "PK", KeyType = KeyType.HASH }],
                 AttributeDefinitions =
                 [
@@ -255,7 +255,7 @@ public sealed class SecondaryIndexTests
         => _ = await Assert.ThrowsAsync<AmazonDynamoDBException>(() =>
             Client(st).CreateTableAsync(new CreateTableRequest
             {
-                TableName = "TestTable",
+                TableName = TestTableName,
                 KeySchema = [new KeySchemaElement { AttributeName = "PK", KeyType = KeyType.HASH }],
                 AttributeDefinitions =
                 [
@@ -273,7 +273,7 @@ public sealed class SecondaryIndexTests
         => _ = await Assert.ThrowsAsync<AmazonDynamoDBException>(() =>
             Client(st).CreateTableAsync(new CreateTableRequest
             {
-                TableName = "TestTable",
+                TableName = TestTableName,
                 KeySchema = [new KeySchemaElement { AttributeName = "PK", KeyType = KeyType.HASH }],
                 AttributeDefinitions =
                 [
@@ -309,7 +309,7 @@ public sealed class SecondaryIndexTests
 
         _ = await client.PutItemAsync(new PutItemRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             Item = new Dictionary<string, AttributeValue>
             {
                 ["PK"] = new() { S = "pk1" },
@@ -322,7 +322,7 @@ public sealed class SecondaryIndexTests
 
         _ = await client.PutItemAsync(new PutItemRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             Item = new Dictionary<string, AttributeValue>
             {
                 ["PK"] = new() { S = "pk2" },
@@ -335,7 +335,7 @@ public sealed class SecondaryIndexTests
 
         _ = await client.PutItemAsync(new PutItemRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             Item = new Dictionary<string, AttributeValue>
             {
                 ["PK"] = new() { S = "pk3" },
@@ -348,7 +348,7 @@ public sealed class SecondaryIndexTests
 
         var response = await client.QueryAsync(new QueryRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             IndexName = "GSI1",
             KeyConditionExpression = "GSI_PK = :gpk",
             ExpressionAttributeValues = new Dictionary<string, AttributeValue>
@@ -374,7 +374,7 @@ public sealed class SecondaryIndexTests
 
         _ = await client.PutItemAsync(new PutItemRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             Item = new Dictionary<string, AttributeValue>
             {
                 ["PK"] = new() { S = "pk1" },
@@ -386,7 +386,7 @@ public sealed class SecondaryIndexTests
 
         _ = await client.PutItemAsync(new PutItemRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             Item = new Dictionary<string, AttributeValue>
             {
                 ["PK"] = new() { S = "pk2" },
@@ -398,7 +398,7 @@ public sealed class SecondaryIndexTests
 
         var response = await client.ScanAsync(new ScanRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             IndexName = "GSI1"
         }, TestContext.Current.CancellationToken);
 
@@ -417,7 +417,7 @@ public sealed class SecondaryIndexTests
 
         _ = await client.PutItemAsync(new PutItemRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             Item = new Dictionary<string, AttributeValue>
             {
                 ["PK"] = new() { S = "user1" },
@@ -429,7 +429,7 @@ public sealed class SecondaryIndexTests
 
         _ = await client.PutItemAsync(new PutItemRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             Item = new Dictionary<string, AttributeValue>
             {
                 ["PK"] = new() { S = "user1" },
@@ -441,7 +441,7 @@ public sealed class SecondaryIndexTests
 
         var response = await client.QueryAsync(new QueryRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             IndexName = "LSI1",
             KeyConditionExpression = "PK = :pk",
             ExpressionAttributeValues = new Dictionary<string, AttributeValue>
@@ -469,7 +469,7 @@ public sealed class SecondaryIndexTests
         // Item with GSI keys
         _ = await client.PutItemAsync(new PutItemRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             Item = new Dictionary<string, AttributeValue>
             {
                 ["PK"] = new() { S = "pk1" },
@@ -483,7 +483,7 @@ public sealed class SecondaryIndexTests
         // Item WITHOUT GSI keys (sparse)
         _ = await client.PutItemAsync(new PutItemRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             Item = new Dictionary<string, AttributeValue>
             {
                 ["PK"] = new() { S = "pk2" },
@@ -494,7 +494,7 @@ public sealed class SecondaryIndexTests
 
         var response = await client.ScanAsync(new ScanRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             IndexName = "GSI1"
         }, TestContext.Current.CancellationToken);
 
@@ -512,7 +512,7 @@ public sealed class SecondaryIndexTests
         var client = Client(st);
         _ = await client.CreateTableAsync(new CreateTableRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             KeySchema =
             [
                 new KeySchemaElement { AttributeName = "PK", KeyType = KeyType.HASH },
@@ -537,7 +537,7 @@ public sealed class SecondaryIndexTests
 
         _ = await client.PutItemAsync(new PutItemRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             Item = new Dictionary<string, AttributeValue>
             {
                 ["PK"] = new() { S = "pk1" },
@@ -549,7 +549,7 @@ public sealed class SecondaryIndexTests
 
         var response = await client.QueryAsync(new QueryRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             IndexName = "KeysOnlyGSI",
             KeyConditionExpression = "GSI_PK = :gpk",
             ExpressionAttributeValues = new Dictionary<string, AttributeValue>
@@ -577,7 +577,7 @@ public sealed class SecondaryIndexTests
         var client = Client(st);
         _ = await client.CreateTableAsync(new CreateTableRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             KeySchema =
             [
                 new KeySchemaElement { AttributeName = "PK", KeyType = KeyType.HASH },
@@ -606,7 +606,7 @@ public sealed class SecondaryIndexTests
 
         _ = await client.PutItemAsync(new PutItemRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             Item = new Dictionary<string, AttributeValue>
             {
                 ["PK"] = new() { S = "pk1" },
@@ -619,7 +619,7 @@ public sealed class SecondaryIndexTests
 
         var response = await client.QueryAsync(new QueryRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             IndexName = "IncludeGSI",
             KeyConditionExpression = "GSI_PK = :gpk",
             ExpressionAttributeValues = new Dictionary<string, AttributeValue>
@@ -649,7 +649,7 @@ public sealed class SecondaryIndexTests
 
         _ = await client.PutItemAsync(new PutItemRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             Item = new Dictionary<string, AttributeValue>
             {
                 ["PK"] = new() { S = "pk1" },
@@ -662,7 +662,7 @@ public sealed class SecondaryIndexTests
         // Update the GSI_PK
         _ = await client.UpdateItemAsync(new UpdateItemRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             Key = new Dictionary<string, AttributeValue>
             {
                 ["PK"] = new() { S = "pk1" },
@@ -678,7 +678,7 @@ public sealed class SecondaryIndexTests
         // Old key should not return results
         var oldResponse = await client.QueryAsync(new QueryRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             IndexName = "GSI1",
             KeyConditionExpression = "GSI_PK = :gpk",
             ExpressionAttributeValues = new Dictionary<string, AttributeValue>
@@ -691,7 +691,7 @@ public sealed class SecondaryIndexTests
         // New key should return the item
         var newResponse = await client.QueryAsync(new QueryRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             IndexName = "GSI1",
             KeyConditionExpression = "GSI_PK = :gpk",
             ExpressionAttributeValues = new Dictionary<string, AttributeValue>
@@ -714,7 +714,7 @@ public sealed class SecondaryIndexTests
 
         _ = await client.PutItemAsync(new PutItemRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             Item = new Dictionary<string, AttributeValue>
             {
                 ["PK"] = new() { S = "pk1" },
@@ -726,7 +726,7 @@ public sealed class SecondaryIndexTests
 
         _ = await client.DeleteItemAsync(new DeleteItemRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             Key = new Dictionary<string, AttributeValue>
             {
                 ["PK"] = new() { S = "pk1" },
@@ -736,7 +736,7 @@ public sealed class SecondaryIndexTests
 
         var response = await client.QueryAsync(new QueryRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             IndexName = "GSI1",
             KeyConditionExpression = "GSI_PK = :gpk",
             ExpressionAttributeValues = new Dictionary<string, AttributeValue>
@@ -762,7 +762,7 @@ public sealed class SecondaryIndexTests
         {
             RequestItems = new Dictionary<string, List<WriteRequest>>
             {
-                ["TestTable"] =
+                [TestTableName] =
                 [
                     new WriteRequest
                     {
@@ -796,7 +796,7 @@ public sealed class SecondaryIndexTests
 
         var response = await client.QueryAsync(new QueryRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             IndexName = "GSI1",
             KeyConditionExpression = "GSI_PK = :gpk",
             ExpressionAttributeValues = new Dictionary<string, AttributeValue>
@@ -820,7 +820,7 @@ public sealed class SecondaryIndexTests
 
         _ = await client.PutItemAsync(new PutItemRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             Item = new Dictionary<string, AttributeValue>
             {
                 ["PK"] = new() { S = "pk1" },
@@ -833,7 +833,7 @@ public sealed class SecondaryIndexTests
 
         _ = await client.PutItemAsync(new PutItemRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             Item = new Dictionary<string, AttributeValue>
             {
                 ["PK"] = new() { S = "pk2" },
@@ -846,7 +846,7 @@ public sealed class SecondaryIndexTests
 
         var response = await client.QueryAsync(new QueryRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             IndexName = "GSI1",
             KeyConditionExpression = "GSI_PK = :gpk",
             FilterExpression = "active = :a",
@@ -876,7 +876,7 @@ public sealed class SecondaryIndexTests
         {
             _ = await client.PutItemAsync(new PutItemRequest
             {
-                TableName = "TestTable",
+                TableName = TestTableName,
                 Item = new Dictionary<string, AttributeValue>
                 {
                     ["PK"] = new() { S = $"pk{i}" },
@@ -894,7 +894,7 @@ public sealed class SecondaryIndexTests
         {
             var response = await client.QueryAsync(new QueryRequest
             {
-                TableName = "TestTable",
+                TableName = TestTableName,
                 IndexName = "GSI1",
                 KeyConditionExpression = "GSI_PK = :gpk",
                 Limit = 2,
@@ -926,7 +926,7 @@ public sealed class SecondaryIndexTests
         _ = await Assert.ThrowsAsync<AmazonDynamoDBException>(() =>
             client.QueryAsync(new QueryRequest
             {
-                TableName = "TestTable",
+                TableName = TestTableName,
                 IndexName = "GSI1",
                 KeyConditionExpression = "GSI_PK = :gpk",
                 ConsistentRead = true,
@@ -948,7 +948,7 @@ public sealed class SecondaryIndexTests
         _ = await Assert.ThrowsAsync<AmazonDynamoDBException>(() =>
             client.ScanAsync(new ScanRequest
             {
-                TableName = "TestTable",
+                TableName = TestTableName,
                 IndexName = "GSI1",
                 ConsistentRead = true,
             }, TestContext.Current.CancellationToken));
@@ -966,7 +966,7 @@ public sealed class SecondaryIndexTests
         // Create table without GSI
         _ = await client.CreateTableAsync(new CreateTableRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             KeySchema =
             [
                 new KeySchemaElement { AttributeName = "PK", KeyType = KeyType.HASH },
@@ -982,7 +982,7 @@ public sealed class SecondaryIndexTests
         // Add items
         _ = await client.PutItemAsync(new PutItemRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             Item = new Dictionary<string, AttributeValue>
             {
                 ["PK"] = new() { S = "pk1" },
@@ -995,7 +995,7 @@ public sealed class SecondaryIndexTests
 
         _ = await client.PutItemAsync(new PutItemRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             Item = new Dictionary<string, AttributeValue>
             {
                 ["PK"] = new() { S = "pk2" },
@@ -1007,7 +1007,7 @@ public sealed class SecondaryIndexTests
         // Create GSI via UpdateTable
         _ = await client.UpdateTableAsync(new UpdateTableRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             AttributeDefinitions =
             [
                 new AttributeDefinition { AttributeName = "PK", AttributeType = ScalarAttributeType.S },
@@ -1036,7 +1036,7 @@ public sealed class SecondaryIndexTests
         // Verify backfill: item with GSI keys should be queryable
         var response = await client.QueryAsync(new QueryRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             IndexName = "GSI1",
             KeyConditionExpression = "GSI_PK = :gpk",
             ExpressionAttributeValues = new Dictionary<string, AttributeValue>
@@ -1049,7 +1049,7 @@ public sealed class SecondaryIndexTests
         Assert.Equal("hello", response.Items[0]["data"].S);
 
         // DescribeTable should show the GSI
-        var desc = await client.DescribeTableAsync("TestTable", TestContext.Current.CancellationToken);
+        var desc = await client.DescribeTableAsync(TestTableName, TestContext.Current.CancellationToken);
         Assert.NotNull(desc.Table.GlobalSecondaryIndexes);
         _ = Assert.Single(desc.Table.GlobalSecondaryIndexes);
         Assert.Equal("GSI1", desc.Table.GlobalSecondaryIndexes[0].IndexName);
@@ -1067,7 +1067,7 @@ public sealed class SecondaryIndexTests
 
         _ = await client.UpdateTableAsync(new UpdateTableRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             GlobalSecondaryIndexUpdates =
             [
                 new GlobalSecondaryIndexUpdate
@@ -1080,7 +1080,7 @@ public sealed class SecondaryIndexTests
             ]
         }, TestContext.Current.CancellationToken);
 
-        var desc = await client.DescribeTableAsync("TestTable", TestContext.Current.CancellationToken);
+        var desc = await client.DescribeTableAsync(TestTableName, TestContext.Current.CancellationToken);
         Assert.True(desc.Table.GlobalSecondaryIndexes is null or { Count: 0 });
     }
 
@@ -1096,7 +1096,7 @@ public sealed class SecondaryIndexTests
 
         _ = await client.PutItemAsync(new PutItemRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             Item = new Dictionary<string, AttributeValue>
             {
                 ["PK"] = new() { S = "pk1" },
@@ -1106,10 +1106,10 @@ public sealed class SecondaryIndexTests
             }
         }, TestContext.Current.CancellationToken);
 
-        _ = await client.DeleteTableAsync("TestTable", TestContext.Current.CancellationToken);
+        _ = await client.DeleteTableAsync(TestTableName, TestContext.Current.CancellationToken);
 
         _ = await Assert.ThrowsAsync<ResourceNotFoundException>(() =>
-            client.DescribeTableAsync("TestTable", TestContext.Current.CancellationToken));
+            client.DescribeTableAsync(TestTableName, TestContext.Current.CancellationToken));
     }
 
     // -- GSI Query with SK condition -------------------------------------
@@ -1126,7 +1126,7 @@ public sealed class SecondaryIndexTests
         {
             _ = await client.PutItemAsync(new PutItemRequest
             {
-                TableName = "TestTable",
+                TableName = TestTableName,
                 Item = new Dictionary<string, AttributeValue>
                 {
                     ["PK"] = new() { S = $"pk{i}" },
@@ -1139,7 +1139,7 @@ public sealed class SecondaryIndexTests
 
         var response = await client.QueryAsync(new QueryRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             IndexName = "GSI1",
             KeyConditionExpression = "GSI_PK = :gpk AND GSI_SK < :gsk",
             ExpressionAttributeValues = new Dictionary<string, AttributeValue>
@@ -1164,7 +1164,7 @@ public sealed class SecondaryIndexTests
         var client = Client(st);
         _ = await client.CreateTableAsync(new CreateTableRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             KeySchema =
             [
                 new KeySchemaElement { AttributeName = "PK", KeyType = KeyType.HASH },
@@ -1193,7 +1193,7 @@ public sealed class SecondaryIndexTests
 
         _ = await client.PutItemAsync(new PutItemRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             Item = new Dictionary<string, AttributeValue>
             {
                 ["PK"] = new() { S = "pk1" },
@@ -1206,7 +1206,7 @@ public sealed class SecondaryIndexTests
 
         var response = await client.QueryAsync(new QueryRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             IndexName = "GSI1",
             KeyConditionExpression = "GSI_PK = :gpk",
             Select = Select.ALL_PROJECTED_ATTRIBUTES,
@@ -1239,7 +1239,7 @@ public sealed class SecondaryIndexTests
         {
             _ = await client.PutItemAsync(new PutItemRequest
             {
-                TableName = "TestTable",
+                TableName = TestTableName,
                 Item = new Dictionary<string, AttributeValue>
                 {
                     ["PK"] = new() { S = $"pk{i}" },
@@ -1252,7 +1252,7 @@ public sealed class SecondaryIndexTests
 
         var response = await client.QueryAsync(new QueryRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             IndexName = "GSI1",
             KeyConditionExpression = "GSI_PK = :gpk",
             ScanIndexForward = false,
@@ -1281,7 +1281,7 @@ public sealed class SecondaryIndexTests
         _ = await Assert.ThrowsAsync<AmazonDynamoDBException>(() =>
             client.QueryAsync(new QueryRequest
             {
-                TableName = "TestTable",
+                TableName = TestTableName,
                 IndexName = "NonExistentIndex",
                 KeyConditionExpression = "GSI_PK = :gpk",
                 ExpressionAttributeValues = new Dictionary<string, AttributeValue>
@@ -1302,12 +1302,12 @@ public sealed class SecondaryIndexTests
         await CreateTableWithGsiAsync(client);
 
         var response = await client.UpdateTableAsync(
-            "TestTable",
+            TestTableName,
             new ProvisionedThroughput { ReadCapacityUnits = 10, WriteCapacityUnits = 5 },
             TestContext.Current.CancellationToken);
 
         Assert.NotNull(response.TableDescription);
-        Assert.Equal("TestTable", response.TableDescription.TableName);
+        Assert.Equal(TestTableName, response.TableDescription.TableName);
     }
 
     // -- Scan pagination on index ----------------------------------------
@@ -1324,7 +1324,7 @@ public sealed class SecondaryIndexTests
         {
             _ = await client.PutItemAsync(new PutItemRequest
             {
-                TableName = "TestTable",
+                TableName = TestTableName,
                 Item = new Dictionary<string, AttributeValue>
                 {
                     ["PK"] = new() { S = $"pk{i}" },
@@ -1342,7 +1342,7 @@ public sealed class SecondaryIndexTests
         {
             var response = await client.ScanAsync(new ScanRequest
             {
-                TableName = "TestTable",
+                TableName = TestTableName,
                 IndexName = "GSI1",
                 Limit = 2,
                 ExclusiveStartKey = lastKey
@@ -1368,7 +1368,7 @@ public sealed class SecondaryIndexTests
 
         _ = await client.PutItemAsync(new PutItemRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             Item = new Dictionary<string, AttributeValue>
             {
                 ["PK"] = new() { S = "pk1" },
@@ -1382,7 +1382,7 @@ public sealed class SecondaryIndexTests
 
         var response = await client.QueryAsync(new QueryRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             IndexName = "GSI1",
             KeyConditionExpression = "GSI_PK = :gpk",
             ProjectionExpression = "#n",
@@ -1413,7 +1413,7 @@ public sealed class SecondaryIndexTests
 
         _ = await client.PutItemAsync(new PutItemRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             Item = new Dictionary<string, AttributeValue>
             {
                 ["PK"] = new() { S = "pk1" },
@@ -1426,7 +1426,7 @@ public sealed class SecondaryIndexTests
         // Overwrite same table key with different GSI key
         _ = await client.PutItemAsync(new PutItemRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             Item = new Dictionary<string, AttributeValue>
             {
                 ["PK"] = new() { S = "pk1" },
@@ -1439,7 +1439,7 @@ public sealed class SecondaryIndexTests
         // Old GSI key should be empty
         var oldResp = await client.QueryAsync(new QueryRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             IndexName = "GSI1",
             KeyConditionExpression = "GSI_PK = :gpk",
             ExpressionAttributeValues = new Dictionary<string, AttributeValue>
@@ -1452,7 +1452,7 @@ public sealed class SecondaryIndexTests
         // New GSI key should have the item
         var newResp = await client.QueryAsync(new QueryRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             IndexName = "GSI1",
             KeyConditionExpression = "GSI_PK = :gpk",
             ExpressionAttributeValues = new Dictionary<string, AttributeValue>

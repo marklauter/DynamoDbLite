@@ -13,10 +13,10 @@ public sealed class TransactionTests
         await CreateTestTableAsync(Client(StoreType.DdbLiteFile), ct);
     }
 
-    private static async Task PutTestItemAsync(DynamoDbClient client, string pk, string sk, string name)
+    private async Task PutTestItemAsync(DynamoDbClient client, string pk, string sk, string name)
         => _ = await client.PutItemAsync(new PutItemRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             Item = new Dictionary<string, AttributeValue>
             {
                 ["PK"] = new() { S = pk },
@@ -25,11 +25,11 @@ public sealed class TransactionTests
             }
         }, TestContext.Current.CancellationToken);
 
-    private static async Task<Dictionary<string, AttributeValue>?> GetTestItemAsync(DynamoDbClient client, string pk, string sk)
+    private async Task<Dictionary<string, AttributeValue>?> GetTestItemAsync(DynamoDbClient client, string pk, string sk)
     {
         var response = await client.GetItemAsync(new GetItemRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             Key = new Dictionary<string, AttributeValue>
             {
                 ["PK"] = new() { S = pk },
@@ -39,10 +39,10 @@ public sealed class TransactionTests
         return response.IsItemSet ? response.Item : null;
     }
 
-    private static async Task CreateSecondTableAsync(DynamoDbClient client)
+    private async Task CreateSecondTableAsync(DynamoDbClient client)
         => _ = await client.CreateTableAsync(new CreateTableRequest
         {
-            TableName = "SecondTable",
+            TableName = SecondTableName,
             KeySchema =
                 [
                     new KeySchemaElement { AttributeName = "PK", KeyType = KeyType.HASH },
@@ -71,7 +71,7 @@ public sealed class TransactionTests
                 {
                     Put = new Put
                     {
-                        TableName = "TestTable",
+                        TableName = TestTableName,
                         Item = new Dictionary<string, AttributeValue>
                         {
                             ["PK"] = new() { S = "USER#1" },
@@ -84,7 +84,7 @@ public sealed class TransactionTests
                 {
                     Put = new Put
                     {
-                        TableName = "TestTable",
+                        TableName = TestTableName,
                         Item = new Dictionary<string, AttributeValue>
                         {
                             ["PK"] = new() { S = "USER#2" },
@@ -123,7 +123,7 @@ public sealed class TransactionTests
                 {
                     Update = new Update
                     {
-                        TableName = "TestTable",
+                        TableName = TestTableName,
                         Key = new Dictionary<string, AttributeValue>
                         {
                             ["PK"] = new() { S = "USER#1" },
@@ -141,7 +141,7 @@ public sealed class TransactionTests
                 {
                     Delete = new Delete
                     {
-                        TableName = "TestTable",
+                        TableName = TestTableName,
                         Key = new Dictionary<string, AttributeValue>
                         {
                             ["PK"] = new() { S = "USER#2" },
@@ -175,7 +175,7 @@ public sealed class TransactionTests
                 {
                     ConditionCheck = new ConditionCheck
                     {
-                        TableName = "TestTable",
+                        TableName = TestTableName,
                         Key = new Dictionary<string, AttributeValue>
                         {
                             ["PK"] = new() { S = "USER#1" },
@@ -188,7 +188,7 @@ public sealed class TransactionTests
                 {
                     Put = new Put
                     {
-                        TableName = "TestTable",
+                        TableName = TestTableName,
                         Item = new Dictionary<string, AttributeValue>
                         {
                             ["PK"] = new() { S = "USER#2" },
@@ -221,7 +221,7 @@ public sealed class TransactionTests
                 {
                     Put = new Put
                     {
-                        TableName = "TestTable",
+                        TableName = TestTableName,
                         Item = new Dictionary<string, AttributeValue>
                         {
                             ["PK"] = new() { S = "T1#1" },
@@ -234,7 +234,7 @@ public sealed class TransactionTests
                 {
                     Put = new Put
                     {
-                        TableName = "SecondTable",
+                        TableName = SecondTableName,
                         Item = new Dictionary<string, AttributeValue>
                         {
                             ["PK"] = new() { S = "T2#1" },
@@ -252,7 +252,7 @@ public sealed class TransactionTests
 
         var response2 = await client.GetItemAsync(new GetItemRequest
         {
-            TableName = "SecondTable",
+            TableName = SecondTableName,
             Key = new Dictionary<string, AttributeValue>
             {
                 ["PK"] = new() { S = "T2#1" },
@@ -281,7 +281,7 @@ public sealed class TransactionTests
                     {
                         Put = new Put
                         {
-                            TableName = "TestTable",
+                            TableName = TestTableName,
                             Item = new Dictionary<string, AttributeValue>
                             {
                                 ["PK"] = new() { S = "USER#1" },
@@ -295,7 +295,7 @@ public sealed class TransactionTests
                     {
                         Put = new Put
                         {
-                            TableName = "TestTable",
+                            TableName = TestTableName,
                             Item = new Dictionary<string, AttributeValue>
                             {
                                 ["PK"] = new() { S = "USER#2" },
@@ -335,7 +335,7 @@ public sealed class TransactionTests
                     {
                         Put = new Put
                         {
-                            TableName = "TestTable",
+                            TableName = TestTableName,
                             Item = new Dictionary<string, AttributeValue>
                             {
                                 ["PK"] = new() { S = "USER#1" },
@@ -372,7 +372,7 @@ public sealed class TransactionTests
                     {
                         ConditionCheck = new ConditionCheck
                         {
-                            TableName = "TestTable",
+                            TableName = TestTableName,
                             Key = new Dictionary<string, AttributeValue>
                             {
                                 ["PK"] = new() { S = "USER#1" },
@@ -390,7 +390,7 @@ public sealed class TransactionTests
                     {
                         Put = new Put
                         {
-                            TableName = "TestTable",
+                            TableName = TestTableName,
                             Item = new Dictionary<string, AttributeValue>
                             {
                                 ["PK"] = new() { S = "USER#99" },
@@ -418,7 +418,7 @@ public sealed class TransactionTests
         {
             Put = new Put
             {
-                TableName = "TestTable",
+                TableName = TestTableName,
                 Item = new Dictionary<string, AttributeValue>
                 {
                     ["PK"] = new() { S = $"PK#{i}" },
@@ -447,7 +447,7 @@ public sealed class TransactionTests
                     {
                         Put = new Put
                         {
-                            TableName = "TestTable",
+                            TableName = TestTableName,
                             Item = new Dictionary<string, AttributeValue>
                             {
                                 ["PK"] = new() { S = "SAME" },
@@ -460,7 +460,7 @@ public sealed class TransactionTests
                     {
                         Delete = new Delete
                         {
-                            TableName = "TestTable",
+                            TableName = TestTableName,
                             Key = new Dictionary<string, AttributeValue>
                             {
                                 ["PK"] = new() { S = "SAME" },
@@ -523,7 +523,7 @@ public sealed class TransactionTests
                 {
                     Put = new Put
                     {
-                        TableName = "TestTable",
+                        TableName = TestTableName,
                         Item = new Dictionary<string, AttributeValue>
                         {
                             ["PK"] = new() { S = "IDEMPOTENT#1" },
@@ -563,7 +563,7 @@ public sealed class TransactionTests
                 {
                     Put = new Put
                     {
-                        TableName = "TestTable",
+                        TableName = TestTableName,
                         Item = new Dictionary<string, AttributeValue>
                         {
                             ["PK"] = new() { S = "TOKEN#1" },
@@ -584,7 +584,7 @@ public sealed class TransactionTests
                 {
                     Put = new Put
                     {
-                        TableName = "TestTable",
+                        TableName = TestTableName,
                         Item = new Dictionary<string, AttributeValue>
                         {
                             ["PK"] = new() { S = "TOKEN#1" },
@@ -619,7 +619,7 @@ public sealed class TransactionTests
                 {
                     Get = new Get
                     {
-                        TableName = "TestTable",
+                        TableName = TestTableName,
                         Key = new Dictionary<string, AttributeValue>
                         {
                             ["PK"] = new() { S = "USER#1" },
@@ -631,7 +631,7 @@ public sealed class TransactionTests
                 {
                     Get = new Get
                     {
-                        TableName = "TestTable",
+                        TableName = TestTableName,
                         Key = new Dictionary<string, AttributeValue>
                         {
                             ["PK"] = new() { S = "USER#2" },
@@ -664,7 +664,7 @@ public sealed class TransactionTests
                 {
                     Get = new Get
                     {
-                        TableName = "TestTable",
+                        TableName = TestTableName,
                         Key = new Dictionary<string, AttributeValue>
                         {
                             ["PK"] = new() { S = "USER#1" },
@@ -696,7 +696,7 @@ public sealed class TransactionTests
                 {
                     Get = new Get
                     {
-                        TableName = "TestTable",
+                        TableName = TestTableName,
                         Key = new Dictionary<string, AttributeValue>
                         {
                             ["PK"] = new() { S = "DOES_NOT_EXIST" },
@@ -721,7 +721,7 @@ public sealed class TransactionTests
         {
             Get = new Get
             {
-                TableName = "TestTable",
+                TableName = TestTableName,
                 Key = new Dictionary<string, AttributeValue>
                 {
                     ["PK"] = new() { S = $"PK#{i}" },
@@ -828,7 +828,7 @@ public sealed class TransactionTests
                 {
                     Update = new Update
                     {
-                        TableName = "TestTable",
+                        TableName = TestTableName,
                         Key = new Dictionary<string, AttributeValue>
                         {
                             ["PK"] = new() { S = "NEW#1" },
@@ -869,7 +869,7 @@ public sealed class TransactionTests
                     {
                         Update = new Update
                         {
-                            TableName = "TestTable",
+                            TableName = TestTableName,
                             Key = new Dictionary<string, AttributeValue>
                             {
                                 ["PK"] = new() { S = "USER#1" },
@@ -911,7 +911,7 @@ public sealed class TransactionTests
                     {
                         Update = new Update
                         {
-                            TableName = "TestTable",
+                            TableName = TestTableName,
                             Key = new Dictionary<string, AttributeValue>
                             {
                                 ["PK"] = new() { S = "USER#1" },

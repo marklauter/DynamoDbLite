@@ -13,10 +13,10 @@ public sealed class BatchOperationsTests
         await CreateTestTableAsync(Client(StoreType.DdbLiteFile), ct);
     }
 
-    private static async Task PutTestItemAsync(DynamoDbClient client, string pk, string sk, string name)
+    private async Task PutTestItemAsync(DynamoDbClient client, string pk, string sk, string name)
         => _ = await client.PutItemAsync(new PutItemRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             Item = new Dictionary<string, AttributeValue>
             {
                 ["PK"] = new() { S = pk },
@@ -25,10 +25,10 @@ public sealed class BatchOperationsTests
             }
         }, TestContext.Current.CancellationToken);
 
-    private static async Task CreateSecondTableAsync(DynamoDbClient client)
+    private async Task CreateSecondTableAsync(DynamoDbClient client)
         => _ = await client.CreateTableAsync(new CreateTableRequest
         {
-            TableName = "SecondTable",
+            TableName = SecondTableName,
             KeySchema =
                     [
                         new KeySchemaElement { AttributeName = "PK", KeyType = KeyType.HASH },
@@ -57,7 +57,7 @@ public sealed class BatchOperationsTests
         {
             RequestItems = new Dictionary<string, KeysAndAttributes>
             {
-                ["TestTable"] = new()
+                [TestTableName] = new()
                 {
                     Keys =
                     [
@@ -82,7 +82,7 @@ public sealed class BatchOperationsTests
         }, TestContext.Current.CancellationToken);
 
         Assert.Equal(System.Net.HttpStatusCode.OK, response.HttpStatusCode);
-        Assert.Equal(3, response.Responses["TestTable"].Count);
+        Assert.Equal(3, response.Responses[TestTableName].Count);
         Assert.Empty(response.UnprocessedKeys);
     }
 
@@ -97,7 +97,7 @@ public sealed class BatchOperationsTests
         var response = await client.BatchGetItemAsync(
             new Dictionary<string, KeysAndAttributes>
             {
-                ["TestTable"] = new()
+                [TestTableName] = new()
                 {
                     Keys =
                     [
@@ -113,7 +113,7 @@ public sealed class BatchOperationsTests
             TestContext.Current.CancellationToken);
 
         Assert.Equal(System.Net.HttpStatusCode.OK, response.HttpStatusCode);
-        _ = Assert.Single(response.Responses["TestTable"]);
+        _ = Assert.Single(response.Responses[TestTableName]);
     }
 
     [Theory]
@@ -127,7 +127,7 @@ public sealed class BatchOperationsTests
         var response = await client.BatchGetItemAsync(
             new Dictionary<string, KeysAndAttributes>
             {
-                ["TestTable"] = new()
+                [TestTableName] = new()
                 {
                     Keys =
                     [
@@ -142,7 +142,7 @@ public sealed class BatchOperationsTests
             TestContext.Current.CancellationToken);
 
         Assert.Equal(System.Net.HttpStatusCode.OK, response.HttpStatusCode);
-        _ = Assert.Single(response.Responses["TestTable"]);
+        _ = Assert.Single(response.Responses[TestTableName]);
     }
 
     [Theory]
@@ -157,7 +157,7 @@ public sealed class BatchOperationsTests
         {
             RequestItems = new Dictionary<string, KeysAndAttributes>
             {
-                ["TestTable"] = new()
+                [TestTableName] = new()
                 {
                     Keys =
                     [
@@ -176,7 +176,7 @@ public sealed class BatchOperationsTests
             }
         }, TestContext.Current.CancellationToken);
 
-        var item = Assert.Single(response.Responses["TestTable"]);
+        var item = Assert.Single(response.Responses[TestTableName]);
         Assert.Equal("USER#1", item["PK"].S);
         Assert.Equal("Alice", item["name"].S);
         Assert.False(item.ContainsKey("SK"));
@@ -194,7 +194,7 @@ public sealed class BatchOperationsTests
         {
             RequestItems = new Dictionary<string, KeysAndAttributes>
             {
-                ["TestTable"] = new()
+                [TestTableName] = new()
                 {
                     Keys =
                     [
@@ -213,8 +213,8 @@ public sealed class BatchOperationsTests
             }
         }, TestContext.Current.CancellationToken);
 
-        _ = Assert.Single(response.Responses["TestTable"]);
-        Assert.Equal("Alice", response.Responses["TestTable"][0]["name"].S);
+        _ = Assert.Single(response.Responses[TestTableName]);
+        Assert.Equal("Alice", response.Responses[TestTableName][0]["name"].S);
     }
 
     [Theory]
@@ -228,7 +228,7 @@ public sealed class BatchOperationsTests
 
         _ = await client.PutItemAsync(new PutItemRequest
         {
-            TableName = "SecondTable",
+            TableName = SecondTableName,
             Item = new Dictionary<string, AttributeValue>
             {
                 ["PK"] = new() { S = "ORDER#1" },
@@ -241,7 +241,7 @@ public sealed class BatchOperationsTests
         {
             RequestItems = new Dictionary<string, KeysAndAttributes>
             {
-                ["TestTable"] = new()
+                [TestTableName] = new()
                 {
                     Keys =
                     [
@@ -252,7 +252,7 @@ public sealed class BatchOperationsTests
                         }
                     ]
                 },
-                ["SecondTable"] = new()
+                [SecondTableName] = new()
                 {
                     Keys =
                     [
@@ -266,10 +266,10 @@ public sealed class BatchOperationsTests
             }
         }, TestContext.Current.CancellationToken);
 
-        _ = Assert.Single(response.Responses["TestTable"]);
-        _ = Assert.Single(response.Responses["SecondTable"]);
-        Assert.Equal("Alice", response.Responses["TestTable"][0]["name"].S);
-        Assert.Equal("100", response.Responses["SecondTable"][0]["total"].N);
+        _ = Assert.Single(response.Responses[TestTableName]);
+        _ = Assert.Single(response.Responses[SecondTableName]);
+        Assert.Equal("Alice", response.Responses[TestTableName][0]["name"].S);
+        Assert.Equal("100", response.Responses[SecondTableName][0]["total"].N);
     }
 
     [Theory]
@@ -289,7 +289,7 @@ public sealed class BatchOperationsTests
             {
                 RequestItems = new Dictionary<string, KeysAndAttributes>
                 {
-                    ["TestTable"] = new() { Keys = keys }
+                    [TestTableName] = new() { Keys = keys }
                 }
             }, TestContext.Current.CancellationToken));
 
@@ -347,7 +347,7 @@ public sealed class BatchOperationsTests
             {
                 RequestItems = new Dictionary<string, KeysAndAttributes>
                 {
-                    ["TestTable"] = new()
+                    [TestTableName] = new()
                     {
                         Keys =
                         [
@@ -375,7 +375,7 @@ public sealed class BatchOperationsTests
         {
             RequestItems = new Dictionary<string, List<WriteRequest>>
             {
-                ["TestTable"] =
+                [TestTableName] =
                 [
                     new WriteRequest { PutRequest = new PutRequest { Item = new Dictionary<string, AttributeValue>
                     {
@@ -396,13 +396,13 @@ public sealed class BatchOperationsTests
         Assert.Equal(System.Net.HttpStatusCode.OK, response.HttpStatusCode);
         Assert.Empty(response.UnprocessedItems);
 
-        var get1 = await client.GetItemAsync("TestTable",
+        var get1 = await client.GetItemAsync(TestTableName,
             new Dictionary<string, AttributeValue> { ["PK"] = new() { S = "USER#1" }, ["SK"] = new() { S = "PROFILE" } },
             TestContext.Current.CancellationToken);
-        var get2 = await client.GetItemAsync("TestTable",
+        var get2 = await client.GetItemAsync(TestTableName,
             new Dictionary<string, AttributeValue> { ["PK"] = new() { S = "USER#2" }, ["SK"] = new() { S = "PROFILE" } },
             TestContext.Current.CancellationToken);
-        var get3 = await client.GetItemAsync("TestTable",
+        var get3 = await client.GetItemAsync(TestTableName,
             new Dictionary<string, AttributeValue> { ["PK"] = new() { S = "USER#3" }, ["SK"] = new() { S = "PROFILE" } },
             TestContext.Current.CancellationToken);
 
@@ -420,7 +420,7 @@ public sealed class BatchOperationsTests
         var response = await client.BatchWriteItemAsync(
             new Dictionary<string, List<WriteRequest>>
             {
-                ["TestTable"] =
+                [TestTableName] =
                 [
                     new WriteRequest { PutRequest = new PutRequest { Item = new Dictionary<string, AttributeValue>
                     {
@@ -446,7 +446,7 @@ public sealed class BatchOperationsTests
         {
             RequestItems = new Dictionary<string, List<WriteRequest>>
             {
-                ["TestTable"] =
+                [TestTableName] =
                 [
                     new WriteRequest { DeleteRequest = new DeleteRequest { Key = new Dictionary<string, AttributeValue>
                     {
@@ -460,10 +460,10 @@ public sealed class BatchOperationsTests
             }
         }, TestContext.Current.CancellationToken);
 
-        var get1 = await client.GetItemAsync("TestTable",
+        var get1 = await client.GetItemAsync(TestTableName,
             new Dictionary<string, AttributeValue> { ["PK"] = new() { S = "USER#1" }, ["SK"] = new() { S = "PROFILE" } },
             TestContext.Current.CancellationToken);
-        var get2 = await client.GetItemAsync("TestTable",
+        var get2 = await client.GetItemAsync(TestTableName,
             new Dictionary<string, AttributeValue> { ["PK"] = new() { S = "USER#2" }, ["SK"] = new() { S = "PROFILE" } },
             TestContext.Current.CancellationToken);
 
@@ -483,7 +483,7 @@ public sealed class BatchOperationsTests
         {
             RequestItems = new Dictionary<string, List<WriteRequest>>
             {
-                ["TestTable"] =
+                [TestTableName] =
                 [
                     new WriteRequest { DeleteRequest = new DeleteRequest { Key = new Dictionary<string, AttributeValue>
                     {
@@ -497,10 +497,10 @@ public sealed class BatchOperationsTests
             }
         }, TestContext.Current.CancellationToken);
 
-        var get1 = await client.GetItemAsync("TestTable",
+        var get1 = await client.GetItemAsync(TestTableName,
             new Dictionary<string, AttributeValue> { ["PK"] = new() { S = "USER#1" }, ["SK"] = new() { S = "PROFILE" } },
             TestContext.Current.CancellationToken);
-        var get2 = await client.GetItemAsync("TestTable",
+        var get2 = await client.GetItemAsync(TestTableName,
             new Dictionary<string, AttributeValue> { ["PK"] = new() { S = "USER#2" }, ["SK"] = new() { S = "PROFILE" } },
             TestContext.Current.CancellationToken);
 
@@ -520,14 +520,14 @@ public sealed class BatchOperationsTests
         {
             RequestItems = new Dictionary<string, List<WriteRequest>>
             {
-                ["TestTable"] =
+                [TestTableName] =
                 [
                     new WriteRequest { PutRequest = new PutRequest { Item = new Dictionary<string, AttributeValue>
                     {
                         ["PK"] = new() { S = "USER#1" }, ["SK"] = new() { S = "PROFILE" }, ["name"] = new() { S = "Alice" }
                     }}}
                 ],
-                ["SecondTable"] =
+                [SecondTableName] =
                 [
                     new WriteRequest { PutRequest = new PutRequest { Item = new Dictionary<string, AttributeValue>
                     {
@@ -537,10 +537,10 @@ public sealed class BatchOperationsTests
             }
         }, TestContext.Current.CancellationToken);
 
-        var get1 = await client.GetItemAsync("TestTable",
+        var get1 = await client.GetItemAsync(TestTableName,
             new Dictionary<string, AttributeValue> { ["PK"] = new() { S = "USER#1" }, ["SK"] = new() { S = "PROFILE" } },
             TestContext.Current.CancellationToken);
-        var get2 = await client.GetItemAsync("SecondTable",
+        var get2 = await client.GetItemAsync(SecondTableName,
             new Dictionary<string, AttributeValue> { ["PK"] = new() { S = "ORDER#1" }, ["SK"] = new() { S = "DETAIL" } },
             TestContext.Current.CancellationToken);
 
@@ -573,7 +573,7 @@ public sealed class BatchOperationsTests
             {
                 RequestItems = new Dictionary<string, List<WriteRequest>>
                 {
-                    ["TestTable"] = writes
+                    [TestTableName] = writes
                 }
             }, TestContext.Current.CancellationToken));
 
@@ -591,7 +591,7 @@ public sealed class BatchOperationsTests
             {
                 RequestItems = new Dictionary<string, List<WriteRequest>>
                 {
-                    ["TestTable"] =
+                    [TestTableName] =
                     [
                         new WriteRequest { PutRequest = new PutRequest { Item = new Dictionary<string, AttributeValue>
                         {
@@ -662,7 +662,7 @@ public sealed class BatchOperationsTests
             {
                 RequestItems = new Dictionary<string, List<WriteRequest>>
                 {
-                    ["TestTable"] =
+                    [TestTableName] =
                     [
                         new WriteRequest { PutRequest = new PutRequest { Item = new Dictionary<string, AttributeValue>
                         {

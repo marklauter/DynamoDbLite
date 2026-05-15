@@ -24,7 +24,7 @@ public sealed class ItemCrudTests
 
         var response = await client.PutItemAsync(new PutItemRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             Item = new Dictionary<string, AttributeValue>
             {
                 ["PK"] = new() { S = "USER#1" },
@@ -44,7 +44,7 @@ public sealed class ItemCrudTests
         var client = Client(st);
 
         var response = await client.PutItemAsync(
-            "TestTable",
+            TestTableName,
             new Dictionary<string, AttributeValue>
             {
                 ["PK"] = new() { S = "USER#2" },
@@ -66,7 +66,7 @@ public sealed class ItemCrudTests
 
         var response = await client.PutItemAsync(new PutItemRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             Item = new Dictionary<string, AttributeValue>
             {
                 ["PK"] = new() { S = "USER#1" },
@@ -90,7 +90,7 @@ public sealed class ItemCrudTests
 
         var response = await client.PutItemAsync(new PutItemRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             Item = new Dictionary<string, AttributeValue>
             {
                 ["PK"] = new() { S = "USER#1" },
@@ -125,7 +125,7 @@ public sealed class ItemCrudTests
         => _ = await Assert.ThrowsAsync<AmazonDynamoDBException>(() =>
             Client(st).PutItemAsync(new PutItemRequest
             {
-                TableName = "TestTable",
+                TableName = TestTableName,
                 Item = new Dictionary<string, AttributeValue>
                 {
                     ["PK"] = new() { S = "USER#1" }
@@ -140,7 +140,7 @@ public sealed class ItemCrudTests
         => _ = await Assert.ThrowsAsync<AmazonDynamoDBException>(() =>
             Client(st).PutItemAsync(new PutItemRequest
             {
-                TableName = "TestTable",
+                TableName = TestTableName,
                 Item = new Dictionary<string, AttributeValue>
                 {
                     ["PK"] = new() { N = "123" },  // Should be S
@@ -157,7 +157,7 @@ public sealed class ItemCrudTests
 
         var response = await client.PutItemAsync(new PutItemRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             Item = new Dictionary<string, AttributeValue>
             {
                 ["PK"] = new() { S = "USER#99" },
@@ -181,7 +181,7 @@ public sealed class ItemCrudTests
         _ = await Assert.ThrowsAsync<ConditionalCheckFailedException>(() =>
             client.PutItemAsync(new PutItemRequest
             {
-                TableName = "TestTable",
+                TableName = TestTableName,
                 Item = new Dictionary<string, AttributeValue>
                 {
                     ["PK"] = new() { S = "USER#100" },
@@ -204,7 +204,7 @@ public sealed class ItemCrudTests
 
         var response = await client.GetItemAsync(new GetItemRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             Key = new Dictionary<string, AttributeValue>
             {
                 ["PK"] = new() { S = "USER#1" },
@@ -226,7 +226,7 @@ public sealed class ItemCrudTests
         _ = await PutTestItemAsync(client, "USER#1", "PROFILE", "Alice");
 
         var response = await client.GetItemAsync(
-            "TestTable",
+            TestTableName,
             new Dictionary<string, AttributeValue>
             {
                 ["PK"] = new() { S = "USER#1" },
@@ -246,7 +246,7 @@ public sealed class ItemCrudTests
 
         var response = await client.GetItemAsync(new GetItemRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             Key = new Dictionary<string, AttributeValue>
             {
                 ["PK"] = new() { S = "NONEXISTENT" },
@@ -267,7 +267,7 @@ public sealed class ItemCrudTests
 
         var response = await client.GetItemAsync(new GetItemRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             Key = new Dictionary<string, AttributeValue>
             {
                 ["PK"] = new() { S = "USER#1" },
@@ -294,7 +294,7 @@ public sealed class ItemCrudTests
         _ = await PutTestItemAsync(client, "USER#1", "PROFILE", "Alice");
 
         var response = await client.GetItemAsync(
-            "TestTable",
+            TestTableName,
             new Dictionary<string, AttributeValue>
             {
                 ["PK"] = new() { S = "USER#1" },
@@ -318,7 +318,7 @@ public sealed class ItemCrudTests
 
         _ = await client.DeleteItemAsync(new DeleteItemRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             Key = new Dictionary<string, AttributeValue>
             {
                 ["PK"] = new() { S = "USER#1" },
@@ -328,7 +328,7 @@ public sealed class ItemCrudTests
 
         var getResponse = await client.GetItemAsync(new GetItemRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             Key = new Dictionary<string, AttributeValue>
             {
                 ["PK"] = new() { S = "USER#1" },
@@ -348,7 +348,7 @@ public sealed class ItemCrudTests
         _ = await PutTestItemAsync(client, "USER#1", "PROFILE", "Alice");
 
         _ = await client.DeleteItemAsync(
-            "TestTable",
+            TestTableName,
             new Dictionary<string, AttributeValue>
             {
                 ["PK"] = new() { S = "USER#1" },
@@ -357,7 +357,7 @@ public sealed class ItemCrudTests
             TestContext.Current.CancellationToken);
 
         var getResponse = await client.GetItemAsync(
-            "TestTable",
+            TestTableName,
             new Dictionary<string, AttributeValue>
             {
                 ["PK"] = new() { S = "USER#1" },
@@ -378,7 +378,7 @@ public sealed class ItemCrudTests
 
         var response = await client.DeleteItemAsync(new DeleteItemRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             Key = new Dictionary<string, AttributeValue>
             {
                 ["PK"] = new() { S = "USER#1" },
@@ -400,7 +400,7 @@ public sealed class ItemCrudTests
 
         var response = await client.DeleteItemAsync(new DeleteItemRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             Key = new Dictionary<string, AttributeValue>
             {
                 ["PK"] = new() { S = "NONEXISTENT" },
@@ -421,7 +421,7 @@ public sealed class ItemCrudTests
 
         var response = await client.DeleteItemAsync(new DeleteItemRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             Key = new Dictionary<string, AttributeValue>
             {
                 ["PK"] = new() { S = "USER#1" },
@@ -440,7 +440,7 @@ public sealed class ItemCrudTests
         => _ = await Assert.ThrowsAsync<ConditionalCheckFailedException>(() =>
             Client(st).DeleteItemAsync(new DeleteItemRequest
             {
-                TableName = "TestTable",
+                TableName = TestTableName,
                 Key = new Dictionary<string, AttributeValue>
                 {
                     ["PK"] = new() { S = "NONEXISTENT" },
@@ -461,7 +461,7 @@ public sealed class ItemCrudTests
 
         _ = await client.UpdateItemAsync(new UpdateItemRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             Key = new Dictionary<string, AttributeValue>
             {
                 ["PK"] = new() { S = "USER#1" },
@@ -477,7 +477,7 @@ public sealed class ItemCrudTests
 
         var getResponse = await client.GetItemAsync(new GetItemRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             Key = new Dictionary<string, AttributeValue>
             {
                 ["PK"] = new() { S = "USER#1" },
@@ -498,7 +498,7 @@ public sealed class ItemCrudTests
 
         var response = await client.UpdateItemAsync(new UpdateItemRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             Key = new Dictionary<string, AttributeValue>
             {
                 ["PK"] = new() { S = "USER#1" },
@@ -528,7 +528,7 @@ public sealed class ItemCrudTests
 
         var response = await client.UpdateItemAsync(new UpdateItemRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             Key = new Dictionary<string, AttributeValue>
             {
                 ["PK"] = new() { S = "USER#1" },
@@ -556,7 +556,7 @@ public sealed class ItemCrudTests
 
         _ = await client.PutItemAsync(new PutItemRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             Item = new Dictionary<string, AttributeValue>
             {
                 ["PK"] = new() { S = "USER#1" },
@@ -568,7 +568,7 @@ public sealed class ItemCrudTests
 
         _ = await client.UpdateItemAsync(new UpdateItemRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             Key = new Dictionary<string, AttributeValue>
             {
                 ["PK"] = new() { S = "USER#1" },
@@ -579,7 +579,7 @@ public sealed class ItemCrudTests
 
         var getResponse = await client.GetItemAsync(new GetItemRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             Key = new Dictionary<string, AttributeValue>
             {
                 ["PK"] = new() { S = "USER#1" },
@@ -600,7 +600,7 @@ public sealed class ItemCrudTests
 
         _ = await client.PutItemAsync(new PutItemRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             Item = new Dictionary<string, AttributeValue>
             {
                 ["PK"] = new() { S = "COUNTER#1" },
@@ -611,7 +611,7 @@ public sealed class ItemCrudTests
 
         _ = await client.UpdateItemAsync(new UpdateItemRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             Key = new Dictionary<string, AttributeValue>
             {
                 ["PK"] = new() { S = "COUNTER#1" },
@@ -627,7 +627,7 @@ public sealed class ItemCrudTests
 
         var getResponse = await client.GetItemAsync(new GetItemRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             Key = new Dictionary<string, AttributeValue>
             {
                 ["PK"] = new() { S = "COUNTER#1" },
@@ -648,7 +648,7 @@ public sealed class ItemCrudTests
 
         _ = await client.UpdateItemAsync(new UpdateItemRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             Key = new Dictionary<string, AttributeValue>
             {
                 ["PK"] = new() { S = "USER#1" },
@@ -663,7 +663,7 @@ public sealed class ItemCrudTests
 
         var getResponse = await client.GetItemAsync(new GetItemRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             Key = new Dictionary<string, AttributeValue>
             {
                 ["PK"] = new() { S = "USER#1" },
@@ -683,7 +683,7 @@ public sealed class ItemCrudTests
 
         _ = await client.UpdateItemAsync(new UpdateItemRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             Key = new Dictionary<string, AttributeValue>
             {
                 ["PK"] = new() { S = "NEW#1" },
@@ -699,7 +699,7 @@ public sealed class ItemCrudTests
 
         var getResponse = await client.GetItemAsync(new GetItemRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             Key = new Dictionary<string, AttributeValue>
             {
                 ["PK"] = new() { S = "NEW#1" },
@@ -718,7 +718,7 @@ public sealed class ItemCrudTests
         => _ = await Assert.ThrowsAsync<ConditionalCheckFailedException>(() =>
             Client(st).UpdateItemAsync(new UpdateItemRequest
             {
-                TableName = "TestTable",
+                TableName = TestTableName,
                 Key = new Dictionary<string, AttributeValue>
                 {
                     ["PK"] = new() { S = "NONEXISTENT" },
@@ -744,7 +744,7 @@ public sealed class ItemCrudTests
         _ = await Assert.ThrowsAsync<AmazonDynamoDBException>(() =>
             client.UpdateItemAsync(new UpdateItemRequest
             {
-                TableName = "TestTable",
+                TableName = TestTableName,
                 Key = new Dictionary<string, AttributeValue>
                 {
                     ["PK"] = new() { S = "USER#1" },
@@ -768,7 +768,7 @@ public sealed class ItemCrudTests
 
         var response = await client.UpdateItemAsync(new UpdateItemRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             Key = new Dictionary<string, AttributeValue>
             {
                 ["PK"] = new() { S = "USER#1" },
@@ -798,7 +798,7 @@ public sealed class ItemCrudTests
 
         var response = await client.UpdateItemAsync(new UpdateItemRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             Key = new Dictionary<string, AttributeValue>
             {
                 ["PK"] = new() { S = "USER#1" },
@@ -829,7 +829,7 @@ public sealed class ItemCrudTests
         _ = await PutTestItemAsync(client, "USER#1", "PROFILE", "Alice");
         _ = await PutTestItemAsync(client, "USER#2", "PROFILE", "Bob");
 
-        var describeResponse = await client.DescribeTableAsync("TestTable", TestContext.Current.CancellationToken);
+        var describeResponse = await client.DescribeTableAsync(TestTableName, TestContext.Current.CancellationToken);
 
         Assert.Equal(2, describeResponse.Table.ItemCount);
     }
@@ -845,7 +845,7 @@ public sealed class ItemCrudTests
 
         _ = await client.DeleteItemAsync(new DeleteItemRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             Key = new Dictionary<string, AttributeValue>
             {
                 ["PK"] = new() { S = "USER#1" },
@@ -853,7 +853,7 @@ public sealed class ItemCrudTests
             }
         }, TestContext.Current.CancellationToken);
 
-        var describeResponse = await client.DescribeTableAsync("TestTable", TestContext.Current.CancellationToken);
+        var describeResponse = await client.DescribeTableAsync(TestTableName, TestContext.Current.CancellationToken);
 
         Assert.Equal(1, describeResponse.Table.ItemCount);
     }
@@ -871,7 +871,7 @@ public sealed class ItemCrudTests
         _ = await Assert.ThrowsAsync<ObjectDisposedException>(() =>
             client.PutItemAsync(new PutItemRequest
             {
-                TableName = "TestTable",
+                TableName = TestTableName,
                 Item = new Dictionary<string, AttributeValue>
                 {
                     ["PK"] = new() { S = "X" },
@@ -934,7 +934,7 @@ public sealed class ItemCrudTests
         var ct = TestContext.Current.CancellationToken;
 
         var response = await client.PutItemAsync(
-            "TestTable",
+            TestTableName,
             new Dictionary<string, AttributeValue>
             {
                 ["PK"] = new() { S = "USER#OVERLOAD_PUT" },
@@ -957,7 +957,7 @@ public sealed class ItemCrudTests
         _ = await PutTestItemAsync(client, "USER#OVERLOAD_DELETE", "PROFILE", "Doomed");
 
         var response = await client.DeleteItemAsync(
-            "TestTable",
+            TestTableName,
             new Dictionary<string, AttributeValue>
             {
                 ["PK"] = new() { S = "USER#OVERLOAD_DELETE" },
@@ -972,10 +972,10 @@ public sealed class ItemCrudTests
 
     // ── Helpers ─────────────────────────────────────────────────────────
 
-    private static Task<PutItemResponse> PutTestItemAsync(DynamoDbClient client, string pk, string sk, string name) =>
+    private Task<PutItemResponse> PutTestItemAsync(DynamoDbClient client, string pk, string sk, string name) =>
         client.PutItemAsync(new PutItemRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             Item = new Dictionary<string, AttributeValue>
             {
                 ["PK"] = new() { S = pk },

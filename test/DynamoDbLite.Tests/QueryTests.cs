@@ -15,7 +15,7 @@ public sealed class QueryTests
         await SeedTestDataAsync(Client(StoreType.DdbLiteFile), ct);
     }
 
-    private static async Task SeedTestDataAsync(DynamoDbClient client, CancellationToken ct)
+    private async Task SeedTestDataAsync(DynamoDbClient client, CancellationToken ct)
     {
         // Seed test data: USER#1 has 5 items, USER#2 has 2 items
         var items = new (string Pk, string Sk, string Name)[]
@@ -33,7 +33,7 @@ public sealed class QueryTests
         {
             _ = await client.PutItemAsync(new PutItemRequest
             {
-                TableName = "TestTable",
+                TableName = TestTableName,
                 Item = new Dictionary<string, AttributeValue>
                 {
                     ["PK"] = new() { S = pk },
@@ -55,7 +55,7 @@ public sealed class QueryTests
         var client = Client(st);
         var response = await client.QueryAsync(new QueryRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             KeyConditionExpression = "PK = :pk",
             ExpressionAttributeValues = new Dictionary<string, AttributeValue>
             {
@@ -77,7 +77,7 @@ public sealed class QueryTests
         var client = Client(st);
         var response = await client.QueryAsync(new QueryRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             KeyConditionExpression = "PK = :pk AND SK = :sk",
             ExpressionAttributeValues = new Dictionary<string, AttributeValue>
             {
@@ -100,7 +100,7 @@ public sealed class QueryTests
         var client = Client(st);
         var response = await client.QueryAsync(new QueryRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             KeyConditionExpression = "PK = :pk AND SK < :sk",
             ExpressionAttributeValues = new Dictionary<string, AttributeValue>
             {
@@ -122,7 +122,7 @@ public sealed class QueryTests
         var client = Client(st);
         var response = await client.QueryAsync(new QueryRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             KeyConditionExpression = "PK = :pk AND SK >= :sk",
             ExpressionAttributeValues = new Dictionary<string, AttributeValue>
             {
@@ -146,7 +146,7 @@ public sealed class QueryTests
         var client = Client(st);
         var response = await client.QueryAsync(new QueryRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             KeyConditionExpression = "PK = :pk AND SK BETWEEN :low AND :high",
             ExpressionAttributeValues = new Dictionary<string, AttributeValue>
             {
@@ -173,7 +173,7 @@ public sealed class QueryTests
         // Add items with longer SKs for begins_with testing
         _ = await client.PutItemAsync(new PutItemRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             Item = new Dictionary<string, AttributeValue>
             {
                 ["PK"] = new() { S = "USER#3" },
@@ -184,7 +184,7 @@ public sealed class QueryTests
 
         _ = await client.PutItemAsync(new PutItemRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             Item = new Dictionary<string, AttributeValue>
             {
                 ["PK"] = new() { S = "USER#3" },
@@ -195,7 +195,7 @@ public sealed class QueryTests
 
         _ = await client.PutItemAsync(new PutItemRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             Item = new Dictionary<string, AttributeValue>
             {
                 ["PK"] = new() { S = "USER#3" },
@@ -206,7 +206,7 @@ public sealed class QueryTests
 
         var response = await client.QueryAsync(new QueryRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             KeyConditionExpression = "PK = :pk AND begins_with(SK, :prefix)",
             ExpressionAttributeValues = new Dictionary<string, AttributeValue>
             {
@@ -228,7 +228,7 @@ public sealed class QueryTests
         var prefix = "ORDER\uffff";
         _ = await client.PutItemAsync(new PutItemRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             Item = new Dictionary<string, AttributeValue>
             {
                 ["PK"] = new() { S = "USER#9" },
@@ -239,7 +239,7 @@ public sealed class QueryTests
 
         _ = await client.PutItemAsync(new PutItemRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             Item = new Dictionary<string, AttributeValue>
             {
                 ["PK"] = new() { S = "USER#9" },
@@ -250,7 +250,7 @@ public sealed class QueryTests
 
         var response = await client.QueryAsync(new QueryRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             KeyConditionExpression = "PK = :pk AND begins_with(SK, :prefix)",
             ExpressionAttributeValues = new Dictionary<string, AttributeValue>
             {
@@ -272,7 +272,7 @@ public sealed class QueryTests
         var prefix = "\uffff\uffff";
         _ = await client.PutItemAsync(new PutItemRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             Item = new Dictionary<string, AttributeValue>
             {
                 ["PK"] = new() { S = "USER#10" },
@@ -283,7 +283,7 @@ public sealed class QueryTests
 
         _ = await client.PutItemAsync(new PutItemRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             Item = new Dictionary<string, AttributeValue>
             {
                 ["PK"] = new() { S = "USER#10" },
@@ -294,7 +294,7 @@ public sealed class QueryTests
 
         var response = await client.QueryAsync(new QueryRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             KeyConditionExpression = "PK = :pk AND begins_with(SK, :prefix)",
             ExpressionAttributeValues = new Dictionary<string, AttributeValue>
             {
@@ -317,7 +317,7 @@ public sealed class QueryTests
         var client = Client(st);
         var response = await client.QueryAsync(new QueryRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             KeyConditionExpression = "PK = :pk",
             ScanIndexForward = false,
             ExpressionAttributeValues = new Dictionary<string, AttributeValue>
@@ -344,7 +344,7 @@ public sealed class QueryTests
         var client = Client(st);
         var response = await client.QueryAsync(new QueryRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             KeyConditionExpression = "PK = :pk",
             Limit = 2,
             ExpressionAttributeValues = new Dictionary<string, AttributeValue>
@@ -372,7 +372,7 @@ public sealed class QueryTests
         {
             var response = await client.QueryAsync(new QueryRequest
             {
-                TableName = "TestTable",
+                TableName = TestTableName,
                 KeyConditionExpression = "PK = :pk",
                 Limit = 2,
                 ExclusiveStartKey = lastKey,
@@ -402,7 +402,7 @@ public sealed class QueryTests
         var client = Client(st);
         var response = await client.QueryAsync(new QueryRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             KeyConditionExpression = "PK = :pk",
             FilterExpression = "active = :active",
             ExpressionAttributeValues = new Dictionary<string, AttributeValue>
@@ -427,7 +427,7 @@ public sealed class QueryTests
         var client = Client(st);
         var response = await client.QueryAsync(new QueryRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             KeyConditionExpression = "PK = :pk AND SK = :sk",
             ProjectionExpression = "#n",
             ExpressionAttributeNames = new Dictionary<string, string>
@@ -456,7 +456,7 @@ public sealed class QueryTests
         var client = Client(st);
         var response = await client.QueryAsync(new QueryRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             KeyConditionExpression = "PK = :pk",
             Select = Select.COUNT,
             ExpressionAttributeValues = new Dictionary<string, AttributeValue>
@@ -496,7 +496,7 @@ public sealed class QueryTests
         var client = Client(st);
         var response = await client.QueryAsync(new QueryRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             KeyConditionExpression = "PK = :pk",
             ExpressionAttributeValues = new Dictionary<string, AttributeValue>
             {

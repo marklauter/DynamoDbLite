@@ -8,13 +8,13 @@ public sealed class QueryNumericSortKeyTests
 {
     protected override async ValueTask SetupAsync(CancellationToken ct)
     {
-        await CreateNumericSortKeyTableAsync(Client(StoreType.DdbLite), "NumericTable", ct);
-        await CreateNumericSortKeyTableAsync(Client(StoreType.DdbLiteFile), "NumericTable", ct);
+        await CreateNumericSortKeyTableAsync(Client(StoreType.DdbLite), TestTableName, ct);
+        await CreateNumericSortKeyTableAsync(Client(StoreType.DdbLiteFile), TestTableName, ct);
         await SeedDataAsync(Client(StoreType.DdbLite), ct);
         await SeedDataAsync(Client(StoreType.DdbLiteFile), ct);
     }
 
-    private static async Task SeedDataAsync(DynamoDbClient client, CancellationToken ct)
+    private async Task SeedDataAsync(DynamoDbClient client, CancellationToken ct)
     {
         // Seed items with numeric SK values that would sort differently as strings vs numbers
         // String order: "1", "10", "2", "20"
@@ -24,7 +24,7 @@ public sealed class QueryNumericSortKeyTests
         {
             _ = await client.PutItemAsync(new PutItemRequest
             {
-                TableName = "NumericTable",
+                TableName = TestTableName,
                 Item = new Dictionary<string, AttributeValue>
                 {
                     ["PK"] = new() { S = "ITEM#1" },
@@ -46,7 +46,7 @@ public sealed class QueryNumericSortKeyTests
 
         var response = await client.QueryAsync(new QueryRequest
         {
-            TableName = "NumericTable",
+            TableName = TestTableName,
             KeyConditionExpression = "PK = :pk",
             ExpressionAttributeValues = new Dictionary<string, AttributeValue>
             {
@@ -72,7 +72,7 @@ public sealed class QueryNumericSortKeyTests
 
         var response = await client.QueryAsync(new QueryRequest
         {
-            TableName = "NumericTable",
+            TableName = TestTableName,
             KeyConditionExpression = "PK = :pk AND SK < :sk",
             ExpressionAttributeValues = new Dictionary<string, AttributeValue>
             {
@@ -97,7 +97,7 @@ public sealed class QueryNumericSortKeyTests
 
         var response = await client.QueryAsync(new QueryRequest
         {
-            TableName = "NumericTable",
+            TableName = TestTableName,
             KeyConditionExpression = "PK = :pk AND SK BETWEEN :low AND :high",
             ExpressionAttributeValues = new Dictionary<string, AttributeValue>
             {
@@ -123,7 +123,7 @@ public sealed class QueryNumericSortKeyTests
 
         var response = await client.QueryAsync(new QueryRequest
         {
-            TableName = "NumericTable",
+            TableName = TestTableName,
             KeyConditionExpression = "PK = :pk",
             ScanIndexForward = false,
             ExpressionAttributeValues = new Dictionary<string, AttributeValue>
@@ -155,7 +155,7 @@ public sealed class QueryNumericSortKeyTests
         {
             var response = await client.QueryAsync(new QueryRequest
             {
-                TableName = "NumericTable",
+                TableName = TestTableName,
                 KeyConditionExpression = "PK = :pk",
                 Limit = 2,
                 ExclusiveStartKey = lastKey,
@@ -186,7 +186,7 @@ public sealed class QueryNumericSortKeyTests
 
         var response = await client.QueryAsync(new QueryRequest
         {
-            TableName = "NumericTable",
+            TableName = TestTableName,
             KeyConditionExpression = "PK = :pk",
             Limit = 2,
             ExpressionAttributeValues = new Dictionary<string, AttributeValue>

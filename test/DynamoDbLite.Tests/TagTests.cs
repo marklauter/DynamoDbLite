@@ -7,7 +7,7 @@ namespace DynamoDbLite.Tests;
 public sealed class TagTests
     : DynamoDbClientFixture
 {
-    private const string TableArn = "arn:aws:dynamodb:us-east-1:000000000000:table/TestTable";
+    private string TableArn => $"arn:aws:dynamodb:us-east-1:000000000000:table/{TestTableName}";
 
     protected override async ValueTask SetupAsync(CancellationToken ct)
     {
@@ -296,13 +296,13 @@ public sealed class TagTests
             Tags = [new Tag { Key = "env", Value = "test" }]
         }, TestContext.Current.CancellationToken);
 
-        _ = await client.DeleteTableAsync(new DeleteTableRequest { TableName = "TestTable" },
+        _ = await client.DeleteTableAsync(new DeleteTableRequest { TableName = TestTableName },
             TestContext.Current.CancellationToken);
 
         // Re-create table
         _ = await client.CreateTableAsync(new CreateTableRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             KeySchema =
             [
                 new KeySchemaElement { AttributeName = "PK", KeyType = KeyType.HASH },

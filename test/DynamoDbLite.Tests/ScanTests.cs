@@ -13,13 +13,13 @@ public sealed class ScanTests
         await CreateTestTableAsync(Client(StoreType.DdbLiteFile), ct);
     }
 
-    private static async Task SeedItemsAsync(DynamoDbClient client, int count)
+    private async Task SeedItemsAsync(DynamoDbClient client, int count)
     {
         for (var i = 0; i < count; i++)
         {
             _ = await client.PutItemAsync(new PutItemRequest
             {
-                TableName = "TestTable",
+                TableName = TestTableName,
                 Item = new Dictionary<string, AttributeValue>
                 {
                     ["PK"] = new() { S = $"PK#{i}" },
@@ -41,7 +41,7 @@ public sealed class ScanTests
         var client = Client(st);
         var response = await client.ScanAsync(new ScanRequest
         {
-            TableName = "TestTable"
+            TableName = TestTableName
         }, TestContext.Current.CancellationToken);
 
         Assert.Equal(0, response.Count);
@@ -60,7 +60,7 @@ public sealed class ScanTests
 
         var response = await client.ScanAsync(new ScanRequest
         {
-            TableName = "TestTable"
+            TableName = TestTableName
         }, TestContext.Current.CancellationToken);
 
         Assert.Equal(5, response.Count);
@@ -79,7 +79,7 @@ public sealed class ScanTests
 
         var response = await client.ScanAsync(new ScanRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             Limit = 2,
         }, TestContext.Current.CancellationToken);
 
@@ -102,7 +102,7 @@ public sealed class ScanTests
         {
             var response = await client.ScanAsync(new ScanRequest
             {
-                TableName = "TestTable",
+                TableName = TestTableName,
                 Limit = 2,
                 ExclusiveStartKey = lastKey,
             }, TestContext.Current.CancellationToken);
@@ -127,7 +127,7 @@ public sealed class ScanTests
 
         var response = await client.ScanAsync(new ScanRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             FilterExpression = "active = :active",
             ExpressionAttributeValues = new Dictionary<string, AttributeValue>
             {
@@ -151,7 +151,7 @@ public sealed class ScanTests
 
         var response = await client.ScanAsync(new ScanRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             ProjectionExpression = "#n",
             ExpressionAttributeNames = new Dictionary<string, string>
             {
@@ -179,7 +179,7 @@ public sealed class ScanTests
 
         var response = await client.ScanAsync(new ScanRequest
         {
-            TableName = "TestTable",
+            TableName = TestTableName,
             Select = Select.COUNT,
         }, TestContext.Current.CancellationToken);
 
