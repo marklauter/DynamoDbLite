@@ -1,3 +1,5 @@
+using Amazon.DynamoDBv2;
+
 namespace DynamoDbLite.Expressions;
 
 // Source: https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/ReservedWords.html
@@ -72,8 +74,11 @@ internal static class DynamoDbReservedWords
     {
         if (Words.Contains(name))
         {
-            throw new ArgumentException(
-                $"Invalid {expressionKind}: Attribute name is a reserved keyword; reserved keyword: {name}");
+            throw new AmazonDynamoDBException(
+                $"Invalid {expressionKind}: Attribute name is a reserved keyword; reserved keyword: {name}")
+            {
+                ErrorCode = "ValidationException",
+            };
         }
     }
 }

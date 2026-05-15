@@ -64,8 +64,9 @@ Initial slice covers 25 scenarios across eight test files, mapping one-to-one ag
 - [`TransactionParityTests`](../src/DynamoDbLite.Parity.Tests/TransactionParityTests.cs) — `TransactWriteItems` all-or-nothing rollback with `CancellationReasons[i].Code == "ConditionalCheckFailed"`.
 - [`BatchParityTests`](../src/DynamoDbLite.Parity.Tests/BatchParityTests.cs) — `BatchGetItem` happy path.
 - [`SecondaryIndexParityTests`](../src/DynamoDbLite.Parity.Tests/SecondaryIndexParityTests.cs) — GSI query with `INCLUDE` projection returns projected attributes only.
+- [`ReservedWordParityTests`](../src/DynamoDbLite.Parity.Tests/ReservedWordParityTests.cs) — raw reserved words in `UpdateExpression`/`ConditionExpression`/`ProjectionExpression` throw `AmazonDynamoDBException` with `ErrorCode == "ValidationException"`; the same word escaped via `ExpressionAttributeNames` is accepted.
 
-25 scenarios × 3 backends = 75 test executions per parity run.
+29 scenarios × 3 backends = 87 test executions per parity run.
 
 ## Configuration
 
@@ -94,6 +95,7 @@ Mapped to README parity claims, in rough priority order:
 - **`Select.COUNT`** on Query and Scan.
 - **`ReturnValues`** variants on `PutItem`, `UpdateItem`, `DeleteItem` (`ALL_OLD`, `UPDATED_NEW`, etc.).
 - **Pagination edge cases:** scan with `Segment`/`TotalSegments`, query that exits via `Limit` versus exits via end-of-data.
+- **Expression validation order:** every API surface (`GetItem`, `PutItem`, `UpdateItem`, `DeleteItem`, `Query`, `Scan`, `Transact*`, `Batch*`) should reject a malformed expression before any item lookup or mutation — locks the invariant uncovered by [`ReservedWordParityTests`](../src/DynamoDbLite.Parity.Tests/ReservedWordParityTests.cs).
 
 ### Library gaps found by parity tests
 

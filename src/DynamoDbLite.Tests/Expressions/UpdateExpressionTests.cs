@@ -1,3 +1,4 @@
+using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
 using DynamoDbLite.Expressions;
 
@@ -551,7 +552,7 @@ public sealed class UpdateExpressionTests
     [Fact]
     public void Reserved_TopLevelIdentifier_Throws()
     {
-        var ex = Assert.Throws<ArgumentException>(() =>
+        var ex = Assert.Throws<AmazonDynamoDBException>(() =>
             UpdateExpressionParser.Parse("SET name = :v"));
 
         Assert.Contains("UpdateExpression", ex.Message);
@@ -561,12 +562,12 @@ public sealed class UpdateExpressionTests
 
     [Fact]
     public void Reserved_NestedPathElement_Throws() =>
-        Assert.Throws<ArgumentException>(() =>
+        Assert.Throws<AmazonDynamoDBException>(() =>
             UpdateExpressionParser.Parse("SET a.status = :v"));
 
     [Fact]
     public void Reserved_CaseInsensitive_Throws() =>
-        Assert.Throws<ArgumentException>(() =>
+        Assert.Throws<AmazonDynamoDBException>(() =>
             UpdateExpressionParser.Parse("SET NaMe = :v"));
 
     [Fact]

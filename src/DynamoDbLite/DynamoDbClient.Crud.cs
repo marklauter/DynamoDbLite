@@ -101,6 +101,11 @@ public sealed partial class DynamoDbClient
         var keyInfo = await store.GetKeySchemaAsync(request.TableName, cancellationToken)
             ?? throw new ResourceNotFoundException($"Requested resource not found: Table: {request.TableName} not found");
 
+        IReadOnlyList<Expressions.AttributePath>? projectionPaths = null;
+        if (!string.IsNullOrEmpty(request.ProjectionExpression))
+            projectionPaths = Expressions.ProjectionExpressionParser.Parse(
+                request.ProjectionExpression, request.ExpressionAttributeNames);
+
         var (pk, sk) = KeyHelper.ExtractKeys(request.Key, keyInfo.KeySchema, keyInfo.AttributeDefinitions);
         var itemJson = await store.GetItemAsync(request.TableName, pk, sk, nowEpoch, cancellationToken);
 
@@ -112,12 +117,8 @@ public sealed partial class DynamoDbClient
         {
             var item = AttributeValueSerializer.Deserialize(itemJson);
 
-            if (!string.IsNullOrEmpty(request.ProjectionExpression))
-            {
-                var paths = Expressions.ProjectionExpressionParser.Parse(
-                    request.ProjectionExpression, request.ExpressionAttributeNames);
-                item = Expressions.ProjectionExpressionEvaluator.Apply(item, paths);
-            }
+            if (projectionPaths is not null)
+                item = Expressions.ProjectionExpressionEvaluator.Apply(item, projectionPaths);
 
             response.Item = item;
             response.IsItemSet = true;

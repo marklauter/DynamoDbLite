@@ -1,3 +1,4 @@
+using Amazon.DynamoDBv2;
 using DynamoDbLite.Expressions;
 
 namespace DynamoDbLite.Tests.Expressions;
@@ -110,7 +111,7 @@ public sealed class KeyConditionExpressionTests
     [Fact]
     public void Reserved_PartitionKey_Throws()
     {
-        var ex = Assert.Throws<ArgumentException>(() =>
+        var ex = Assert.Throws<AmazonDynamoDBException>(() =>
             KeyConditionExpressionParser.Parse("name = :pk"));
 
         Assert.Contains("KeyConditionExpression", ex.Message);
@@ -119,7 +120,7 @@ public sealed class KeyConditionExpressionTests
 
     [Fact]
     public void Reserved_SortKey_Throws() =>
-        Assert.Throws<ArgumentException>(() =>
+        Assert.Throws<AmazonDynamoDBException>(() =>
             KeyConditionExpressionParser.Parse("PK = :pk AND status = :sk"));
 
     [Fact]

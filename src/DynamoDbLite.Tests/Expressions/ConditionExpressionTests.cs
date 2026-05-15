@@ -1,3 +1,4 @@
+using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
 using DynamoDbLite.Expressions;
 
@@ -596,7 +597,7 @@ public sealed class ConditionExpressionTests
     [Fact]
     public void Reserved_TopLevelIdentifier_Throws()
     {
-        var ex = Assert.Throws<ArgumentException>(() =>
+        var ex = Assert.Throws<AmazonDynamoDBException>(() =>
             ConditionExpressionParser.Parse("name = :v"));
 
         Assert.Contains("ConditionExpression", ex.Message);
@@ -606,7 +607,7 @@ public sealed class ConditionExpressionTests
 
     [Fact]
     public void Reserved_InFunctionArgument_Throws() =>
-        Assert.Throws<ArgumentException>(() =>
+        Assert.Throws<AmazonDynamoDBException>(() =>
             ConditionExpressionParser.Parse("attribute_exists(name)"));
 
     [Fact]

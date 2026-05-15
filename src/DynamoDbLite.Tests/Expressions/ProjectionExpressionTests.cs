@@ -1,3 +1,4 @@
+using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
 using DynamoDbLite.Expressions;
 
@@ -336,7 +337,7 @@ public sealed class ProjectionExpressionTests
     [Fact]
     public void Reserved_TopLevelIdentifier_Throws()
     {
-        var ex = Assert.Throws<ArgumentException>(() =>
+        var ex = Assert.Throws<AmazonDynamoDBException>(() =>
             ProjectionExpressionParser.Parse("name"));
 
         Assert.Contains("ProjectionExpression", ex.Message);
@@ -345,7 +346,7 @@ public sealed class ProjectionExpressionTests
 
     [Fact]
     public void Reserved_NestedPathElement_Throws() =>
-        Assert.Throws<ArgumentException>(() =>
+        Assert.Throws<AmazonDynamoDBException>(() =>
             ProjectionExpressionParser.Parse("a.status"));
 
     [Fact]
