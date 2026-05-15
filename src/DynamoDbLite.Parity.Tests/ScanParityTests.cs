@@ -131,9 +131,6 @@ public sealed class ScanParityTests(DynamoDbFixture fixture)
     [InlineData(ParityBackend.DynamoDbLocal)]
     public async Task Scan_with_two_segments_returns_full_set_when_merged(ParityBackend backend)
     {
-        if (backend is ParityBackend.DdbLite or ParityBackend.DdbLiteFile)
-            Assert.Skip("DynamoDbLite ignores Segment/TotalSegments — tracked in docs/parity.md Library gaps");
-
         var ct = TestContext.Current.CancellationToken;
         var client = await fixture.ClientAsync(backend, ct);
         var tableName = TestTables.UniqueName("scan_segs");

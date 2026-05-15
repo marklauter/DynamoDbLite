@@ -223,6 +223,8 @@ public sealed partial class DynamoDbClient
         ArgumentNullException.ThrowIfNull(request);
         ArgumentException.ThrowIfNullOrWhiteSpace(request.TableName);
 
+        ValidateScanSegmentation(request);
+
         // Support legacy ScanFilter by converting to FilterExpression
         if (string.IsNullOrEmpty(request.FilterExpression) && request.ScanFilter is { Count: > 0 })
             ConvertScanFilterToExpression(request);
@@ -248,6 +250,9 @@ public sealed partial class DynamoDbClient
             request.TableName, request.Limit, exclusiveStartPk, exclusiveStartSk, nowEpoch, cancellationToken);
 
         TriggerBackgroundCleanup(request.TableName);
+
+        if (request.TotalSegments is int total && total > 1)
+            rows = [.. rows.Where(r => SegmentOf(r.Pk, total) == request.Segment!.Value)];
 
         var scannedCount = rows.Count;
         var items = new List<Dictionary<string, AttributeValue>>(rows.Count);
@@ -345,6 +350,9 @@ public sealed partial class DynamoDbClient
             request.TableName, request.IndexName, request.Limit,
             exclusiveStartPk, exclusiveStartSk,
             exclusiveStartTablePk, exclusiveStartTableSk, nowEpoch, cancellationToken);
+
+        if (request.TotalSegments is int total && total > 1)
+            rows = [.. rows.Where(r => SegmentOf(r.Pk, total) == request.Segment!.Value)];
 
         var scannedCount = rows.Count;
         var items = new List<Dictionary<string, AttributeValue>>(rows.Count);
@@ -744,5 +752,46 @@ public sealed partial class DynamoDbClient
                 tableKeyInfo.AttributeDefinitions.First(a => a.AttributeName == tableRangeKey.AttributeName).AttributeType);
 
         return result;
+    }
+
+    private static void ValidateScanSegmentation(ScanRequest request)
+    {
+        var hasSegment = request.IsSegmentSet;
+        var hasTotal = request.IsTotalSegmentsSet;
+
+        if (hasSegment != hasTotal)
+            throw new AmazonDynamoDBException(hasTotal
+                ? "1 validation error detected: Value at 'segment' failed to satisfy constraint: Member must not be null"
+                : "1 validation error detected: Value at 'totalSegments' failed to satisfy constraint: Member must not be null");
+
+        if (!hasTotal)
+            return;
+
+        if (request.TotalSegments < 1 || request.TotalSegments > 1_000_000)
+            throw new AmazonDynamoDBException(
+                "1 validation error detected: Value at 'totalSegments' failed to satisfy constraint: Member must be between 1 and 1000000");
+
+        if (request.Segment < 0 || request.Segment >= request.TotalSegments)
+            throw new AmazonDynamoDBException(
+                "1 validation error detected: Value at 'segment' failed to satisfy constraint: Member must be between 0 and totalSegments - 1");
+    }
+
+    // Stable partition-by-hash used for parallel Scan. Real DynamoDB partitions items by an
+    // internal hash of the partition key; for the in-process emulator any deterministic,
+    // well-distributed hash suffices to make the per-segment results disjoint and complete.
+    // FNV-1a chosen for being stable across processes (unlike string.GetHashCode) and zero-dep.
+    private static int SegmentOf(string partitionKey, int totalSegments)
+    {
+        const uint FnvOffsetBasis = 2166136261u;
+        const uint FnvPrime = 16777619u;
+        var hash = FnvOffsetBasis;
+        foreach (var c in partitionKey)
+        {
+            hash ^= (byte)(c & 0xff);
+            hash *= FnvPrime;
+            hash ^= (byte)((c >> 8) & 0xff);
+            hash *= FnvPrime;
+        }
+        return (int)(hash % (uint)totalSegments);
     }
 }
