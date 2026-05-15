@@ -6,6 +6,9 @@
 # Claude Code local settings
 .claude/settings.local.json
 
+# Review-pass scratch — see writing-csharp / reviewing-csharp skills
+.findings/
+
 # User-specific files
 *.rsuser
 *.suo
