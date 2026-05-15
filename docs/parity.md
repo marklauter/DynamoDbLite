@@ -60,7 +60,7 @@ Scenarios map one-to-one against parity claims in `README.md`:
 - [`UpdateExpressionParityTests`](../src/DynamoDbLite.Parity.Tests/UpdateExpressionParityTests.cs) — `SET` with `if_not_exists`, `SET` with `list_append`, `ADD` on number, `REMOVE`, `DELETE` on string set.
 - [`QueryParityTests`](../src/DynamoDbLite.Parity.Tests/QueryParityTests.cs) — `KeyConditionExpression`; `begins_with` on sort key; `ScanIndexForward = false`; `Limit` + `LastEvaluatedKey` pagination.
 - [`QueryNumericSortKeyParityTests`](../src/DynamoDbLite.Parity.Tests/QueryNumericSortKeyParityTests.cs) — `BETWEEN` on numeric sort key returns inclusive range in ascending order.
-- [`ScanParityTests`](../src/DynamoDbLite.Parity.Tests/ScanParityTests.cs) — `FilterExpression` with correct `Count` and `ScannedCount`; `contains` on string set; `IN` against a value list.
+- [`ScanParityTests`](../src/DynamoDbLite.Parity.Tests/ScanParityTests.cs) — `FilterExpression` with correct `Count` and `ScannedCount`; `contains` on string set; `IN` against a value list; parallel scan with `Segment`/`TotalSegments` (DdbLite/DdbLiteFile skipped — see Library gaps).
 - [`TransactionParityTests`](../src/DynamoDbLite.Parity.Tests/TransactionParityTests.cs) — `TransactWriteItems` all-or-nothing rollback with `CancellationReasons[i].Code == "ConditionalCheckFailed"`; multiple simultaneous condition failures populate each index; `ClientRequestToken` idempotency on replay; `ReturnValuesOnConditionCheckFailure = ALL_OLD` includes the prior item.
 - [`TransactGetItemsParityTests`](../src/DynamoDbLite.Parity.Tests/TransactGetItemsParityTests.cs) — `TransactGetItems` happy path across two tables in request order; missing key returns empty `Item` at that response index without throwing.
 - [`SelectCountParityTests`](../src/DynamoDbLite.Parity.Tests/SelectCountParityTests.cs) — `Select = COUNT` on Query and Scan populates `Count`/`ScannedCount` and returns no items.
@@ -89,14 +89,13 @@ Docker Desktop users need no file — defaults work. Linux runners (CI) use the 
 
 Mapped to README parity claims, in rough priority order:
 
-- **Pagination edge cases:** scan with `Segment`/`TotalSegments`, query that exits via `Limit` versus exits via end-of-data.
 - **Expression validation order:** every API surface (`GetItem`, `PutItem`, `UpdateItem`, `DeleteItem`, `Query`, `Scan`, `Transact*`, `Batch*`) should reject a malformed expression before any item lookup or mutation — locks the invariant uncovered by [`ReservedWordParityTests`](../src/DynamoDbLite.Parity.Tests/ReservedWordParityTests.cs).
 
 ### Library gaps found by parity tests
 
 Tracked here until either fixed or accepted as known limitations.
 
-_None currently open._
+- **Parallel scan (`Segment`/`TotalSegments`).** `DynamoDbClient` ignores the partitioning and returns every item in every segment, so the parallel-scan test in [`ScanParityTests`](../src/DynamoDbLite.Parity.Tests/ScanParityTests.cs) is skipped on `DdbLite`/`DdbLiteFile`. Real DynamoDB and `amazon/dynamodb-local` partition items by hash so segment results sum to the full table. Un-skip the lite backends once `SqliteStore` honors segmentation.
 
 ### Deferred indefinitely
 

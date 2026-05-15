@@ -124,4 +124,54 @@ public sealed class ScanParityTests(DynamoDbFixture fixture)
         Assert.Equal(2, response.Count);
         Assert.Equal(4, response.ScannedCount);
     }
+
+    [Theory]
+    [InlineData(ParityBackend.DdbLite)]
+    [InlineData(ParityBackend.DdbLiteFile)]
+    [InlineData(ParityBackend.DynamoDbLocal)]
+    public async Task Scan_with_two_segments_returns_full_set_when_merged(ParityBackend backend)
+    {
+        if (backend is ParityBackend.DdbLite or ParityBackend.DdbLiteFile)
+            Assert.Skip("DynamoDbLite ignores Segment/TotalSegments — tracked in docs/parity.md Library gaps");
+
+        var ct = TestContext.Current.CancellationToken;
+        var client = await fixture.ClientAsync(backend, ct);
+        var tableName = TestTables.UniqueName("scan_segs");
+        await TestTables.CreateAndWaitAsync(client, TestTables.HashKeyString(tableName), ct);
+
+        var expected = new HashSet<string>();
+        for (var i = 0; i < 20; i++)
+        {
+            var pk = $"item-{i:D2}";
+            _ = expected.Add(pk);
+            _ = await client.PutItemAsync(new PutItemRequest
+            {
+                TableName = tableName,
+                Item = new Dictionary<string, AttributeValue> { ["PK"] = new() { S = pk } },
+            }, ct);
+        }
+
+        var seg0 = await client.ScanAsync(new ScanRequest
+        {
+            TableName = tableName,
+            TotalSegments = 2,
+            Segment = 0,
+        }, ct);
+
+        var seg1 = await client.ScanAsync(new ScanRequest
+        {
+            TableName = tableName,
+            TotalSegments = 2,
+            Segment = 1,
+        }, ct);
+
+        var merged = new HashSet<string>();
+        foreach (var item in seg0.Items)
+            _ = merged.Add(item["PK"].S);
+        foreach (var item in seg1.Items)
+            _ = merged.Add(item["PK"].S);
+
+        Assert.Equal(expected, merged);
+        Assert.Equal(20, seg0.Count + seg1.Count);
+    }
 }
