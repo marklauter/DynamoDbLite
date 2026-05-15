@@ -8,9 +8,7 @@ namespace DynamoDbLite.Parity.Tests;
 public sealed class SecondaryIndexParityTests(DynamoDbFixture fixture)
 {
     [Theory]
-    [InlineData(ParityBackend.DdbLite)]
-    [InlineData(ParityBackend.DdbLiteFile)]
-    [InlineData(ParityBackend.DynamoDbLocal)]
+    [BackendData]
     public async Task Query_on_GSI_with_INCLUDE_projection_returns_projected_attributes_only(ParityBackend backend)
     {
         var ct = TestContext.Current.CancellationToken;
@@ -53,9 +51,7 @@ public sealed class SecondaryIndexParityTests(DynamoDbFixture fixture)
     }
 
     [Theory]
-    [InlineData(ParityBackend.DdbLite)]
-    [InlineData(ParityBackend.DdbLiteFile)]
-    [InlineData(ParityBackend.DynamoDbLocal)]
+    [BackendData]
     public async Task Query_on_GSI_with_KEYS_ONLY_projection_returns_only_table_and_index_keys(ParityBackend backend)
     {
         var ct = TestContext.Current.CancellationToken;
@@ -100,9 +96,7 @@ public sealed class SecondaryIndexParityTests(DynamoDbFixture fixture)
     }
 
     [Theory]
-    [InlineData(ParityBackend.DdbLite)]
-    [InlineData(ParityBackend.DdbLiteFile)]
-    [InlineData(ParityBackend.DynamoDbLocal)]
+    [BackendData]
     public async Task Query_on_GSI_with_ALL_projection_returns_every_attribute(ParityBackend backend)
     {
         var ct = TestContext.Current.CancellationToken;

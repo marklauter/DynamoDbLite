@@ -7,9 +7,7 @@ namespace DynamoDbLite.Parity.Tests;
 public sealed class SizeOperatorParityTests(DynamoDbFixture fixture)
 {
     [Theory]
-    [InlineData(ParityBackend.DdbLite)]
-    [InlineData(ParityBackend.DdbLiteFile)]
-    [InlineData(ParityBackend.DynamoDbLocal)]
+    [BackendData]
     public async Task UpdateItem_with_size_condition_succeeds_when_list_size_passes(ParityBackend backend)
     {
         var ct = TestContext.Current.CancellationToken;
@@ -55,9 +53,7 @@ public sealed class SizeOperatorParityTests(DynamoDbFixture fixture)
     }
 
     [Theory]
-    [InlineData(ParityBackend.DdbLite)]
-    [InlineData(ParityBackend.DdbLiteFile)]
-    [InlineData(ParityBackend.DynamoDbLocal)]
+    [BackendData]
     public async Task UpdateItem_with_size_condition_throws_when_list_too_small(ParityBackend backend)
     {
         var ct = TestContext.Current.CancellationToken;
@@ -95,9 +91,7 @@ public sealed class SizeOperatorParityTests(DynamoDbFixture fixture)
     }
 
     [Theory]
-    [InlineData(ParityBackend.DdbLite)]
-    [InlineData(ParityBackend.DdbLiteFile)]
-    [InlineData(ParityBackend.DynamoDbLocal)]
+    [BackendData]
     public async Task Scan_with_size_filter_on_string_set_returns_matching_items(ParityBackend backend)
     {
         var ct = TestContext.Current.CancellationToken;

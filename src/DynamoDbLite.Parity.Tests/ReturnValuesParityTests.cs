@@ -8,9 +8,7 @@ namespace DynamoDbLite.Parity.Tests;
 public sealed class ReturnValuesParityTests(DynamoDbFixture fixture)
 {
     [Theory]
-    [InlineData(ParityBackend.DdbLite)]
-    [InlineData(ParityBackend.DdbLiteFile)]
-    [InlineData(ParityBackend.DynamoDbLocal)]
+    [BackendData]
     public async Task PutItem_with_ALL_OLD_returns_prior_item_on_overwrite(ParityBackend backend)
     {
         var ct = TestContext.Current.CancellationToken;
@@ -43,9 +41,7 @@ public sealed class ReturnValuesParityTests(DynamoDbFixture fixture)
     }
 
     [Theory]
-    [InlineData(ParityBackend.DdbLite)]
-    [InlineData(ParityBackend.DdbLiteFile)]
-    [InlineData(ParityBackend.DynamoDbLocal)]
+    [BackendData]
     public async Task PutItem_with_NONE_returns_empty_Attributes(ParityBackend backend)
     {
         var ct = TestContext.Current.CancellationToken;
@@ -78,9 +74,7 @@ public sealed class ReturnValuesParityTests(DynamoDbFixture fixture)
     }
 
     [Theory]
-    [InlineData(ParityBackend.DdbLite)]
-    [InlineData(ParityBackend.DdbLiteFile)]
-    [InlineData(ParityBackend.DynamoDbLocal)]
+    [BackendData]
     public async Task UpdateItem_with_ALL_OLD_returns_full_prior_item(ParityBackend backend)
     {
         var ct = TestContext.Current.CancellationToken;
@@ -113,9 +107,7 @@ public sealed class ReturnValuesParityTests(DynamoDbFixture fixture)
     }
 
     [Theory]
-    [InlineData(ParityBackend.DdbLite)]
-    [InlineData(ParityBackend.DdbLiteFile)]
-    [InlineData(ParityBackend.DynamoDbLocal)]
+    [BackendData]
     public async Task UpdateItem_with_UPDATED_OLD_returns_only_modified_attribute_prior_values(ParityBackend backend)
     {
         var ct = TestContext.Current.CancellationToken;
@@ -148,9 +140,7 @@ public sealed class ReturnValuesParityTests(DynamoDbFixture fixture)
     }
 
     [Theory]
-    [InlineData(ParityBackend.DdbLite)]
-    [InlineData(ParityBackend.DdbLiteFile)]
-    [InlineData(ParityBackend.DynamoDbLocal)]
+    [BackendData]
     public async Task UpdateItem_with_ALL_NEW_returns_full_post_update_item(ParityBackend backend)
     {
         var ct = TestContext.Current.CancellationToken;
@@ -183,9 +173,7 @@ public sealed class ReturnValuesParityTests(DynamoDbFixture fixture)
     }
 
     [Theory]
-    [InlineData(ParityBackend.DdbLite)]
-    [InlineData(ParityBackend.DdbLiteFile)]
-    [InlineData(ParityBackend.DynamoDbLocal)]
+    [BackendData]
     public async Task UpdateItem_with_UPDATED_NEW_returns_only_modified_attribute_new_values(ParityBackend backend)
     {
         var ct = TestContext.Current.CancellationToken;
@@ -218,9 +206,7 @@ public sealed class ReturnValuesParityTests(DynamoDbFixture fixture)
     }
 
     [Theory]
-    [InlineData(ParityBackend.DdbLite)]
-    [InlineData(ParityBackend.DdbLiteFile)]
-    [InlineData(ParityBackend.DynamoDbLocal)]
+    [BackendData]
     public async Task DeleteItem_with_ALL_OLD_returns_deleted_item(ParityBackend backend)
     {
         var ct = TestContext.Current.CancellationToken;

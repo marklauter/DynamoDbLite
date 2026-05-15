@@ -7,9 +7,7 @@ namespace DynamoDbLite.Parity.Tests;
 public sealed class QueryNumericSortKeyParityTests(DynamoDbFixture fixture)
 {
     [Theory]
-    [InlineData(ParityBackend.DdbLite)]
-    [InlineData(ParityBackend.DdbLiteFile)]
-    [InlineData(ParityBackend.DynamoDbLocal)]
+    [BackendData]
     public async Task Query_with_BETWEEN_on_numeric_sort_key_returns_inclusive_range_ascending(ParityBackend backend)
     {
         var ct = TestContext.Current.CancellationToken;

@@ -11,9 +11,7 @@ namespace DynamoDbLite.Parity.Tests;
 public sealed class ExpressionValidationOrderParityTests(DynamoDbFixture fixture)
 {
     [Theory]
-    [InlineData(ParityBackend.DdbLite)]
-    [InlineData(ParityBackend.DdbLiteFile)]
-    [InlineData(ParityBackend.DynamoDbLocal)]
+    [BackendData]
     public async Task DeleteItem_with_raw_reserved_word_in_ConditionExpression_throws(ParityBackend backend)
     {
         var ct = TestContext.Current.CancellationToken;
@@ -32,9 +30,7 @@ public sealed class ExpressionValidationOrderParityTests(DynamoDbFixture fixture
     }
 
     [Theory]
-    [InlineData(ParityBackend.DdbLite)]
-    [InlineData(ParityBackend.DdbLiteFile)]
-    [InlineData(ParityBackend.DynamoDbLocal)]
+    [BackendData]
     public async Task Query_with_raw_reserved_word_in_FilterExpression_throws(ParityBackend backend)
     {
         var ct = TestContext.Current.CancellationToken;
@@ -58,9 +54,7 @@ public sealed class ExpressionValidationOrderParityTests(DynamoDbFixture fixture
     }
 
     [Theory]
-    [InlineData(ParityBackend.DdbLite)]
-    [InlineData(ParityBackend.DdbLiteFile)]
-    [InlineData(ParityBackend.DynamoDbLocal)]
+    [BackendData]
     public async Task Scan_with_raw_reserved_word_in_FilterExpression_throws(ParityBackend backend)
     {
         var ct = TestContext.Current.CancellationToken;
@@ -79,9 +73,7 @@ public sealed class ExpressionValidationOrderParityTests(DynamoDbFixture fixture
     }
 
     [Theory]
-    [InlineData(ParityBackend.DdbLite)]
-    [InlineData(ParityBackend.DdbLiteFile)]
-    [InlineData(ParityBackend.DynamoDbLocal)]
+    [BackendData]
     public async Task TransactWriteItems_with_raw_reserved_word_in_ConditionExpression_throws(ParityBackend backend)
     {
         var ct = TestContext.Current.CancellationToken;
@@ -109,9 +101,7 @@ public sealed class ExpressionValidationOrderParityTests(DynamoDbFixture fixture
     }
 
     [Theory]
-    [InlineData(ParityBackend.DdbLite)]
-    [InlineData(ParityBackend.DdbLiteFile)]
-    [InlineData(ParityBackend.DynamoDbLocal)]
+    [BackendData]
     public async Task TransactGetItems_with_raw_reserved_word_in_ProjectionExpression_throws(ParityBackend backend)
     {
         var ct = TestContext.Current.CancellationToken;
@@ -139,9 +129,7 @@ public sealed class ExpressionValidationOrderParityTests(DynamoDbFixture fixture
     }
 
     [Theory]
-    [InlineData(ParityBackend.DdbLite)]
-    [InlineData(ParityBackend.DdbLiteFile)]
-    [InlineData(ParityBackend.DynamoDbLocal)]
+    [BackendData]
     public async Task BatchGetItem_with_raw_reserved_word_in_ProjectionExpression_throws(ParityBackend backend)
     {
         var ct = TestContext.Current.CancellationToken;

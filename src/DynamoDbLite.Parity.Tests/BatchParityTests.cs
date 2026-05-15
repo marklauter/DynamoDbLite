@@ -7,9 +7,7 @@ namespace DynamoDbLite.Parity.Tests;
 public sealed class BatchParityTests(DynamoDbFixture fixture)
 {
     [Theory]
-    [InlineData(ParityBackend.DdbLite)]
-    [InlineData(ParityBackend.DdbLiteFile)]
-    [InlineData(ParityBackend.DynamoDbLocal)]
+    [BackendData]
     public async Task BatchGetItem_returns_requested_items_for_existing_keys(ParityBackend backend)
     {
         var ct = TestContext.Current.CancellationToken;
@@ -52,9 +50,7 @@ public sealed class BatchParityTests(DynamoDbFixture fixture)
     }
 
     [Theory]
-    [InlineData(ParityBackend.DdbLite)]
-    [InlineData(ParityBackend.DdbLiteFile)]
-    [InlineData(ParityBackend.DynamoDbLocal)]
+    [BackendData]
     public async Task BatchWriteItem_with_put_and_delete_in_one_batch_applies_both(ParityBackend backend)
     {
         var ct = TestContext.Current.CancellationToken;
@@ -117,9 +113,7 @@ public sealed class BatchParityTests(DynamoDbFixture fixture)
     }
 
     [Theory]
-    [InlineData(ParityBackend.DdbLite)]
-    [InlineData(ParityBackend.DdbLiteFile)]
-    [InlineData(ParityBackend.DynamoDbLocal)]
+    [BackendData]
     public async Task BatchWriteItem_across_two_tables_applies_each_per_table(ParityBackend backend)
     {
         var ct = TestContext.Current.CancellationToken;

@@ -7,9 +7,7 @@ namespace DynamoDbLite.Parity.Tests;
 public sealed class TransactGetItemsParityTests(DynamoDbFixture fixture)
 {
     [Theory]
-    [InlineData(ParityBackend.DdbLite)]
-    [InlineData(ParityBackend.DdbLiteFile)]
-    [InlineData(ParityBackend.DynamoDbLocal)]
+    [BackendData]
     public async Task TransactGetItems_returns_items_across_two_tables_in_request_order(ParityBackend backend)
     {
         var ct = TestContext.Current.CancellationToken;
@@ -85,9 +83,7 @@ public sealed class TransactGetItemsParityTests(DynamoDbFixture fixture)
     }
 
     [Theory]
-    [InlineData(ParityBackend.DdbLite)]
-    [InlineData(ParityBackend.DdbLiteFile)]
-    [InlineData(ParityBackend.DynamoDbLocal)]
+    [BackendData]
     public async Task TransactGetItems_with_missing_key_returns_empty_item_at_that_index(ParityBackend backend)
     {
         var ct = TestContext.Current.CancellationToken;

@@ -8,9 +8,7 @@ namespace DynamoDbLite.Parity.Tests;
 public sealed class TransactionParityTests(DynamoDbFixture fixture)
 {
     [Theory]
-    [InlineData(ParityBackend.DdbLite)]
-    [InlineData(ParityBackend.DdbLiteFile)]
-    [InlineData(ParityBackend.DynamoDbLocal)]
+    [BackendData]
     public async Task TransactWriteItems_with_one_failing_condition_rolls_back_all(ParityBackend backend)
     {
         var ct = TestContext.Current.CancellationToken;
@@ -78,9 +76,7 @@ public sealed class TransactionParityTests(DynamoDbFixture fixture)
     }
 
     [Theory]
-    [InlineData(ParityBackend.DdbLite)]
-    [InlineData(ParityBackend.DdbLiteFile)]
-    [InlineData(ParityBackend.DynamoDbLocal)]
+    [BackendData]
     public async Task TransactWriteItems_with_multiple_failing_conditions_reports_each_index(ParityBackend backend)
     {
         var ct = TestContext.Current.CancellationToken;
@@ -131,9 +127,7 @@ public sealed class TransactionParityTests(DynamoDbFixture fixture)
     }
 
     [Theory]
-    [InlineData(ParityBackend.DdbLite)]
-    [InlineData(ParityBackend.DdbLiteFile)]
-    [InlineData(ParityBackend.DynamoDbLocal)]
+    [BackendData]
     public async Task TransactWriteItems_with_repeated_ClientRequestToken_is_idempotent(ParityBackend backend)
     {
         var ct = TestContext.Current.CancellationToken;
@@ -176,9 +170,7 @@ public sealed class TransactionParityTests(DynamoDbFixture fixture)
     }
 
     [Theory]
-    [InlineData(ParityBackend.DdbLite)]
-    [InlineData(ParityBackend.DdbLiteFile)]
-    [InlineData(ParityBackend.DynamoDbLocal)]
+    [BackendData]
     public async Task TransactWriteItems_with_ReturnValuesOnConditionCheckFailure_ALL_OLD_includes_prior_item(ParityBackend backend)
     {
         var ct = TestContext.Current.CancellationToken;

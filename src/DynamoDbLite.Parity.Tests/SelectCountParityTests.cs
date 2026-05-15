@@ -8,9 +8,7 @@ namespace DynamoDbLite.Parity.Tests;
 public sealed class SelectCountParityTests(DynamoDbFixture fixture)
 {
     [Theory]
-    [InlineData(ParityBackend.DdbLite)]
-    [InlineData(ParityBackend.DdbLiteFile)]
-    [InlineData(ParityBackend.DynamoDbLocal)]
+    [BackendData]
     public async Task Query_with_Select_COUNT_returns_count_without_items(ParityBackend backend)
     {
         var ct = TestContext.Current.CancellationToken;
@@ -45,9 +43,7 @@ public sealed class SelectCountParityTests(DynamoDbFixture fixture)
     }
 
     [Theory]
-    [InlineData(ParityBackend.DdbLite)]
-    [InlineData(ParityBackend.DdbLiteFile)]
-    [InlineData(ParityBackend.DynamoDbLocal)]
+    [BackendData]
     public async Task Scan_with_Select_COUNT_and_filter_returns_count_without_items(ParityBackend backend)
     {
         var ct = TestContext.Current.CancellationToken;

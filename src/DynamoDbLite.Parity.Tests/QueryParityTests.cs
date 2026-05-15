@@ -8,9 +8,7 @@ namespace DynamoDbLite.Parity.Tests;
 public sealed class QueryParityTests(DynamoDbFixture fixture)
 {
     [Theory]
-    [InlineData(ParityBackend.DdbLite)]
-    [InlineData(ParityBackend.DdbLiteFile)]
-    [InlineData(ParityBackend.DynamoDbLocal)]
+    [BackendData]
     public async Task Query_with_KeyConditionExpression_returns_matching_items(ParityBackend backend)
     {
         var ct = TestContext.Current.CancellationToken;
@@ -31,9 +29,7 @@ public sealed class QueryParityTests(DynamoDbFixture fixture)
     }
 
     [Theory]
-    [InlineData(ParityBackend.DdbLite)]
-    [InlineData(ParityBackend.DdbLiteFile)]
-    [InlineData(ParityBackend.DynamoDbLocal)]
+    [BackendData]
     public async Task Query_with_ScanIndexForward_false_returns_descending(ParityBackend backend)
     {
         var ct = TestContext.Current.CancellationToken;
@@ -58,9 +54,7 @@ public sealed class QueryParityTests(DynamoDbFixture fixture)
     }
 
     [Theory]
-    [InlineData(ParityBackend.DdbLite)]
-    [InlineData(ParityBackend.DdbLiteFile)]
-    [InlineData(ParityBackend.DynamoDbLocal)]
+    [BackendData]
     public async Task Query_with_Limit_paginates_via_LastEvaluatedKey(ParityBackend backend)
     {
         var ct = TestContext.Current.CancellationToken;
@@ -96,9 +90,7 @@ public sealed class QueryParityTests(DynamoDbFixture fixture)
     }
 
     [Theory]
-    [InlineData(ParityBackend.DdbLite)]
-    [InlineData(ParityBackend.DdbLiteFile)]
-    [InlineData(ParityBackend.DynamoDbLocal)]
+    [BackendData]
     public async Task Query_with_begins_with_on_sort_key_returns_prefix_matches(ParityBackend backend)
     {
         var ct = TestContext.Current.CancellationToken;

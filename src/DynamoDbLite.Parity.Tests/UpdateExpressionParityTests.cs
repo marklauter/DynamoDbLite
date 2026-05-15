@@ -7,9 +7,7 @@ namespace DynamoDbLite.Parity.Tests;
 public sealed class UpdateExpressionParityTests(DynamoDbFixture fixture)
 {
     [Theory]
-    [InlineData(ParityBackend.DdbLite)]
-    [InlineData(ParityBackend.DdbLiteFile)]
-    [InlineData(ParityBackend.DynamoDbLocal)]
+    [BackendData]
     public async Task UpdateItem_SET_with_if_not_exists_preserves_existing_value(ParityBackend backend)
     {
         var ct = TestContext.Current.CancellationToken;
@@ -46,9 +44,7 @@ public sealed class UpdateExpressionParityTests(DynamoDbFixture fixture)
     }
 
     [Theory]
-    [InlineData(ParityBackend.DdbLite)]
-    [InlineData(ParityBackend.DdbLiteFile)]
-    [InlineData(ParityBackend.DynamoDbLocal)]
+    [BackendData]
     public async Task UpdateItem_ADD_increments_number_attribute(ParityBackend backend)
     {
         var ct = TestContext.Current.CancellationToken;
@@ -86,9 +82,7 @@ public sealed class UpdateExpressionParityTests(DynamoDbFixture fixture)
     }
 
     [Theory]
-    [InlineData(ParityBackend.DdbLite)]
-    [InlineData(ParityBackend.DdbLiteFile)]
-    [InlineData(ParityBackend.DynamoDbLocal)]
+    [BackendData]
     public async Task UpdateItem_REMOVE_strips_attribute_from_item(ParityBackend backend)
     {
         var ct = TestContext.Current.CancellationToken;
@@ -125,9 +119,7 @@ public sealed class UpdateExpressionParityTests(DynamoDbFixture fixture)
     }
 
     [Theory]
-    [InlineData(ParityBackend.DdbLite)]
-    [InlineData(ParityBackend.DdbLiteFile)]
-    [InlineData(ParityBackend.DynamoDbLocal)]
+    [BackendData]
     public async Task UpdateItem_SET_with_list_append_appends_to_existing_list(ParityBackend backend)
     {
         var ct = TestContext.Current.CancellationToken;
@@ -172,9 +164,7 @@ public sealed class UpdateExpressionParityTests(DynamoDbFixture fixture)
     }
 
     [Theory]
-    [InlineData(ParityBackend.DdbLite)]
-    [InlineData(ParityBackend.DdbLiteFile)]
-    [InlineData(ParityBackend.DynamoDbLocal)]
+    [BackendData]
     public async Task UpdateItem_DELETE_removes_elements_from_string_set(ParityBackend backend)
     {
         var ct = TestContext.Current.CancellationToken;

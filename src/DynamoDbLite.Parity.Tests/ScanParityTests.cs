@@ -7,9 +7,7 @@ namespace DynamoDbLite.Parity.Tests;
 public sealed class ScanParityTests(DynamoDbFixture fixture)
 {
     [Theory]
-    [InlineData(ParityBackend.DdbLite)]
-    [InlineData(ParityBackend.DdbLiteFile)]
-    [InlineData(ParityBackend.DynamoDbLocal)]
+    [BackendData]
     public async Task Scan_with_FilterExpression_returns_matching_items_and_correct_ScannedCount(ParityBackend backend)
     {
         var ct = TestContext.Current.CancellationToken;
@@ -43,9 +41,7 @@ public sealed class ScanParityTests(DynamoDbFixture fixture)
     }
 
     [Theory]
-    [InlineData(ParityBackend.DdbLite)]
-    [InlineData(ParityBackend.DdbLiteFile)]
-    [InlineData(ParityBackend.DynamoDbLocal)]
+    [BackendData]
     public async Task Scan_with_contains_on_string_set_returns_matching_items(ParityBackend backend)
     {
         var ct = TestContext.Current.CancellationToken;
@@ -86,9 +82,7 @@ public sealed class ScanParityTests(DynamoDbFixture fixture)
     }
 
     [Theory]
-    [InlineData(ParityBackend.DdbLite)]
-    [InlineData(ParityBackend.DdbLiteFile)]
-    [InlineData(ParityBackend.DynamoDbLocal)]
+    [BackendData]
     public async Task Scan_with_IN_returns_items_whose_attribute_matches_any_value(ParityBackend backend)
     {
         var ct = TestContext.Current.CancellationToken;
@@ -126,9 +120,7 @@ public sealed class ScanParityTests(DynamoDbFixture fixture)
     }
 
     [Theory]
-    [InlineData(ParityBackend.DdbLite)]
-    [InlineData(ParityBackend.DdbLiteFile)]
-    [InlineData(ParityBackend.DynamoDbLocal)]
+    [BackendData]
     public async Task Scan_with_two_segments_returns_full_set_when_merged(ParityBackend backend)
     {
         var ct = TestContext.Current.CancellationToken;

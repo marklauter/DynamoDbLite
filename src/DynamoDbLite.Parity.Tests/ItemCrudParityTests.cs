@@ -7,9 +7,7 @@ namespace DynamoDbLite.Parity.Tests;
 public sealed class ItemCrudParityTests(DynamoDbFixture fixture)
 {
     [Theory]
-    [InlineData(ParityBackend.DdbLite)]
-    [InlineData(ParityBackend.DdbLiteFile)]
-    [InlineData(ParityBackend.DynamoDbLocal)]
+    [BackendData]
     public async Task PutItem_then_GetItem_returns_identical_item(ParityBackend backend)
     {
         var ct = TestContext.Current.CancellationToken;
@@ -44,9 +42,7 @@ public sealed class ItemCrudParityTests(DynamoDbFixture fixture)
     }
 
     [Theory]
-    [InlineData(ParityBackend.DdbLite)]
-    [InlineData(ParityBackend.DdbLiteFile)]
-    [InlineData(ParityBackend.DynamoDbLocal)]
+    [BackendData]
     public async Task PutItem_with_attribute_not_exists_succeeds_for_new_key(ParityBackend backend)
     {
         var ct = TestContext.Current.CancellationToken;
@@ -65,9 +61,7 @@ public sealed class ItemCrudParityTests(DynamoDbFixture fixture)
     }
 
     [Theory]
-    [InlineData(ParityBackend.DdbLite)]
-    [InlineData(ParityBackend.DdbLiteFile)]
-    [InlineData(ParityBackend.DynamoDbLocal)]
+    [BackendData]
     public async Task PutItem_with_attribute_not_exists_throws_for_existing_key(ParityBackend backend)
     {
         var ct = TestContext.Current.CancellationToken;
@@ -90,9 +84,7 @@ public sealed class ItemCrudParityTests(DynamoDbFixture fixture)
     }
 
     [Theory]
-    [InlineData(ParityBackend.DdbLite)]
-    [InlineData(ParityBackend.DdbLiteFile)]
-    [InlineData(ParityBackend.DynamoDbLocal)]
+    [BackendData]
     public async Task DeleteItem_with_attribute_exists_condition_throws_for_missing_key(ParityBackend backend)
     {
         var ct = TestContext.Current.CancellationToken;
@@ -109,9 +101,7 @@ public sealed class ItemCrudParityTests(DynamoDbFixture fixture)
     }
 
     [Theory]
-    [InlineData(ParityBackend.DdbLite)]
-    [InlineData(ParityBackend.DdbLiteFile)]
-    [InlineData(ParityBackend.DynamoDbLocal)]
+    [BackendData]
     public async Task PutItem_then_GetItem_round_trips_binary_attribute(ParityBackend backend)
     {
         var ct = TestContext.Current.CancellationToken;
@@ -141,9 +131,7 @@ public sealed class ItemCrudParityTests(DynamoDbFixture fixture)
     }
 
     [Theory]
-    [InlineData(ParityBackend.DdbLite)]
-    [InlineData(ParityBackend.DdbLiteFile)]
-    [InlineData(ParityBackend.DynamoDbLocal)]
+    [BackendData]
     public async Task PutItem_then_GetItem_round_trips_null_attribute(ParityBackend backend)
     {
         var ct = TestContext.Current.CancellationToken;
@@ -172,9 +160,7 @@ public sealed class ItemCrudParityTests(DynamoDbFixture fixture)
     }
 
     [Theory]
-    [InlineData(ParityBackend.DdbLite)]
-    [InlineData(ParityBackend.DdbLiteFile)]
-    [InlineData(ParityBackend.DynamoDbLocal)]
+    [BackendData]
     public async Task PutItem_then_GetItem_round_trips_string_set_attribute(ParityBackend backend)
     {
         var ct = TestContext.Current.CancellationToken;
@@ -207,9 +193,7 @@ public sealed class ItemCrudParityTests(DynamoDbFixture fixture)
     }
 
     [Theory]
-    [InlineData(ParityBackend.DdbLite)]
-    [InlineData(ParityBackend.DdbLiteFile)]
-    [InlineData(ParityBackend.DynamoDbLocal)]
+    [BackendData]
     public async Task PutItem_then_GetItem_round_trips_number_set_attribute(ParityBackend backend)
     {
         var ct = TestContext.Current.CancellationToken;
@@ -242,9 +226,7 @@ public sealed class ItemCrudParityTests(DynamoDbFixture fixture)
     }
 
     [Theory]
-    [InlineData(ParityBackend.DdbLite)]
-    [InlineData(ParityBackend.DdbLiteFile)]
-    [InlineData(ParityBackend.DynamoDbLocal)]
+    [BackendData]
     public async Task PutItem_then_GetItem_round_trips_binary_set_attribute(ParityBackend backend)
     {
         var ct = TestContext.Current.CancellationToken;

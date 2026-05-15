@@ -84,11 +84,28 @@ ryuk.disabled=true
 
 Docker Desktop users need no file — defaults work. Linux runners (CI) use the native `/var/run/docker.sock` automatically; no env vars needed. Hardcoding the endpoint in C# would break mixed-environment teams; the per-user file is the right knob.
 
+## Running selectively
+
+Every parity test is parameterized through [`BackendDataAttribute`](../src/DynamoDbLite.Parity.Tests/Fixtures/BackendDataAttribute.cs), which tags each row with a `Backend` trait. The fixture starts `amazon/dynamodb-local` lazily, so a run that never requests `DynamoDbLocal` never spins up a container.
+
+```
+dotnet test src/DynamoDbLite.Parity.Tests --filter "Backend=DdbLite"           # in-memory only
+dotnet test src/DynamoDbLite.Parity.Tests --filter "Backend=DdbLiteFile"       # file-backed SQLite only
+dotnet test src/DynamoDbLite.Parity.Tests --filter "Backend=DynamoDbLocal"     # real DynamoDB Local
+dotnet test src/DynamoDbLite.Parity.Tests --filter "Backend=DdbLite|Backend=DdbLiteFile"   # both lite backends, no container
+```
+
+Wall-clock difference matters for the inner-dev loop — the container is the bulk of the cost, so filtering to lite backends roughly halves run time. CI should always run the full matrix (no filter).
+
 ## Next
 
 ### Scenarios to add
 
 The initial planned scenarios — mapped to README parity claims — are covered. New scenarios land here as new claims appear or as the **Library gaps** below close and prompt follow-on coverage.
+
+### Parity benchmarks
+
+Worth a dedicated `DynamoDbLite.Parity.Benchmarks` project (BenchmarkDotNet) that runs the same operations across the three backends so we can quantify the speed gap, not just the behavioral parity. Useful for: justifying DynamoDbLite for hot-path test workloads, catching perf regressions in the SQLite store, and giving developers a real number behind "the lite backends are much faster than the container." Suggested coverage: single-item Get/Put, bulk write of 100 items, Query with Limit, parallel Scan.
 
 ### Library gaps found by parity tests
 

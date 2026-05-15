@@ -9,9 +9,7 @@ namespace DynamoDbLite.Parity.Tests;
 public sealed class EmptyStringParityTests(DynamoDbFixture fixture)
 {
     [Theory]
-    [InlineData(ParityBackend.DdbLite)]
-    [InlineData(ParityBackend.DdbLiteFile)]
-    [InlineData(ParityBackend.DynamoDbLocal)]
+    [BackendData]
     public async Task PutItem_then_GetItem_roundtrips_empty_string_scalar(ParityBackend backend)
     {
         var ct = TestContext.Current.CancellationToken;

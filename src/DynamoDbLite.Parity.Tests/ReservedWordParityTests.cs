@@ -10,9 +10,7 @@ namespace DynamoDbLite.Parity.Tests;
 public sealed class ReservedWordParityTests(DynamoDbFixture fixture)
 {
     [Theory]
-    [InlineData(ParityBackend.DdbLite)]
-    [InlineData(ParityBackend.DdbLiteFile)]
-    [InlineData(ParityBackend.DynamoDbLocal)]
+    [BackendData]
     public async Task UpdateExpression_with_raw_reserved_word_throws(ParityBackend backend)
     {
         var ct = TestContext.Current.CancellationToken;
@@ -32,9 +30,7 @@ public sealed class ReservedWordParityTests(DynamoDbFixture fixture)
     }
 
     [Theory]
-    [InlineData(ParityBackend.DdbLite)]
-    [InlineData(ParityBackend.DdbLiteFile)]
-    [InlineData(ParityBackend.DynamoDbLocal)]
+    [BackendData]
     public async Task ConditionExpression_with_raw_reserved_word_throws(ParityBackend backend)
     {
         var ct = TestContext.Current.CancellationToken;
@@ -53,9 +49,7 @@ public sealed class ReservedWordParityTests(DynamoDbFixture fixture)
     }
 
     [Theory]
-    [InlineData(ParityBackend.DdbLite)]
-    [InlineData(ParityBackend.DdbLiteFile)]
-    [InlineData(ParityBackend.DynamoDbLocal)]
+    [BackendData]
     public async Task ProjectionExpression_with_raw_reserved_word_throws(ParityBackend backend)
     {
         var ct = TestContext.Current.CancellationToken;
@@ -74,9 +68,7 @@ public sealed class ReservedWordParityTests(DynamoDbFixture fixture)
     }
 
     [Theory]
-    [InlineData(ParityBackend.DdbLite)]
-    [InlineData(ParityBackend.DdbLiteFile)]
-    [InlineData(ParityBackend.DynamoDbLocal)]
+    [BackendData]
     public async Task EscapedViaExpressionAttributeName_is_accepted(ParityBackend backend)
     {
         var ct = TestContext.Current.CancellationToken;

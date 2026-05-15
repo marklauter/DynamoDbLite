@@ -7,9 +7,7 @@ namespace DynamoDbLite.Parity.Tests;
 public sealed class LocalSecondaryIndexParityTests(DynamoDbFixture fixture)
 {
     [Theory]
-    [InlineData(ParityBackend.DdbLite)]
-    [InlineData(ParityBackend.DdbLiteFile)]
-    [InlineData(ParityBackend.DynamoDbLocal)]
+    [BackendData]
     public async Task Query_on_LSI_with_begins_with_on_alternate_sort_key_returns_matching_items(ParityBackend backend)
     {
         var ct = TestContext.Current.CancellationToken;
@@ -51,9 +49,7 @@ public sealed class LocalSecondaryIndexParityTests(DynamoDbFixture fixture)
     }
 
     [Theory]
-    [InlineData(ParityBackend.DdbLite)]
-    [InlineData(ParityBackend.DdbLiteFile)]
-    [InlineData(ParityBackend.DynamoDbLocal)]
+    [BackendData]
     public async Task Query_on_LSI_with_INCLUDE_projection_returns_projected_attributes_only(ParityBackend backend)
     {
         var ct = TestContext.Current.CancellationToken;
