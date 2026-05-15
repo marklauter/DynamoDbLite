@@ -767,7 +767,7 @@ public sealed partial class DynamoDbClient
         if (!hasTotal)
             return;
 
-        if (request.TotalSegments < 1 || request.TotalSegments > 1_000_000)
+        if (request.TotalSegments is < 1 or > 1_000_000)
             throw new AmazonDynamoDBException(
                 "1 validation error detected: Value at 'totalSegments' failed to satisfy constraint: Member must be between 1 and 1000000");
 
@@ -792,6 +792,7 @@ public sealed partial class DynamoDbClient
             hash ^= (byte)((c >> 8) & 0xff);
             hash *= FnvPrime;
         }
+
         return (int)(hash % (uint)totalSegments);
     }
 }

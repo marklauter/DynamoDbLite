@@ -114,6 +114,27 @@ internal abstract class SqliteStore
             """);
 
         EnsureTtlEpochColumn(connection);
+        EnsureSkNumColumn(connection);
+
+        // Indexes are created in a separate Execute() call because
+        // Microsoft.Data.Sqlite prepares every statement in a batch up front;
+        // a CREATE INDEX prepared alongside the CREATE TABLE that defines its
+        // columns fails because the table doesn't exist at prepare time.
+        _ = connection.Execute("""
+            -- Partial index for the background TTL sweep; most items have no TTL,
+            -- so excluding NULL rows keeps the index small.
+            CREATE INDEX IF NOT EXISTS idx_items_ttl_epoch
+                ON items (ttl_epoch)
+                WHERE ttl_epoch IS NOT NULL;
+
+            -- Partial composite index for numeric sort-key range queries
+            -- (BETWEEN / <= on N-typed sort keys). Without this, the engine
+            -- locates the partition via the primary key then linearly scans
+            -- the partition filtering on sk_num.
+            CREATE INDEX IF NOT EXISTS idx_items_sk_num
+                ON items (table_name, pk, sk_num)
+                WHERE sk_num IS NOT NULL;
+            """);
     }
 
     private static void EnsureTtlEpochColumn(SqliteConnection connection)
@@ -124,6 +145,16 @@ internal abstract class SqliteStore
             return;
 
         _ = connection.Execute("ALTER TABLE items ADD COLUMN ttl_epoch REAL");
+    }
+
+    private static void EnsureSkNumColumn(SqliteConnection connection)
+    {
+        var exists = connection.ExecuteScalar<long>(
+            "SELECT COUNT(*) FROM pragma_table_info('items') WHERE name = 'sk_num'");
+        if (exists > 0)
+            return;
+
+        _ = connection.Execute("ALTER TABLE items ADD COLUMN sk_num REAL");
     }
 
     protected abstract Task<DbConnection> OpenConnectionAsync(CancellationToken ct);
@@ -837,6 +868,18 @@ internal abstract class SqliteStore
                 item_json   TEXT NOT NULL,
                 PRIMARY KEY (pk, sk, table_pk, table_sk)
             )
+            """,
+            transaction: transaction);
+
+        // CREATE INDEX runs in a separate command because Microsoft.Data.Sqlite
+        // prepares every statement in a batch up front; an index DDL prepared
+        // alongside the CREATE TABLE that defines its columns fails because the
+        // table doesn't exist at prepare time.
+        _ = await connection.ExecuteAsync(
+            $"""
+            CREATE INDEX IF NOT EXISTS "{idxTable}_sk_num"
+                ON "{idxTable}" (pk, sk_num)
+                WHERE sk_num IS NOT NULL
             """,
             transaction: transaction);
     }
