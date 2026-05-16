@@ -95,7 +95,7 @@ public sealed partial class DynamoDbClient
         if (request.Limit is not null && rows.Count == request.Limit.Value && rows.Count > 0)
         {
             var lastRow = rows[^1];
-            response.LastEvaluatedKey = BuildLastEvaluatedKey(lastRow.Pk, lastRow.Sk, tableKeyInfo);
+            response.LastEvaluatedKey = KeyHelper.BuildLastEvaluatedKey(lastRow.Pk, lastRow.Sk, tableKeyInfo);
         }
 
         return response;
@@ -203,7 +203,7 @@ public sealed partial class DynamoDbClient
         if (request.Limit is not null && rows.Count == request.Limit.Value && rows.Count > 0)
         {
             var lastRow = rows[^1];
-            response.LastEvaluatedKey = BuildIndexLastEvaluatedKey(
+            response.LastEvaluatedKey = KeyHelper.BuildIndexLastEvaluatedKey(
                 lastRow, indexKeyInfo, tableKeyInfo);
         }
 
@@ -217,7 +217,7 @@ public sealed partial class DynamoDbClient
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(attributesToGet);
-        var (projection, attrNames) = BuildProjectionFromAttributesToGet(attributesToGet);
+        var (projection, attrNames) = LegacyConditionConverter.BuildProjectionFromAttributesToGet(attributesToGet);
         return ScanAsync(new ScanRequest
         {
             TableName = tableName,
@@ -233,7 +233,7 @@ public sealed partial class DynamoDbClient
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(scanFilter);
-        var (filterExpression, attrNames, attrValues) = ConvertConditionsToExpression(scanFilter);
+        var (filterExpression, attrNames, attrValues) = LegacyConditionConverter.Convert(scanFilter);
         return ScanAsync(new ScanRequest
         {
             TableName = tableName,
@@ -252,8 +252,8 @@ public sealed partial class DynamoDbClient
     {
         ArgumentNullException.ThrowIfNull(attributesToGet);
         ArgumentNullException.ThrowIfNull(scanFilter);
-        var (filterExpression, attrNames, attrValues) = ConvertConditionsToExpression(scanFilter);
-        var (projection, projectionNames) = BuildProjectionFromAttributesToGet(attributesToGet);
+        var (filterExpression, attrNames, attrValues) = LegacyConditionConverter.Convert(scanFilter);
+        var (projection, projectionNames) = LegacyConditionConverter.BuildProjectionFromAttributesToGet(attributesToGet);
         foreach (var (k, v) in projectionNames)
             attrNames[k] = v;
         return ScanAsync(new ScanRequest
@@ -268,7 +268,7 @@ public sealed partial class DynamoDbClient
 
     private static void ConvertScanFilterToExpression(ScanRequest request)
     {
-        var (expression, attrNames, attrValues) = ConvertConditionsToExpression(request.ScanFilter, "sf");
+        var (expression, attrNames, attrValues) = LegacyConditionConverter.Convert(request.ScanFilter, "sf");
 
         request.FilterExpression = request.FilterExpression is not null
             ? $"({request.FilterExpression}) AND ({expression})"

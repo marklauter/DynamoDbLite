@@ -1,5 +1,6 @@
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
+using DynamoDbLite.SqliteStores.Models;
 
 namespace DynamoDbLite.Expressions;
 
@@ -92,5 +93,65 @@ internal static class KeyHelper
             "B" => Convert.ToBase64String(GetSpan(value.B)),
             _ => throw new AmazonDynamoDBException($"Unsupported key type: {attrDef.AttributeType.Value}")
         };
+    }
+
+    internal static AttributeValue BuildKeyAttributeValue(string value, ScalarAttributeType type) =>
+        type.Value switch
+        {
+            "S" => new AttributeValue { S = value },
+            "N" => new AttributeValue { N = value },
+            "B" => new AttributeValue { B = new MemoryStream(Convert.FromBase64String(value)) },
+            _ => throw new ArgumentException($"Unsupported key attribute type: {type.Value}")
+        };
+
+    internal static Dictionary<string, AttributeValue> BuildLastEvaluatedKey(string pk, string sk, KeySchemaInfo keyInfo)
+    {
+        var hashKey = keyInfo.KeySchema.First(static k => k.KeyType == KeyType.HASH);
+        var rangeKey = keyInfo.KeySchema.FirstOrDefault(static k => k.KeyType == KeyType.RANGE);
+
+        var result = new Dictionary<string, AttributeValue>
+        {
+            [hashKey.AttributeName] = BuildKeyAttributeValue(pk, keyInfo.AttributeDefinitions.First(a => a.AttributeName == hashKey.AttributeName).AttributeType)
+        };
+
+        if (rangeKey is not null)
+            result[rangeKey.AttributeName] = BuildKeyAttributeValue(sk, keyInfo.AttributeDefinitions.First(a => a.AttributeName == rangeKey.AttributeName).AttributeType);
+
+        return result;
+    }
+
+    internal static Dictionary<string, AttributeValue> BuildIndexLastEvaluatedKey(
+        IndexItemRow lastRow,
+        KeySchemaInfo indexKeyInfo,
+        KeySchemaInfo tableKeyInfo)
+    {
+        var result = new Dictionary<string, AttributeValue>();
+
+        // Add index keys
+        var indexHashKey = indexKeyInfo.KeySchema.First(static k => k.KeyType == KeyType.HASH);
+        result[indexHashKey.AttributeName] = BuildKeyAttributeValue(
+            lastRow.Pk,
+            indexKeyInfo.AttributeDefinitions.First(a => a.AttributeName == indexHashKey.AttributeName).AttributeType);
+
+        var indexRangeKey = indexKeyInfo.KeySchema.FirstOrDefault(static k => k.KeyType == KeyType.RANGE);
+        if (indexRangeKey is not null)
+            result[indexRangeKey.AttributeName] = BuildKeyAttributeValue(
+                lastRow.Sk,
+                indexKeyInfo.AttributeDefinitions.First(a => a.AttributeName == indexRangeKey.AttributeName).AttributeType);
+
+        // Add table keys
+        var tableHashKey = tableKeyInfo.KeySchema.First(static k => k.KeyType == KeyType.HASH);
+        if (!result.ContainsKey(tableHashKey.AttributeName))
+            result[tableHashKey.AttributeName] = BuildKeyAttributeValue(
+                lastRow.TablePk,
+                tableKeyInfo.AttributeDefinitions.First(a => a.AttributeName == tableHashKey.AttributeName).AttributeType);
+
+        var tableRangeKey = tableKeyInfo.KeySchema.FirstOrDefault(static k => k.KeyType == KeyType.RANGE);
+        if (tableRangeKey is not null && !result.ContainsKey(tableRangeKey.AttributeName))
+            result[tableRangeKey.AttributeName] = BuildKeyAttributeValue(
+                lastRow.TableSk,
+                tableKeyInfo.AttributeDefinitions.First(a => a.AttributeName == tableRangeKey.AttributeName).AttributeType);
+
+        return result;
     }
 }
