@@ -6,7 +6,7 @@
 		<ProductName>DynamoDbLite: In-Process DynamoDB for .NET</ProductName>
 		<Authors>Mark Lauter</Authors>
 		<Description>In-process IAmazonDynamoDB implementation backed by SQLite. Drop-in replacement for the AWS DynamoDB SDK for local development, fast unit and integration tests, and offline scenarios — no container, no AWS credentials, no network.</Description>
-		<Copyright>Copyright (c) 2025 Mark Lauter</Copyright>
+		<Copyright>Copyright (c) 2026 Mark Lauter</Copyright>
 		<PackageProjectUrl>https://github.com/marklauter/DynamoDbLite</PackageProjectUrl>
 		<RepositoryUrl>https://github.com/marklauter/DynamoDbLite</RepositoryUrl>
 		<RepositoryType>git</RepositoryType>
