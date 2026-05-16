@@ -28,13 +28,6 @@ public sealed partial class DynamoDbClient(
 
     public IDynamoDBv2PaginatorFactory? Paginators { get; }
 
-    public static ClientConfig CreateDefaultClientConfig() => new AmazonDynamoDBConfig();
-
-    public static IAmazonService CreateDefaultServiceClient(AWSCredentials awsCredentials, ClientConfig clientConfig) =>
-        throw new NotSupportedException(
-            "DynamoDbLite cannot be constructed from AWS credentials. " +
-            "Use new DynamoDbClient(new DynamoDbLiteOptions(...)) or services.AddDynamoDbLite(o => o.WithConnectionString(...)) instead.");
-
     public void Dispose()
     {
         if (disposed)
