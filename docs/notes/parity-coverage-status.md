@@ -8,7 +8,7 @@ Reference companion to [`parity-with-dynamodb-local.md`](parity-with-dynamodb-lo
 
 ## What's covered
 
-The parity suite under [`test/DynamoDbLite.Parity.Tests/`](../../test/DynamoDbLite.Parity.Tests/) runs every scenario against three backends — in-memory SQLite, file-backed SQLite (WAL), and `amazon/dynamodb-local` via Testcontainers — and asserts an explicit AWS-API-contract outcome on each.
+The parity suite under [`tests/DynamoDbLite.Parity.Tests/`](../../tests/DynamoDbLite.Parity.Tests/) runs every scenario against three backends — in-memory SQLite, file-backed SQLite (WAL), and `amazon/dynamodb-local` via Testcontainers — and asserts an explicit AWS-API-contract outcome on each.
 
 - **Item CRUD**: `PutItem` / `GetItem` round-trip across S/N/BOOL/L/M and B/NULL/SS/NS/BS; `attribute_not_exists` and `attribute_exists` conditions on `PutItem`/`DeleteItem` (success and `ConditionalCheckFailedException`); empty-string scalar values round-trip cleanly.
 - **Update expressions**: `SET` with `if_not_exists`, `SET` with `list_append`, `ADD` on number, `REMOVE`, `DELETE` on string set, `size()` in `ConditionExpression`.
@@ -39,7 +39,7 @@ Both library gaps surfaced by the parity suite during initial development have b
 
 ## Knobs
 
-`--filter "Backend=DdbLite"` (or `DdbLiteFile` / `DynamoDbLocal`) selects a single backend across the suite via the `Backend` trait emitted by [`BackendDataAttribute`](../../test/DynamoDbLite.Parity.Tests/Fixtures/BackendDataAttribute.cs). The `amazon/dynamodb-local` container starts lazily, so a lite-only run never spins one up. Full suite ~9s wall, lite-only ~4s.
+`--filter "Backend=DdbLite"` (or `DdbLiteFile` / `DynamoDbLocal`) selects a single backend across the suite via the `Backend` trait emitted by [`BackendDataAttribute`](../../tests/DynamoDbLite.Parity.Tests/Fixtures/BackendDataAttribute.cs). The `amazon/dynamodb-local` container starts lazily, so a lite-only run never spins one up. Full suite ~9s wall, lite-only ~4s.
 
 ## Cross-references
 

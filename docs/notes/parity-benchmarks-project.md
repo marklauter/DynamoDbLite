@@ -14,7 +14,7 @@ Without numbers, every perf claim ("ddblite is faster on reads") and every perf 
 
 ## Next
 
-Create `test/DynamoDbLite.Parity.Benchmarks/` with BenchmarkDotNet. Mirror the `ParityBackend` enum (DdbLite / DdbLiteFile / DynamoDbLocal) as benchmark parameter axis. Coverage to include:
+Create `tests/DynamoDbLite.Parity.Benchmarks/` with BenchmarkDotNet. Mirror the `ParityBackend` enum (DdbLite / DdbLiteFile / DynamoDbLocal) as benchmark parameter axis. Coverage to include:
 
 - `GetItem` single-item read (parser-free baseline).
 - `PutItem` single-item write (parser-free baseline).

@@ -3,10 +3,10 @@ name: .NET Test
 on:
   push:
     branches: [ "main" ]
-    paths: [ "src/**", "test/**", "Directory.Build.props", "Directory.Packages.props" ]
+    paths: [ "src/**", "tests/**", "Directory.Build.props", "Directory.Packages.props" ]
   pull_request:
     branches: [ "main" ]
-    paths: [ "src/**", "test/**", "Directory.Build.props", "Directory.Packages.props" ]
+    paths: [ "src/**", "tests/**", "Directory.Build.props", "Directory.Packages.props" ]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -16,6 +16,27 @@ permissions:
   contents: read
 
 jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 10.0.x
+
+    - name: Cache NuGet packages
+      uses: actions/cache@v4
+      with:
+        path: ~/.nuget/packages
+        key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', 'Directory.Packages.props') }}
+        restore-keys: |
+          ${{ runner.os }}-nuget-
+
+    - name: Verify formatting
+      run: dotnet format "DynamoDbLite.slnx" --severity info --verify-no-changes
+
   unit-tests:
     runs-on: ubuntu-latest
     strategy:
@@ -38,21 +59,24 @@ jobs:
           ${{ runner.os }}-nuget-
 
     - name: Build
-      run: dotnet build "test/DynamoDbLite.Tests/DynamoDbLite.Tests.csproj" -c ${{ matrix.configuration }}
+      run: dotnet build "tests/DynamoDbLite.Tests/DynamoDbLite.Tests.csproj" -c ${{ matrix.configuration }}
 
     - name: Test
-      run: dotnet test "test/DynamoDbLite.Tests/DynamoDbLite.Tests.csproj" -c ${{ matrix.configuration }} --no-build
+      run: dotnet test "tests/DynamoDbLite.Tests/DynamoDbLite.Tests.csproj" -c ${{ matrix.configuration }} --no-build
 
     - name: Upload coverage report
       if: always() && matrix.configuration == 'Debug'
       uses: actions/upload-artifact@v4
       with:
         name: coverage-cobertura
-        path: test/DynamoDbLite.Tests/coverage.cobertura.xml
+        path: tests/DynamoDbLite.Tests/coverage.cobertura.xml
         if-no-files-found: error
 
   parity-tests:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        configuration: [ Debug, Release ]
     steps:
     - uses: actions/checkout@v4
 
@@ -70,15 +94,15 @@ jobs:
           ${{ runner.os }}-nuget-
 
     - name: Build
-      run: dotnet build "test/DynamoDbLite.Parity.Tests/DynamoDbLite.Parity.Tests.csproj" -c Debug
+      run: dotnet build "tests/DynamoDbLite.Parity.Tests/DynamoDbLite.Parity.Tests.csproj" -c ${{ matrix.configuration }}
 
     - name: Test
-      run: dotnet test "test/DynamoDbLite.Parity.Tests/DynamoDbLite.Parity.Tests.csproj" -c Debug --no-build
+      run: dotnet test "tests/DynamoDbLite.Parity.Tests/DynamoDbLite.Parity.Tests.csproj" -c ${{ matrix.configuration }} --no-build
 
     - name: Upload coverage report
-      if: always()
+      if: always() && matrix.configuration == 'Debug'
       uses: actions/upload-artifact@v4
       with:
         name: coverage-parity-cobertura
-        path: test/DynamoDbLite.Parity.Tests/coverage.cobertura.xml
+        path: tests/DynamoDbLite.Parity.Tests/coverage.cobertura.xml
         if-no-files-found: error

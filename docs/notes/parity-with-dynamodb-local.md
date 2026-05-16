@@ -4,7 +4,7 @@ Tags: parity, coverage, reference, dynamodb-local
 Authoritative file-by-file list of every scenario the parity test suite asserts across DdbLite, DdbLiteFile, and amazon/dynamodb-local.
 
 
-The suite under [`test/DynamoDbLite.Parity.Tests/`](../../test/DynamoDbLite.Parity.Tests/) runs each scenario three times — once per backend — and asserts the same explicit AWS-API-contract outcome on each. The main test project stays container-free; only this suite touches `amazon/dynamodb-local`. Tracks Phase 14 in [`docs/architecture-decisions.md`](../architecture-decisions.md). Closed library gaps and the v1.0 audit history live in [`parity-coverage-status.md`](parity-coverage-status.md).
+The suite under [`tests/DynamoDbLite.Parity.Tests/`](../../tests/DynamoDbLite.Parity.Tests/) runs each scenario three times — once per backend — and asserts the same explicit AWS-API-contract outcome on each. The main test project stays container-free; only this suite touches `amazon/dynamodb-local`. Tracks Phase 14 in [`docs/architecture-decisions.md`](../architecture-decisions.md). Closed library gaps and the v1.0 audit history live in [`parity-coverage-status.md`](parity-coverage-status.md).
 
 ## Backends
 
@@ -14,22 +14,22 @@ The suite under [`test/DynamoDbLite.Parity.Tests/`](../../test/DynamoDbLite.Pari
 
 ## Covered
 
-- [`ItemCrudParityTests`](../../test/DynamoDbLite.Parity.Tests/ItemCrudParityTests.cs) — `PutItem` + `GetItem` round-trip across S/N/BOOL/L/M, plus B/NULL/SS/NS/BS round-trips; `attribute_not_exists` condition on `PutItem` (success and `ConditionalCheckFailedException`); `attribute_exists` condition on `DeleteItem` failure.
-- [`UpdateExpressionParityTests`](../../test/DynamoDbLite.Parity.Tests/UpdateExpressionParityTests.cs) — `SET` with `if_not_exists`, `SET` with `list_append`, `ADD` on number, `REMOVE`, `DELETE` on string set.
-- [`QueryParityTests`](../../test/DynamoDbLite.Parity.Tests/QueryParityTests.cs) — `KeyConditionExpression`; `begins_with` on sort key; `ScanIndexForward = false`; `Limit` + `LastEvaluatedKey` pagination.
-- [`QueryNumericSortKeyParityTests`](../../test/DynamoDbLite.Parity.Tests/QueryNumericSortKeyParityTests.cs) — `BETWEEN` on numeric sort key returns inclusive range in ascending order.
-- [`ScanParityTests`](../../test/DynamoDbLite.Parity.Tests/ScanParityTests.cs) — `FilterExpression` with correct `Count` and `ScannedCount`; `contains` on string set; `IN` against a value list; parallel scan with `Segment`/`TotalSegments`.
-- [`TransactionParityTests`](../../test/DynamoDbLite.Parity.Tests/TransactionParityTests.cs) — `TransactWriteItems` all-or-nothing rollback with `CancellationReasons[i].Code == "ConditionalCheckFailed"`; multiple simultaneous condition failures populate each index; `ClientRequestToken` idempotency on replay; `ReturnValuesOnConditionCheckFailure = ALL_OLD` includes the prior item.
-- [`TransactGetItemsParityTests`](../../test/DynamoDbLite.Parity.Tests/TransactGetItemsParityTests.cs) — `TransactGetItems` happy path across two tables in request order; missing key returns empty `Item` at that response index without throwing.
-- [`SelectCountParityTests`](../../test/DynamoDbLite.Parity.Tests/SelectCountParityTests.cs) — `Select = COUNT` on Query and Scan populates `Count`/`ScannedCount` and returns no items.
-- [`ReturnValuesParityTests`](../../test/DynamoDbLite.Parity.Tests/ReturnValuesParityTests.cs) — `ReturnValues` variants across `PutItem` (`ALL_OLD`, `NONE`), `UpdateItem` (`ALL_OLD`, `UPDATED_OLD`, `ALL_NEW`, `UPDATED_NEW`), and `DeleteItem` (`ALL_OLD`).
-- [`ExpressionValidationOrderParityTests`](../../test/DynamoDbLite.Parity.Tests/ExpressionValidationOrderParityTests.cs) — raw reserved words in expressions are rejected with `ValidationException` *before* any lookup or mutation, across `DeleteItem`, `Query`, `Scan`, `TransactWriteItems`, `TransactGetItems`, and `BatchGetItem`.
-- [`BatchParityTests`](../../test/DynamoDbLite.Parity.Tests/BatchParityTests.cs) — `BatchGetItem` happy path; `BatchWriteItem` with put + delete in a single batch; `BatchWriteItem` across two tables.
-- [`SecondaryIndexParityTests`](../../test/DynamoDbLite.Parity.Tests/SecondaryIndexParityTests.cs) — GSI query across projection variants: `INCLUDE` returns projected attributes only; `KEYS_ONLY` returns only table + index keys; `ALL` returns every attribute.
-- [`LocalSecondaryIndexParityTests`](../../test/DynamoDbLite.Parity.Tests/LocalSecondaryIndexParityTests.cs) — LSI query with `begins_with` on the alternate sort key; `INCLUDE` projection returns projected attributes only.
-- [`ReservedWordParityTests`](../../test/DynamoDbLite.Parity.Tests/ReservedWordParityTests.cs) — raw reserved words in `UpdateExpression`/`ConditionExpression`/`ProjectionExpression` throw `AmazonDynamoDBException` with `ErrorCode == "ValidationException"`; the same word escaped via `ExpressionAttributeNames` is accepted.
-- [`EmptyStringParityTests`](../../test/DynamoDbLite.Parity.Tests/EmptyStringParityTests.cs) — empty-string scalar values round-trip through `PutItem` + `GetItem` (real DynamoDB rejected these pre-2020; current behavior accepts them).
-- [`SizeOperatorParityTests`](../../test/DynamoDbLite.Parity.Tests/SizeOperatorParityTests.cs) — `size()` in `ConditionExpression` on `UpdateItem` (success and `ConditionalCheckFailedException`); `size()` in `FilterExpression` on `Scan`.
+- [`ItemCrudParityTests`](../../tests/DynamoDbLite.Parity.Tests/ItemCrudParityTests.cs) — `PutItem` + `GetItem` round-trip across S/N/BOOL/L/M, plus B/NULL/SS/NS/BS round-trips; `attribute_not_exists` condition on `PutItem` (success and `ConditionalCheckFailedException`); `attribute_exists` condition on `DeleteItem` failure.
+- [`UpdateExpressionParityTests`](../../tests/DynamoDbLite.Parity.Tests/UpdateExpressionParityTests.cs) — `SET` with `if_not_exists`, `SET` with `list_append`, `ADD` on number, `REMOVE`, `DELETE` on string set.
+- [`QueryParityTests`](../../tests/DynamoDbLite.Parity.Tests/QueryParityTests.cs) — `KeyConditionExpression`; `begins_with` on sort key; `ScanIndexForward = false`; `Limit` + `LastEvaluatedKey` pagination.
+- [`QueryNumericSortKeyParityTests`](../../tests/DynamoDbLite.Parity.Tests/QueryNumericSortKeyParityTests.cs) — `BETWEEN` on numeric sort key returns inclusive range in ascending order.
+- [`ScanParityTests`](../../tests/DynamoDbLite.Parity.Tests/ScanParityTests.cs) — `FilterExpression` with correct `Count` and `ScannedCount`; `contains` on string set; `IN` against a value list; parallel scan with `Segment`/`TotalSegments`.
+- [`TransactionParityTests`](../../tests/DynamoDbLite.Parity.Tests/TransactionParityTests.cs) — `TransactWriteItems` all-or-nothing rollback with `CancellationReasons[i].Code == "ConditionalCheckFailed"`; multiple simultaneous condition failures populate each index; `ClientRequestToken` idempotency on replay; `ReturnValuesOnConditionCheckFailure = ALL_OLD` includes the prior item.
+- [`TransactGetItemsParityTests`](../../tests/DynamoDbLite.Parity.Tests/TransactGetItemsParityTests.cs) — `TransactGetItems` happy path across two tables in request order; missing key returns empty `Item` at that response index without throwing.
+- [`SelectCountParityTests`](../../tests/DynamoDbLite.Parity.Tests/SelectCountParityTests.cs) — `Select = COUNT` on Query and Scan populates `Count`/`ScannedCount` and returns no items.
+- [`ReturnValuesParityTests`](../../tests/DynamoDbLite.Parity.Tests/ReturnValuesParityTests.cs) — `ReturnValues` variants across `PutItem` (`ALL_OLD`, `NONE`), `UpdateItem` (`ALL_OLD`, `UPDATED_OLD`, `ALL_NEW`, `UPDATED_NEW`), and `DeleteItem` (`ALL_OLD`).
+- [`ExpressionValidationOrderParityTests`](../../tests/DynamoDbLite.Parity.Tests/ExpressionValidationOrderParityTests.cs) — raw reserved words in expressions are rejected with `ValidationException` *before* any lookup or mutation, across `DeleteItem`, `Query`, `Scan`, `TransactWriteItems`, `TransactGetItems`, and `BatchGetItem`.
+- [`BatchParityTests`](../../tests/DynamoDbLite.Parity.Tests/BatchParityTests.cs) — `BatchGetItem` happy path; `BatchWriteItem` with put + delete in a single batch; `BatchWriteItem` across two tables.
+- [`SecondaryIndexParityTests`](../../tests/DynamoDbLite.Parity.Tests/SecondaryIndexParityTests.cs) — GSI query across projection variants: `INCLUDE` returns projected attributes only; `KEYS_ONLY` returns only table + index keys; `ALL` returns every attribute.
+- [`LocalSecondaryIndexParityTests`](../../tests/DynamoDbLite.Parity.Tests/LocalSecondaryIndexParityTests.cs) — LSI query with `begins_with` on the alternate sort key; `INCLUDE` projection returns projected attributes only.
+- [`ReservedWordParityTests`](../../tests/DynamoDbLite.Parity.Tests/ReservedWordParityTests.cs) — raw reserved words in `UpdateExpression`/`ConditionExpression`/`ProjectionExpression` throw `AmazonDynamoDBException` with `ErrorCode == "ValidationException"`; the same word escaped via `ExpressionAttributeNames` is accepted.
+- [`EmptyStringParityTests`](../../tests/DynamoDbLite.Parity.Tests/EmptyStringParityTests.cs) — empty-string scalar values round-trip through `PutItem` + `GetItem` (real DynamoDB rejected these pre-2020; current behavior accepts them).
+- [`SizeOperatorParityTests`](../../tests/DynamoDbLite.Parity.Tests/SizeOperatorParityTests.cs) — `size()` in `ConditionExpression` on `UpdateItem` (success and `ConditionalCheckFailedException`); `size()` in `FilterExpression` on `Scan`.
 
 ## Uncovered (permanently out of scope)
 
@@ -46,7 +46,7 @@ Three backends close the file-vs-memory drift surface: the in-memory and file-ba
 
 ## Test shape
 
-A `ParityBackend` enum drives one axis of the test theory, mirroring the `StoreType` pattern in the main test project's [`DynamoDbClientFixture`](../../test/DynamoDbLite.Tests/Fixtures/DynamoDbClientFixture.cs):
+A `ParityBackend` enum drives one axis of the test theory, mirroring the `StoreType` pattern in the main test project's [`DynamoDbClientFixture`](../../tests/DynamoDbLite.Tests/Fixtures/DynamoDbClientFixture.cs):
 
 ```csharp
 public enum ParityBackend
@@ -57,7 +57,7 @@ public enum ParityBackend
 }
 ```
 
-The collection fixture at [`DynamoDbFixture`](../../test/DynamoDbLite.Parity.Tests/Fixtures/DynamoDbFixture.cs) owns one client per backend. Tests are `[Theory]` methods with a single [`[BackendData]`](../../test/DynamoDbLite.Parity.Tests/Fixtures/BackendDataAttribute.cs) attribute that emits one row per backend tagged with a `Backend` trait, and resolve the client through `fixture.ClientAsync(backend, ct)`. Adding a parity scenario costs one method body and one `[BackendData]` line. The trait is what makes `--filter "Backend=DdbLite"` work — see [Running selectively](#running-selectively) below.
+The collection fixture at [`DynamoDbFixture`](../../tests/DynamoDbLite.Parity.Tests/Fixtures/DynamoDbFixture.cs) owns one client per backend. Tests are `[Theory]` methods with a single [`[BackendData]`](../../tests/DynamoDbLite.Parity.Tests/Fixtures/BackendDataAttribute.cs) attribute that emits one row per backend tagged with a `Backend` trait, and resolve the client through `fixture.ClientAsync(backend, ct)`. Adding a parity scenario costs one method body and one `[BackendData]` line. The trait is what makes `--filter "Backend=DdbLite"` work — see [Running selectively](#running-selectively) below.
 
 ## Container lifecycle
 
@@ -106,10 +106,10 @@ Docker Desktop users need no file — defaults work. Linux runners (CI) use the 
 Every parity test is parameterized through `[BackendData]`, which tags each row with a `Backend` trait. The fixture starts `amazon/dynamodb-local` lazily, so a run that never requests `DynamoDbLocal` never spins up a container.
 
 ```
-dotnet test test/DynamoDbLite.Parity.Tests --filter "Backend=DdbLite"           # in-memory only
-dotnet test test/DynamoDbLite.Parity.Tests --filter "Backend=DdbLiteFile"       # file-backed SQLite only
-dotnet test test/DynamoDbLite.Parity.Tests --filter "Backend=DynamoDbLocal"     # real DynamoDB Local
-dotnet test test/DynamoDbLite.Parity.Tests --filter "Backend=DdbLite|Backend=DdbLiteFile"   # both lite backends, no container
+dotnet test tests/DynamoDbLite.Parity.Tests --filter "Backend=DdbLite"           # in-memory only
+dotnet test tests/DynamoDbLite.Parity.Tests --filter "Backend=DdbLiteFile"       # file-backed SQLite only
+dotnet test tests/DynamoDbLite.Parity.Tests --filter "Backend=DynamoDbLocal"     # real DynamoDB Local
+dotnet test tests/DynamoDbLite.Parity.Tests --filter "Backend=DdbLite|Backend=DdbLiteFile"   # both lite backends, no container
 ```
 
 Wall-clock difference matters for the inner-dev loop — the container is the bulk of the cost, so filtering to lite backends roughly halves run time. CI should always run the full matrix (no filter).

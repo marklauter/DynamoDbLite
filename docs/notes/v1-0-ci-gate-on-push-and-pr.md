@@ -20,8 +20,8 @@ Add `.github/workflows/ci.yml`. Required steps:
 - `actions/setup-dotnet@v4` with the .NET version this repo targets (net10.0).
 - `dotnet format DynamoDbLite.slnx --severity info --verify-no-changes`
 - `dotnet build DynamoDbLite.slnx --no-restore`
-- `dotnet test test/DynamoDbLite.Tests --no-build`
-- `dotnet test test/DynamoDbLite.Parity.Tests --no-build`
+- `dotnet test tests/DynamoDbLite.Tests --no-build`
+- `dotnet test tests/DynamoDbLite.Parity.Tests --no-build`
 
 Triggers: `push` to `main`, `pull_request` to `main`. Branch protection rule on `main` requiring CI green before merge.
 

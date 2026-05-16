@@ -1,6 +1,6 @@
 # Architecture
 
-Library code under `src/`, tests under `test/`; add new projects to `DynamoDbLite.slnx` at the repo root.
+Library code under `src/`, tests under `tests/`; add new projects to `DynamoDbLite.slnx` at the repo root.
 
 ## Conventions
 
