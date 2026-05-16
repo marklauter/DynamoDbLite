@@ -9,11 +9,6 @@ namespace DynamoDbLite;
 
 public sealed partial class DynamoDbClient
 {
-    /// <summary>Not supported.</summary>
-    public Task<ExecuteStatementResponse> ExecuteStatementAsync(ExecuteStatementRequest request, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-    /// <summary>Not supported.</summary>
-    public Task<ExecuteTransactionResponse> ExecuteTransactionAsync(ExecuteTransactionRequest request, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-
     /// <inheritdoc/>
     public async Task<TransactWriteItemsResponse> TransactWriteItemsAsync(
         TransactWriteItemsRequest request,

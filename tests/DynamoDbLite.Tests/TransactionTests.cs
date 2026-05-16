@@ -947,4 +947,83 @@ public sealed class TransactionTests
                     }
                 ]
             }, TestContext.Current.CancellationToken));
+
+    // -- Validation edges --------------------------------------------------
+
+    [Theory]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
+    public async Task TransactWriteItems_ItemWithTwoActions_Throws(StoreType st) =>
+        _ = await Assert.ThrowsAsync<AmazonDynamoDBException>(() =>
+            Client(st).TransactWriteItemsAsync(new TransactWriteItemsRequest
+            {
+                TransactItems =
+                [
+                    new TransactWriteItem
+                    {
+                        Put = new Put
+                        {
+                            TableName = TestTableName,
+                            Item = new Dictionary<string, AttributeValue>
+                            {
+                                ["PK"] = new() { S = "X" },
+                                ["SK"] = new() { S = "Y" }
+                            }
+                        },
+                        Delete = new Delete
+                        {
+                            TableName = TestTableName,
+                            Key = new Dictionary<string, AttributeValue>
+                            {
+                                ["PK"] = new() { S = "X" },
+                                ["SK"] = new() { S = "Y" }
+                            }
+                        }
+                    }
+                ]
+            }, TestContext.Current.CancellationToken));
+
+    [Theory]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
+    public async Task TransactWriteItems_UpdateModifiesKeyAttribute_Throws(StoreType st)
+    {
+        var client = Client(st);
+        await PutTestItemAsync(client, "USER#1", "PROFILE", "Alice");
+
+        _ = await Assert.ThrowsAsync<AmazonDynamoDBException>(() =>
+            client.TransactWriteItemsAsync(new TransactWriteItemsRequest
+            {
+                TransactItems =
+                [
+                    new TransactWriteItem
+                    {
+                        Update = new Update
+                        {
+                            TableName = TestTableName,
+                            Key = new Dictionary<string, AttributeValue>
+                            {
+                                ["PK"] = new() { S = "USER#1" },
+                                ["SK"] = new() { S = "PROFILE" }
+                            },
+                            UpdateExpression = "SET PK = :newpk",
+                            ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+                            {
+                                [":newpk"] = new() { S = "USER#2" }
+                            }
+                        }
+                    }
+                ]
+            }, TestContext.Current.CancellationToken));
+    }
+
+    [Theory]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
+    public async Task TransactGetItems_EmptyList_Throws(StoreType st) =>
+        _ = await Assert.ThrowsAsync<AmazonDynamoDBException>(() =>
+            Client(st).TransactGetItemsAsync(new TransactGetItemsRequest
+            {
+                TransactItems = []
+            }, TestContext.Current.CancellationToken));
 }

@@ -198,4 +198,98 @@ public sealed class ScanTests
             {
                 TableName = "NonExistent"
             }, TestContext.Current.CancellationToken));
+
+    // ── Parallel scan (TotalSegments + Segment) ─────────────────────
+
+    [Theory]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
+    public async Task ScanAsync_ParallelSegments_PartitionItemsDeterministically(StoreType st)
+    {
+        const int totalSegments = 4;
+        const int itemCount = 40;
+
+        var client = Client(st);
+        await SeedItemsAsync(client, itemCount);
+
+        async Task<HashSet<string>> ScanSegment(int segment)
+        {
+            var response = await client.ScanAsync(new ScanRequest
+            {
+                TableName = TestTableName,
+                TotalSegments = totalSegments,
+                Segment = segment
+            }, TestContext.Current.CancellationToken);
+            return [.. response.Items.Select(i => i["PK"].S)];
+        }
+
+        var seen = new HashSet<string>();
+        for (var segment = 0; segment < totalSegments; segment++)
+        {
+            var pks = await ScanSegment(segment);
+            foreach (var pk in pks)
+                Assert.True(seen.Add(pk), $"PK {pk} appeared in multiple segments");
+        }
+
+        Assert.Equal(itemCount, seen.Count);
+
+        // Stable: same segment returns same PKs across runs.
+        var first = await ScanSegment(0);
+        var second = await ScanSegment(0);
+        Assert.Equal(first, second);
+    }
+
+    // ── Segmentation validation ─────────────────────────────────────
+
+    [Fact]
+    public async Task ScanAsync_SegmentWithoutTotalSegments_Throws() =>
+        _ = await Assert.ThrowsAsync<AmazonDynamoDBException>(() =>
+            Client(StoreType.DdbLite).ScanAsync(new ScanRequest
+            {
+                TableName = TestTableName,
+                Segment = 0
+            }, TestContext.Current.CancellationToken));
+
+    [Fact]
+    public async Task ScanAsync_TotalSegmentsWithoutSegment_Throws() =>
+        _ = await Assert.ThrowsAsync<AmazonDynamoDBException>(() =>
+            Client(StoreType.DdbLite).ScanAsync(new ScanRequest
+            {
+                TableName = TestTableName,
+                TotalSegments = 2
+            }, TestContext.Current.CancellationToken));
+
+    [Fact]
+    public async Task ScanAsync_TotalSegmentsBelowMin_Throws() =>
+        _ = await Assert.ThrowsAsync<AmazonDynamoDBException>(() =>
+            Client(StoreType.DdbLite).ScanAsync(new ScanRequest
+            {
+                TableName = TestTableName,
+#pragma warning disable DynamoDB1003 // exercising server-side validation on out-of-range TotalSegments
+                TotalSegments = 0,
+#pragma warning restore DynamoDB1003
+                Segment = 0
+            }, TestContext.Current.CancellationToken));
+
+    [Fact]
+    public async Task ScanAsync_TotalSegmentsAboveMax_Throws() =>
+        _ = await Assert.ThrowsAsync<AmazonDynamoDBException>(() =>
+            Client(StoreType.DdbLite).ScanAsync(new ScanRequest
+            {
+                TableName = TestTableName,
+#pragma warning disable DynamoDB1004 // exercising server-side validation on out-of-range TotalSegments
+                TotalSegments = 1_000_001,
+#pragma warning restore DynamoDB1004
+                Segment = 0
+            }, TestContext.Current.CancellationToken));
+
+    [Fact]
+    public async Task ScanAsync_SegmentOutOfRange_Throws() =>
+        _ = await Assert.ThrowsAsync<AmazonDynamoDBException>(() =>
+            Client(StoreType.DdbLite).ScanAsync(new ScanRequest
+            {
+                TableName = TestTableName,
+                TotalSegments = 4,
+                Segment = 4
+            }, TestContext.Current.CancellationToken));
 }

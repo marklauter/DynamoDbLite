@@ -4,10 +4,8 @@ Library code under `src/`, tests under `tests/`; add new projects to `DynamoDbLi
 
 ## Conventions
 
-- `DynamoDbClient.cs` is a partial class — core + disposal here, one file per feature area:
-  - `.TableManagement.cs`, `.Crud.cs`, `.Query.cs`, `.Batch.cs`, `.Transactions.cs`
-  - `.DataPipeline.cs` — export/import (Phase 10, complete)
-  - `.Admin.cs`, `.Backup.cs`, `.GlobalTables.cs`, `.Streams.cs` — out-of-scope APIs that throw `NotImplementedException`
+- `DynamoDbClient.cs` is a partial class — core + disposal here, one file per AWS operation family (`.TableManagement.cs`, `.Crud.cs`, `.Query.cs`, `.Scan.cs`, `.Batch.cs`, `.Transactions.cs`, `.Export.cs`, `.Import.cs`, `.Tags.cs`, `.Ttl.cs`, `.Service.cs`).
+  - `.Unsupported.cs` — out-of-scope APIs that throw `NotSupportedException`, grouped by `#region` matching [ADR 0006](../adrs/0006-out-of-scope-operations.md) / [ADR 0007](../adrs/0007-not-supported-exception-for-out-of-scope.md).
 - `SqliteStores/` — abstract `SqliteStoreBase` with two sealed implementations:
   - `InMemorySqliteStore` — sentinel connection keeps the DB alive; `AsyncReaderWriterLock` serializes writes
   - `FileSqliteStore` — WAL mode handles concurrency; no in-process lock needed

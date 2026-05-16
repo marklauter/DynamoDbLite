@@ -405,6 +405,232 @@ public sealed class SecondaryIndexTests
         Assert.Equal(2, response.Count);
     }
 
+    private async Task SeedGsiItemsAsync(DynamoDbClient client, int count)
+    {
+        for (var i = 0; i < count; i++)
+        {
+            _ = await client.PutItemAsync(new PutItemRequest
+            {
+                TableName = TestTableName,
+                Item = new Dictionary<string, AttributeValue>
+                {
+                    ["PK"] = new() { S = $"pk{i}" },
+                    ["SK"] = new() { S = $"sk{i}" },
+                    ["GSI_PK"] = new() { S = $"gsi_pk{i}" },
+                    ["GSI_SK"] = new() { S = $"gsi_sk{i:D3}" },
+                    ["name"] = new() { S = $"Item{i}" },
+                    ["active"] = new() { BOOL = i % 2 == 0 }
+                }
+            }, TestContext.Current.CancellationToken);
+        }
+    }
+
+    [Theory]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
+    public async Task ScanAsync_GsiParallelSegments_PartitionItemsDeterministically(StoreType st)
+    {
+        const int totalSegments = 4;
+        const int itemCount = 40;
+
+        var client = Client(st);
+        await CreateTableWithGsiAsync(client);
+        await SeedGsiItemsAsync(client, itemCount);
+
+        async Task<HashSet<string>> ScanSegment(int segment)
+        {
+            var response = await client.ScanAsync(new ScanRequest
+            {
+                TableName = TestTableName,
+                IndexName = "GSI1",
+                TotalSegments = totalSegments,
+                Segment = segment
+            }, TestContext.Current.CancellationToken);
+            return [.. response.Items.Select(i => i["GSI_PK"].S)];
+        }
+
+        var seen = new HashSet<string>();
+        for (var segment = 0; segment < totalSegments; segment++)
+        {
+            var pks = await ScanSegment(segment);
+            foreach (var pk in pks)
+                Assert.True(seen.Add(pk), $"GSI_PK {pk} appeared in multiple segments");
+        }
+
+        Assert.Equal(itemCount, seen.Count);
+    }
+
+    [Theory]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
+    public async Task ScanAsync_OnGsi_WithFilterExpression_FiltersResults(StoreType st)
+    {
+        var client = Client(st);
+        await CreateTableWithGsiAsync(client);
+        await SeedGsiItemsAsync(client, 6);
+
+        var response = await client.ScanAsync(new ScanRequest
+        {
+            TableName = TestTableName,
+            IndexName = "GSI1",
+            FilterExpression = "active = :active",
+            ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+            {
+                [":active"] = new() { BOOL = true }
+            }
+        }, TestContext.Current.CancellationToken);
+
+        Assert.Equal(6, response.ScannedCount);
+        Assert.Equal(3, response.Count);
+    }
+
+    [Theory]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
+    public async Task ScanAsync_OnGsi_WithProjectionExpression_ProjectsAttributes(StoreType st)
+    {
+        var client = Client(st);
+        await CreateTableWithGsiAsync(client);
+        await SeedGsiItemsAsync(client, 3);
+
+        var response = await client.ScanAsync(new ScanRequest
+        {
+            TableName = TestTableName,
+            IndexName = "GSI1",
+            ProjectionExpression = "#n",
+            ExpressionAttributeNames = new Dictionary<string, string>
+            {
+                ["#n"] = "name"
+            }
+        }, TestContext.Current.CancellationToken);
+
+        Assert.Equal(3, response.Count);
+        Assert.All(response.Items, item =>
+        {
+            _ = Assert.Single(item);
+            Assert.Contains("name", item.Keys);
+        });
+    }
+
+    [Theory]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
+    public async Task ScanAsync_OnGsi_SelectCount_ReturnsCountOnly(StoreType st)
+    {
+        var client = Client(st);
+        await CreateTableWithGsiAsync(client);
+        await SeedGsiItemsAsync(client, 5);
+
+        var response = await client.ScanAsync(new ScanRequest
+        {
+            TableName = TestTableName,
+            IndexName = "GSI1",
+            Select = Select.COUNT
+        }, TestContext.Current.CancellationToken);
+
+        Assert.Equal(5, response.Count);
+        Assert.Equal(5, response.ScannedCount);
+    }
+
+    [Theory]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
+    public async Task ScanAsync_OnGsi_SelectAllProjectedAttributes_ReturnsAllAttributes(StoreType st)
+    {
+        var client = Client(st);
+        await CreateTableWithGsiAsync(client);
+        await SeedGsiItemsAsync(client, 3);
+
+        var response = await client.ScanAsync(new ScanRequest
+        {
+            TableName = TestTableName,
+            IndexName = "GSI1",
+            Select = Select.ALL_PROJECTED_ATTRIBUTES
+        }, TestContext.Current.CancellationToken);
+
+        Assert.Equal(3, response.Count);
+        Assert.All(response.Items, item =>
+        {
+            Assert.Contains("PK", item.Keys);
+            Assert.Contains("GSI_PK", item.Keys);
+            Assert.Contains("name", item.Keys);
+        });
+    }
+
+    private async Task CreateTableWithKeysOnlyGsiAsync(DynamoDbClient client)
+        => _ = await client.CreateTableAsync(new CreateTableRequest
+        {
+            TableName = TestTableName,
+            KeySchema =
+            [
+                new KeySchemaElement { AttributeName = "PK", KeyType = KeyType.HASH },
+                new KeySchemaElement { AttributeName = "SK", KeyType = KeyType.RANGE }
+            ],
+            AttributeDefinitions =
+            [
+                new AttributeDefinition { AttributeName = "PK", AttributeType = ScalarAttributeType.S },
+                new AttributeDefinition { AttributeName = "SK", AttributeType = ScalarAttributeType.S },
+                new AttributeDefinition { AttributeName = "GSI_PK", AttributeType = ScalarAttributeType.S },
+                new AttributeDefinition { AttributeName = "GSI_SK", AttributeType = ScalarAttributeType.S }
+            ],
+            GlobalSecondaryIndexes =
+            [
+                new GlobalSecondaryIndex
+                {
+                    IndexName = "GSI1",
+                    KeySchema =
+                    [
+                        new KeySchemaElement { AttributeName = "GSI_PK", KeyType = KeyType.HASH },
+                        new KeySchemaElement { AttributeName = "GSI_SK", KeyType = KeyType.RANGE }
+                    ],
+                    Projection = new Projection { ProjectionType = ProjectionType.KEYS_ONLY }
+                }
+            ]
+        }, TestContext.Current.CancellationToken);
+
+    [Theory]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
+    public async Task QueryAsync_OnKeysOnlyGsi_ReturnsKeysOnly(StoreType st)
+    {
+        var client = Client(st);
+        await CreateTableWithKeysOnlyGsiAsync(client);
+
+        _ = await client.PutItemAsync(new PutItemRequest
+        {
+            TableName = TestTableName,
+            Item = new Dictionary<string, AttributeValue>
+            {
+                ["PK"] = new() { S = "pk1" },
+                ["SK"] = new() { S = "sk1" },
+                ["GSI_PK"] = new() { S = "gsi_pk1" },
+                ["GSI_SK"] = new() { S = "gsi_sk1" },
+                ["name"] = new() { S = "Alice" },
+                ["extra"] = new() { S = "should-not-project" }
+            }
+        }, TestContext.Current.CancellationToken);
+
+        var response = await client.QueryAsync(new QueryRequest
+        {
+            TableName = TestTableName,
+            IndexName = "GSI1",
+            KeyConditionExpression = "GSI_PK = :pk",
+            ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+            {
+                [":pk"] = new() { S = "gsi_pk1" }
+            }
+        }, TestContext.Current.CancellationToken);
+
+        var item = Assert.Single(response.Items);
+        Assert.Equal(4, item.Count);
+        Assert.Contains("PK", item.Keys);
+        Assert.Contains("SK", item.Keys);
+        Assert.Contains("GSI_PK", item.Keys);
+        Assert.Contains("GSI_SK", item.Keys);
+        Assert.DoesNotContain("name", item.Keys);
+        Assert.DoesNotContain("extra", item.Keys);
+    }
+
     // -- LSI Query -------------------------------------------------------
 
     [Theory]

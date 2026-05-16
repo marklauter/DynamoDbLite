@@ -616,4 +616,91 @@ public sealed class ConditionExpressionTests
         var ast = ConditionExpressionParser.Parse("#n = :v");
         Assert.NotNull(ast);
     }
+
+    // ── Null-operand and type-mismatch edges ───────────────────────────
+
+    [Fact]
+    public void Equality_BothPathsAbsent_True()
+    {
+        var ast = ConditionExpressionParser.Parse("#a = #b");
+        var result = ConditionExpressionEvaluator.Evaluate(
+            ast, TestItem,
+            new Dictionary<string, string> { ["#a"] = "absent1", ["#b"] = "absent2" },
+            null);
+
+        Assert.True(result);
+    }
+
+    [Fact]
+    public void Equality_OnePathAbsent_False()
+    {
+        var ast = ConditionExpressionParser.Parse("#a = #n");
+        var result = ConditionExpressionEvaluator.Evaluate(
+            ast, TestItem,
+            new Dictionary<string, string> { ["#a"] = "absent", ["#n"] = "name" },
+            null);
+
+        Assert.False(result);
+    }
+
+    [Fact]
+    public void Equality_CrossTypePaths_False()
+    {
+        var ast = ConditionExpressionParser.Parse("#n = age");
+        var result = ConditionExpressionEvaluator.Evaluate(
+            ast, TestItem,
+            new Dictionary<string, string> { ["#n"] = "name" },
+            null);
+
+        Assert.False(result);
+    }
+
+    [Fact]
+    public void Comparison_BinaryGreaterThanOrEqual_BothBinary()
+    {
+        var ast = ConditionExpressionParser.Parse("bin >= :v");
+        var result = ConditionExpressionEvaluator.Evaluate(
+            ast, TestItem, null,
+            new Dictionary<string, AttributeValue>
+            {
+                [":v"] = new() { B = new MemoryStream([0x01, 0x02, 0x00]) }
+            });
+
+        Assert.True(result);
+    }
+
+    [Fact]
+    public void Comparison_NonEqualityWithAbsentPath_False()
+    {
+        var ast = ConditionExpressionParser.Parse("#a > :v");
+        var result = ConditionExpressionEvaluator.Evaluate(
+            ast, TestItem,
+            new Dictionary<string, string> { ["#a"] = "absent" },
+            new Dictionary<string, AttributeValue> { [":v"] = new() { N = "0" } });
+
+        Assert.False(result);
+    }
+
+    [Fact]
+    public void Contains_OnAbsentAttribute_False()
+    {
+        var ast = ConditionExpressionParser.Parse("contains(#a, :v)");
+        var result = ConditionExpressionEvaluator.Evaluate(
+            ast, TestItem,
+            new Dictionary<string, string> { ["#a"] = "absent" },
+            new Dictionary<string, AttributeValue> { [":v"] = new() { S = "anything" } });
+
+        Assert.False(result);
+    }
+
+    [Fact]
+    public void AttributeType_Null_MatchesNullAttribute()
+    {
+        var ast = ConditionExpressionParser.Parse("attribute_type(null_attr, :t)");
+        var result = ConditionExpressionEvaluator.Evaluate(
+            ast, TestItem, null,
+            new Dictionary<string, AttributeValue> { [":t"] = new() { S = "NULL" } });
+
+        Assert.True(result);
+    }
 }

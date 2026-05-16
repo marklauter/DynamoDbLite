@@ -370,4 +370,105 @@ public sealed partial class DynamoDbClient
                     $"One or more parameter values were invalid: Number of attributes in KeySchema does not match the number defined in AttributeDefinitions");
         }
     }
+
+    /// <inheritdoc/>
+    public async Task<UpdateTableResponse> UpdateTableAsync(
+        string tableName,
+        ProvisionedThroughput provisionedThroughput,
+        CancellationToken cancellationToken = default)
+    {
+        ThrowIfDisposed();
+        var description = await store.GetTableDescriptionAsync(tableName, cancellationToken)
+            ?? throw new ResourceNotFoundException($"Requested resource not found: Table: {tableName} not found");
+
+        return new UpdateTableResponse
+        {
+            TableDescription = description,
+            HttpStatusCode = System.Net.HttpStatusCode.OK
+        };
+    }
+
+    /// <inheritdoc/>
+    public async Task<UpdateTableResponse> UpdateTableAsync(
+        UpdateTableRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.TableName);
+
+        var description = await store.GetTableDescriptionAsync(request.TableName, cancellationToken)
+            ?? throw new ResourceNotFoundException($"Requested resource not found: Table: {request.TableName} not found");
+
+        if (request.GlobalSecondaryIndexUpdates is { Count: > 0 })
+        {
+            var tableKeyInfo = await store.GetKeySchemaAsync(request.TableName, cancellationToken)!;
+            var allIndexes = await store.GetIndexDefinitionsAsync(request.TableName, cancellationToken);
+            var gsiDefs = allIndexes.Where(static i => i.IsGlobal).ToList();
+
+            // Merge new attribute definitions if provided
+            var attrDefs = request.AttributeDefinitions is { Count: > 0 }
+                ? request.AttributeDefinitions
+                : tableKeyInfo!.AttributeDefinitions;
+
+            foreach (var update in request.GlobalSecondaryIndexUpdates)
+            {
+                if (update.Create is not null)
+                {
+                    if (gsiDefs.Count >= 5)
+                        throw new AmazonDynamoDBException(
+                            "One or more parameter values were invalid: GlobalSecondaryIndex count exceeds the per-table limit of 5");
+
+                    if (gsiDefs.Any(g => g.IndexName == update.Create.IndexName))
+                        throw new AmazonDynamoDBException(
+                            $"One or more parameter values were invalid: Duplicate index name: {update.Create.IndexName}");
+
+                    // Validate key schema attributes exist in attribute definitions
+                    var definedNames = attrDefs.Select(static a => a.AttributeName).ToHashSet();
+                    foreach (var key in update.Create.KeySchema)
+                    {
+                        if (!definedNames.Contains(key.AttributeName))
+                            throw new AmazonDynamoDBException(
+                                $"One or more parameter values were invalid: Index key attribute {key.AttributeName} is not defined in AttributeDefinitions");
+                    }
+
+                    var projectionType = update.Create.Projection?.ProjectionType?.Value ?? "ALL";
+                    var nonKeyAttrs = update.Create.Projection?.NonKeyAttributes;
+                    var newIdx = new IndexDefinition(
+                        update.Create.IndexName, true, update.Create.KeySchema, projectionType, nonKeyAttrs);
+                    gsiDefs.Add(newIdx);
+
+                    var existingItems = await store.GetAllItemsAsync(request.TableName, cancellationToken);
+                    var ttlAttrForBackfill = await store.GetTtlAttributeNameAsync(request.TableName, cancellationToken);
+                    var updatedAttrDefs = request.AttributeDefinitions is { Count: > 0 }
+                        ? request.AttributeDefinitions
+                        : null;
+
+                    await store.CreateGsiWithBackfillAsync(
+                        request.TableName, newIdx, gsiDefs, attrDefs,
+                        existingItems, ttlAttrForBackfill, updatedAttrDefs, cancellationToken);
+                }
+                else if (update.Delete is not null)
+                {
+                    var toRemove = gsiDefs.FirstOrDefault(g => g.IndexName == update.Delete.IndexName)
+                        ?? throw new AmazonDynamoDBException(
+                            $"The table does not have the specified index: {update.Delete.IndexName}");
+
+                    _ = gsiDefs.Remove(toRemove);
+
+                    await store.DeleteGsiAsync(
+                        request.TableName, update.Delete.IndexName, gsiDefs, cancellationToken);
+                }
+                // Update (throughput changes) → no-op for local emulator
+            }
+
+            description = await store.GetTableDescriptionAsync(request.TableName, cancellationToken);
+        }
+
+        return new UpdateTableResponse
+        {
+            TableDescription = description,
+            HttpStatusCode = System.Net.HttpStatusCode.OK
+        };
+    }
 }

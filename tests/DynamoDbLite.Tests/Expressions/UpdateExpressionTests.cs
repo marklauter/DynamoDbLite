@@ -578,6 +578,112 @@ public sealed class UpdateExpressionTests
         _ = Assert.Single(ast.Sets);
     }
 
+    [Fact]
+    public void Set_IntermediateListIndex_ThenAttribute_UpdatesField()
+    {
+        var item = new Dictionary<string, AttributeValue>
+        {
+            ["a"] = new()
+            {
+                M = new Dictionary<string, AttributeValue>
+                {
+                    ["b"] = new()
+                    {
+                        L =
+                        [
+                            new() { M = new Dictionary<string, AttributeValue> { ["c"] = new() { S = "old0" } } },
+                            new() { M = new Dictionary<string, AttributeValue> { ["c"] = new() { S = "old1" } } },
+                            new() { M = new Dictionary<string, AttributeValue> { ["c"] = new() { S = "old2" } } }
+                        ]
+                    }
+                }
+            }
+        };
+
+        var ast = UpdateExpressionParser.Parse("SET a.b[2].c = :v");
+        var (result, _) = UpdateExpressionEvaluator.Apply(
+            ast, item, null,
+            new Dictionary<string, AttributeValue> { [":v"] = new() { S = "new2" } });
+
+        Assert.Equal("new2", result["a"].M["b"].L[2].M["c"].S);
+        Assert.Equal("old0", result["a"].M["b"].L[0].M["c"].S);
+        Assert.Equal("old1", result["a"].M["b"].L[1].M["c"].S);
+    }
+
+    [Fact]
+    public void Remove_IntermediateListIndex_ThenAttribute_RemovesField()
+    {
+        var item = new Dictionary<string, AttributeValue>
+        {
+            ["a"] = new()
+            {
+                M = new Dictionary<string, AttributeValue>
+                {
+                    ["b"] = new()
+                    {
+                        L =
+                        [
+                            new() { M = new Dictionary<string, AttributeValue> { ["c"] = new() { S = "v0" } } },
+                            new() { M = new Dictionary<string, AttributeValue> { ["c"] = new() { S = "v1" } } }
+                        ]
+                    }
+                }
+            }
+        };
+
+        var ast = UpdateExpressionParser.Parse("REMOVE a.b[1].c");
+        var (result, _) = UpdateExpressionEvaluator.Apply(ast, item, null, null);
+
+        Assert.False(result["a"].M["b"].L[1].M.ContainsKey("c"));
+        Assert.Equal("v0", result["a"].M["b"].L[0].M["c"].S);
+    }
+
+    [Fact]
+    public void Remove_IntermediateListIndexOutOfRange_NoOps()
+    {
+        var item = new Dictionary<string, AttributeValue>
+        {
+            ["a"] = new()
+            {
+                M = new Dictionary<string, AttributeValue>
+                {
+                    ["b"] = new()
+                    {
+                        L =
+                        [
+                            new() { M = new Dictionary<string, AttributeValue> { ["c"] = new() { S = "v0" } } }
+                        ]
+                    }
+                }
+            }
+        };
+
+        var ast = UpdateExpressionParser.Parse("REMOVE a.b[10].c");
+        var (result, _) = UpdateExpressionEvaluator.Apply(ast, item, null, null);
+
+        // List unchanged.
+        _ = Assert.Single(result["a"].M["b"].L);
+        Assert.Equal("v0", result["a"].M["b"].L[0].M["c"].S);
+    }
+
+    [Fact]
+    public void Remove_MissingIntermediateAttribute_NoOps()
+    {
+        var item = new Dictionary<string, AttributeValue>
+        {
+            ["a"] = new() { S = "present" }
+        };
+
+        var ast = UpdateExpressionParser.Parse("REMOVE #m.x");
+        var (result, _) = UpdateExpressionEvaluator.Apply(
+            ast, item,
+            new Dictionary<string, string> { ["#m"] = "absent" },
+            null);
+
+        Assert.Equal("present", result["a"].S);
+        Assert.False(result.ContainsKey("absent"));
+    }
+
     // ── Helpers ─────────────────────────────────────────────────────────
 
     private static Dictionary<string, AttributeValue> CreateTestItem() =>

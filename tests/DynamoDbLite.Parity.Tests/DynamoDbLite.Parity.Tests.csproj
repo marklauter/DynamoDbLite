@@ -2,6 +2,11 @@
 
 	<PropertyGroup>
 		<Include>[DynamoDbLite*]*</Include>
+		<!-- Parity tests run against real DynamoDB (Testcontainers) and only touch a -->
+		<!-- subset of the SUT; they exist to assert behavioral equivalence, not to -->
+		<!-- drive coverage. Disable the inherited threshold so the gate does not fail -->
+		<!-- on coverage we never intended to chase here. -->
+		<Threshold>0</Threshold>
 	</PropertyGroup>
 
 	<ItemGroup>

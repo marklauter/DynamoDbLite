@@ -1005,4 +1005,182 @@ public sealed class TimeToLiveTests
         Assert.NotNull(description);
         Assert.Equal(1, description.ItemCount);
     }
+
+    private static async Task CreateGsiTableWithTtlAsync(DynamoDbClient client, string tableName)
+    {
+        _ = await client.CreateTableAsync(new CreateTableRequest
+        {
+            TableName = tableName,
+            KeySchema =
+            [
+                new KeySchemaElement { AttributeName = "PK", KeyType = KeyType.HASH },
+                new KeySchemaElement { AttributeName = "SK", KeyType = KeyType.RANGE }
+            ],
+            AttributeDefinitions =
+            [
+                new AttributeDefinition { AttributeName = "PK", AttributeType = ScalarAttributeType.S },
+                new AttributeDefinition { AttributeName = "SK", AttributeType = ScalarAttributeType.S },
+                new AttributeDefinition { AttributeName = "GSI_PK", AttributeType = ScalarAttributeType.S }
+            ],
+            GlobalSecondaryIndexes =
+            [
+                new GlobalSecondaryIndex
+                {
+                    IndexName = "GSI1",
+                    KeySchema = [new KeySchemaElement { AttributeName = "GSI_PK", KeyType = KeyType.HASH }],
+                    Projection = new Projection { ProjectionType = ProjectionType.ALL }
+                }
+            ]
+        }, TestContext.Current.CancellationToken);
+
+        _ = await client.UpdateTimeToLiveAsync(new UpdateTimeToLiveRequest
+        {
+            TableName = tableName,
+            TimeToLiveSpecification = new TimeToLiveSpecification { Enabled = true, AttributeName = "ttl" }
+        }, TestContext.Current.CancellationToken);
+    }
+
+    [Theory]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
+    public async Task Background_Cleanup_Purges_Expired_Rows_From_Index_Tables(StoreType st)
+    {
+        var client = Client(st);
+        const string tableName = "GsiCleanupTtlTable";
+        await CreateGsiTableWithTtlAsync(client, tableName);
+
+        _ = await client.PutItemAsync(new PutItemRequest
+        {
+            TableName = tableName,
+            Item = new Dictionary<string, AttributeValue>
+            {
+                ["PK"] = new() { S = "pk1" },
+                ["SK"] = new() { S = "sk1" },
+                ["GSI_PK"] = new() { S = "gsi1" },
+                ["ttl"] = new() { N = PastEpoch().ToString(CultureInfo.InvariantCulture) }
+            }
+        }, TestContext.Current.CancellationToken);
+
+        // Triggers fire-and-forget background cleanup, which iterates indexes
+        // and purges expired rows from each index table.
+        _ = await client.ScanAsync(new ScanRequest { TableName = tableName },
+            TestContext.Current.CancellationToken);
+
+        // Poll until the cleanup has run — index table emptied means the
+        // index-purge foreach in SqliteStore.CleanupExpiredItemsAsync executed.
+        QueryResponse? gsiResponse = null;
+        for (var i = 0; i < 50; i++)
+        {
+            await Task.Delay(100, TestContext.Current.CancellationToken);
+            var d = await client.DescribeTableAsync(tableName, TestContext.Current.CancellationToken);
+            if (d.Table.ItemCount == 0)
+            {
+                gsiResponse = await client.QueryAsync(new QueryRequest
+                {
+                    TableName = tableName,
+                    IndexName = "GSI1",
+                    KeyConditionExpression = "GSI_PK = :gsi",
+                    ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+                    {
+                        [":gsi"] = new() { S = "gsi1" }
+                    }
+                }, TestContext.Current.CancellationToken);
+                break;
+            }
+        }
+
+        Assert.NotNull(gsiResponse);
+        Assert.Empty(gsiResponse.Items);
+    }
+
+    [Theory]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
+    public async Task Enable_Ttl_On_Indexed_Table_With_Existing_Rows_Backfills_Index(StoreType st)
+    {
+        var client = Client(st);
+        const string tableName = "GsiBackfillTtlTable";
+
+        _ = await client.CreateTableAsync(new CreateTableRequest
+        {
+            TableName = tableName,
+            KeySchema =
+            [
+                new KeySchemaElement { AttributeName = "PK", KeyType = KeyType.HASH },
+                new KeySchemaElement { AttributeName = "SK", KeyType = KeyType.RANGE }
+            ],
+            AttributeDefinitions =
+            [
+                new AttributeDefinition { AttributeName = "PK", AttributeType = ScalarAttributeType.S },
+                new AttributeDefinition { AttributeName = "SK", AttributeType = ScalarAttributeType.S },
+                new AttributeDefinition { AttributeName = "GSI_PK", AttributeType = ScalarAttributeType.S }
+            ],
+            GlobalSecondaryIndexes =
+            [
+                new GlobalSecondaryIndex
+                {
+                    IndexName = "GSI1",
+                    KeySchema = [new KeySchemaElement { AttributeName = "GSI_PK", KeyType = KeyType.HASH }],
+                    Projection = new Projection { ProjectionType = ProjectionType.ALL }
+                }
+            ]
+        }, TestContext.Current.CancellationToken);
+
+        // Pre-populate items BEFORE enabling TTL — forces BackfillIndexTtlEpochAsync
+        // to iterate existing index rows.
+        for (var i = 0; i < 3; i++)
+        {
+            _ = await client.PutItemAsync(new PutItemRequest
+            {
+                TableName = tableName,
+                Item = new Dictionary<string, AttributeValue>
+                {
+                    ["PK"] = new() { S = $"pk{i}" },
+                    ["SK"] = new() { S = $"sk{i}" },
+                    ["GSI_PK"] = new() { S = $"gsi{i}" },
+                    ["ttl"] = new() { N = FutureEpoch().ToString(CultureInfo.InvariantCulture) }
+                }
+            }, TestContext.Current.CancellationToken);
+        }
+
+        var response = await client.UpdateTimeToLiveAsync(new UpdateTimeToLiveRequest
+        {
+            TableName = tableName,
+            TimeToLiveSpecification = new TimeToLiveSpecification { Enabled = true, AttributeName = "ttl" }
+        }, TestContext.Current.CancellationToken);
+
+        Assert.True(response.TimeToLiveSpecification.Enabled);
+    }
+
+    [Theory]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
+    public async Task Disable_Ttl_On_Indexed_Table_Clears_Index_Ttl_Epoch(StoreType st)
+    {
+        var client = Client(st);
+        const string tableName = "GsiDisableTtlTable";
+        await CreateGsiTableWithTtlAsync(client, tableName);
+
+        _ = await client.PutItemAsync(new PutItemRequest
+        {
+            TableName = tableName,
+            Item = new Dictionary<string, AttributeValue>
+            {
+                ["PK"] = new() { S = "pk1" },
+                ["SK"] = new() { S = "sk1" },
+                ["GSI_PK"] = new() { S = "gsi1" },
+                ["ttl"] = new() { N = FutureEpoch().ToString(CultureInfo.InvariantCulture) }
+            }
+        }, TestContext.Current.CancellationToken);
+
+        // Disabling TTL synchronously calls ClearTtlEpochAsync, which iterates
+        // indexes and sets ttl_epoch = NULL on each index table.
+        var disableResponse = await client.UpdateTimeToLiveAsync(new UpdateTimeToLiveRequest
+        {
+            TableName = tableName,
+            TimeToLiveSpecification = new TimeToLiveSpecification { Enabled = false, AttributeName = "ttl" }
+        }, TestContext.Current.CancellationToken);
+
+        Assert.False(disableResponse.TimeToLiveSpecification.Enabled);
+    }
 }

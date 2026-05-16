@@ -508,4 +508,135 @@ public sealed class QueryTests
         Assert.Empty(response.Items);
         Assert.Null(response.LastEvaluatedKey);
     }
+
+    // ── Legacy KeyConditions / QueryFilter operators ────────────────
+
+    [Theory]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
+    public async Task QueryAsync_LegacyKeyConditions_LE_FiltersBySortKey(StoreType st)
+    {
+        var client = Client(st);
+        var response = await client.QueryAsync(new QueryRequest
+        {
+            TableName = TestTableName,
+            KeyConditions = new Dictionary<string, Condition>
+            {
+                ["PK"] = new()
+                {
+                    ComparisonOperator = ComparisonOperator.EQ,
+                    AttributeValueList = [new AttributeValue { S = "USER#1" }]
+                },
+                ["SK"] = new()
+                {
+                    ComparisonOperator = ComparisonOperator.LE,
+                    AttributeValueList = [new AttributeValue { S = "C" }]
+                }
+            }
+        }, TestContext.Current.CancellationToken);
+
+        Assert.Equal(3, response.Count);
+    }
+
+    [Theory]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
+    public async Task QueryAsync_LegacyQueryFilter_NE_FiltersByAttribute(StoreType st)
+    {
+        var client = Client(st);
+        var response = await client.QueryAsync(new QueryRequest
+        {
+            TableName = TestTableName,
+            KeyConditionExpression = "PK = :pk",
+            ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+            {
+                [":pk"] = new() { S = "USER#1" }
+            },
+            QueryFilter = new Dictionary<string, Condition>
+            {
+                ["name"] = new()
+                {
+                    ComparisonOperator = ComparisonOperator.NE,
+                    AttributeValueList = [new AttributeValue { S = "Carol" }]
+                }
+            }
+        }, TestContext.Current.CancellationToken);
+
+        Assert.Equal(4, response.Count);
+        Assert.DoesNotContain(response.Items, i => i["name"].S == "Carol");
+    }
+
+    [Theory]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
+    public async Task QueryAsync_LegacyQueryFilter_CONTAINS_FiltersByAttribute(StoreType st)
+    {
+        var client = Client(st);
+        var response = await client.QueryAsync(new QueryRequest
+        {
+            TableName = TestTableName,
+            KeyConditionExpression = "PK = :pk",
+            ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+            {
+                [":pk"] = new() { S = "USER#1" }
+            },
+            QueryFilter = new Dictionary<string, Condition>
+            {
+                ["name"] = new()
+                {
+                    ComparisonOperator = ComparisonOperator.CONTAINS,
+                    AttributeValueList = [new AttributeValue { S = "v" }]
+                }
+            }
+        }, TestContext.Current.CancellationToken);
+
+        // Dave, Eve
+        Assert.Equal(2, response.Count);
+    }
+
+    [Theory]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
+    public async Task QueryAsync_LegacyQueryFilter_NOT_NULL_FiltersByAttribute(StoreType st)
+    {
+        var client = Client(st);
+        var response = await client.QueryAsync(new QueryRequest
+        {
+            TableName = TestTableName,
+            KeyConditionExpression = "PK = :pk",
+            ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+            {
+                [":pk"] = new() { S = "USER#1" }
+            },
+            QueryFilter = new Dictionary<string, Condition>
+            {
+                ["name"] = new() { ComparisonOperator = ComparisonOperator.NOT_NULL }
+            }
+        }, TestContext.Current.CancellationToken);
+
+        Assert.Equal(5, response.Count);
+    }
+
+    [Theory]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
+    public async Task QueryAsync_LegacyQueryFilter_NULL_FiltersByAttribute(StoreType st)
+    {
+        var client = Client(st);
+        var response = await client.QueryAsync(new QueryRequest
+        {
+            TableName = TestTableName,
+            KeyConditionExpression = "PK = :pk",
+            ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+            {
+                [":pk"] = new() { S = "USER#1" }
+            },
+            QueryFilter = new Dictionary<string, Condition>
+            {
+                ["nonexistent"] = new() { ComparisonOperator = ComparisonOperator.NULL }
+            }
+        }, TestContext.Current.CancellationToken);
+
+        Assert.Equal(5, response.Count);
+    }
 }
