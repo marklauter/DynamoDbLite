@@ -1,5 +1,6 @@
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
+using DynamoDbLite.Expressions;
 using DynamoDbLite.SqliteStores;
 using DynamoDbLite.SqliteStores.Models;
 using System.Globalization;
@@ -8,6 +9,7 @@ namespace DynamoDbLite;
 
 public sealed partial class DynamoDbClient
 {
+    /// <inheritdoc/>
     public async Task<QueryResponse> QueryAsync(QueryRequest request, CancellationToken cancellationToken = default)
     {
         ThrowIfDisposed();
@@ -217,6 +219,7 @@ public sealed partial class DynamoDbClient
         return response;
     }
 
+    /// <inheritdoc/>
     public async Task<ScanResponse> ScanAsync(ScanRequest request, CancellationToken cancellationToken = default)
     {
         ThrowIfDisposed();
@@ -418,8 +421,8 @@ public sealed partial class DynamoDbClient
         return response;
     }
 
-    // ── Legacy ScanAsync overloads ──────────────────────────────────
 
+    /// <inheritdoc/>
     public Task<ScanResponse> ScanAsync(
         string tableName,
         List<string> attributesToGet,
@@ -435,6 +438,7 @@ public sealed partial class DynamoDbClient
         }, cancellationToken);
     }
 
+    /// <inheritdoc/>
     public Task<ScanResponse> ScanAsync(
         string tableName,
         Dictionary<string, Condition> scanFilter,
@@ -451,6 +455,7 @@ public sealed partial class DynamoDbClient
         }, cancellationToken);
     }
 
+    /// <inheritdoc/>
     public Task<ScanResponse> ScanAsync(
         string tableName,
         List<string> attributesToGet,
@@ -488,7 +493,6 @@ public sealed partial class DynamoDbClient
         return (string.Join(", ", aliases), names);
     }
 
-    // ── Helpers ─────────────────────────────────────────────────────
 
     private static Dictionary<string, AttributeValue> BuildLastEvaluatedKey(string pk, string sk, KeySchemaInfo keyInfo)
     {

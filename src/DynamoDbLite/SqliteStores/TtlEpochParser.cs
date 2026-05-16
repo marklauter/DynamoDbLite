@@ -1,7 +1,7 @@
 using Amazon.DynamoDBv2.Model;
 using System.Globalization;
 
-namespace DynamoDbLite;
+namespace DynamoDbLite.SqliteStores;
 
 internal static class TtlEpochParser
 {

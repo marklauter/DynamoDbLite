@@ -6,15 +6,14 @@ using DynamoDbLite.SqliteStores.Models;
 
 namespace DynamoDbLite;
 
-// ── Administrative Operations (Not Yet Implemented) ─────────────────
 public sealed partial class DynamoDbClient
 {
-    // ── Tags ─────────────────────────────────────────────────────────
 
     private const int MaxTagsPerResource = 50;
     private const int MaxTagKeyLength = 128;
     private const int MaxTagValueLength = 256;
 
+    /// <inheritdoc/>
     public async Task<TagResourceResponse> TagResourceAsync(TagResourceRequest request, CancellationToken cancellationToken = default)
     {
         ThrowIfDisposed();
@@ -47,6 +46,7 @@ public sealed partial class DynamoDbClient
         return new TagResourceResponse { HttpStatusCode = System.Net.HttpStatusCode.OK };
     }
 
+    /// <inheritdoc/>
     public async Task<UntagResourceResponse> UntagResourceAsync(UntagResourceRequest request, CancellationToken cancellationToken = default)
     {
         ThrowIfDisposed();
@@ -62,6 +62,7 @@ public sealed partial class DynamoDbClient
         return new UntagResourceResponse { HttpStatusCode = System.Net.HttpStatusCode.OK };
     }
 
+    /// <inheritdoc/>
     public async Task<ListTagsOfResourceResponse> ListTagsOfResourceAsync(ListTagsOfResourceRequest request, CancellationToken cancellationToken = default)
     {
         ThrowIfDisposed();
@@ -97,20 +98,25 @@ public sealed partial class DynamoDbClient
         }
     }
 
-    // ── Resource Policy ──────────────────────────────────────────────
+    /// <summary>Not supported.</summary>
     public Task<DeleteResourcePolicyResponse> DeleteResourcePolicyAsync(DeleteResourcePolicyRequest request, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+    /// <summary>Not supported.</summary>
     public Task<GetResourcePolicyResponse> GetResourcePolicyAsync(GetResourcePolicyRequest request, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+    /// <summary>Not supported.</summary>
     public Task<PutResourcePolicyResponse> PutResourcePolicyAsync(PutResourcePolicyRequest request, CancellationToken cancellationToken = default) => throw new NotImplementedException();
 
-    // ── Contributor Insights ─────────────────────────────────────────
+    /// <summary>Not supported.</summary>
     public Task<DescribeContributorInsightsResponse> DescribeContributorInsightsAsync(DescribeContributorInsightsRequest request, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+    /// <summary>Not supported.</summary>
     public Task<ListContributorInsightsResponse> ListContributorInsightsAsync(ListContributorInsightsRequest request, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+    /// <summary>Not supported.</summary>
     public Task<UpdateContributorInsightsResponse> UpdateContributorInsightsAsync(UpdateContributorInsightsRequest request, CancellationToken cancellationToken = default) => throw new NotImplementedException();
 
-    // ── Time To Live ─────────────────────────────────────────────────
+    /// <inheritdoc/>
     public Task<DescribeTimeToLiveResponse> DescribeTimeToLiveAsync(string tableName, CancellationToken cancellationToken = default) =>
         DescribeTimeToLiveAsync(new DescribeTimeToLiveRequest { TableName = tableName }, cancellationToken);
 
+    /// <inheritdoc/>
     public async Task<DescribeTimeToLiveResponse> DescribeTimeToLiveAsync(DescribeTimeToLiveRequest request, CancellationToken cancellationToken = default)
     {
         ThrowIfDisposed();
@@ -133,6 +139,7 @@ public sealed partial class DynamoDbClient
         };
     }
 
+    /// <inheritdoc/>
     public async Task<UpdateTimeToLiveResponse> UpdateTimeToLiveAsync(UpdateTimeToLiveRequest request, CancellationToken cancellationToken = default)
     {
         ThrowIfDisposed();
@@ -195,8 +202,8 @@ public sealed partial class DynamoDbClient
             await store.BackfillIndexTtlEpochAsync(tableName, idx.IndexName, ttlAttributeName, cancellationToken);
     }
 
-    // ── Endpoints & Limits ───────────────────────────────────────────
 
+    /// <inheritdoc/>
     public Task<DescribeEndpointsResponse> DescribeEndpointsAsync(DescribeEndpointsRequest request, CancellationToken cancellationToken = default)
     {
         ThrowIfDisposed();
@@ -209,6 +216,7 @@ public sealed partial class DynamoDbClient
         });
     }
 
+    /// <inheritdoc/>
     public Task<DescribeLimitsResponse> DescribeLimitsAsync(DescribeLimitsRequest request, CancellationToken cancellationToken = default)
     {
         ThrowIfDisposed();
@@ -224,14 +232,15 @@ public sealed partial class DynamoDbClient
         });
     }
 
+    /// <inheritdoc/>
     public Amazon.Runtime.Endpoints.Endpoint DetermineServiceOperationEndpoint(AmazonWebServiceRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
         return new Amazon.Runtime.Endpoints.Endpoint("http://dynamodb.localhost");
     }
 
-    // ── Update Table ─────────────────────────────────────────────────
 
+    /// <inheritdoc/>
     public async Task<UpdateTableResponse> UpdateTableAsync(
         string tableName,
         ProvisionedThroughput provisionedThroughput,
@@ -248,6 +257,7 @@ public sealed partial class DynamoDbClient
         };
     }
 
+    /// <inheritdoc/>
     public async Task<UpdateTableResponse> UpdateTableAsync(
         UpdateTableRequest request,
         CancellationToken cancellationToken = default)

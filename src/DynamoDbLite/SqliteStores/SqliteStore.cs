@@ -1,6 +1,7 @@
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
 using Dapper;
+using DynamoDbLite.Expressions;
 using DynamoDbLite.Serialization;
 using DynamoDbLite.SqliteStores.Models;
 using Microsoft.Data.Sqlite;

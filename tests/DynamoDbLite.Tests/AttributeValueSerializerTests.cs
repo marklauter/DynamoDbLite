@@ -1,4 +1,5 @@
 using Amazon.DynamoDBv2.Model;
+using DynamoDbLite.SqliteStores;
 
 namespace DynamoDbLite.Tests;
 

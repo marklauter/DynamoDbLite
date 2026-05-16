@@ -86,12 +86,12 @@ public sealed class ArchitectureTests
     public void InternalNamespacesContainOnlyInternalTypes() =>
         Verify(Types()
             .That()
-            .ResideInNamespaceMatching(@"^DynamoDbLite\.(SqliteStores|SqliteStores\.Models|Expressions)$")
+            .ResideInNamespaceMatching(@"^DynamoDbLite\.(SqliteStores|SqliteStores\.Models|Expressions|Serialization)$")
             .And()
             .DoNotHaveNameContaining("<")
             .Should()
             .NotBePublic()
-            .Because("The SQLite layout and the expression AST/parsers are intentionally not part of the public API; leaking them would lock the package into the current internals."));
+            .Because("The SQLite layout, expression AST/parsers, and serialization wire records are intentionally not part of the public API; leaking them would lock the package into the current internals."));
 
     private static void Verify(IArchRule rule)
     {

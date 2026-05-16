@@ -9,6 +9,10 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace DynamoDbLite;
 
+/// <summary>
+/// In-process <see cref="Amazon.DynamoDBv2.IAmazonDynamoDB"/> implementation backed by SQLite. Construct directly via
+/// <c>new DynamoDbClient(options)</c> or register via <see cref="ServiceCollectionExtensions.AddDynamoDbLite"/>.
+/// </summary>
 public sealed partial class DynamoDbClient(
     DynamoDbLiteOptions options,
     ILogger<DynamoDbClient>? logger = null)
@@ -24,10 +28,13 @@ public sealed partial class DynamoDbClient(
     private readonly ILogger<DynamoDbClient> logger = logger ?? NullLogger<DynamoDbClient>.Instance;
     private bool disposed;
 
+    /// <inheritdoc/>
     public IClientConfig Config { get; } = new AmazonDynamoDBConfig();
 
+    /// <summary>Not supported in v1.0; returns <see langword="null"/>.</summary>
     public IDynamoDBv2PaginatorFactory? Paginators { get; }
 
+    /// <inheritdoc/>
     public void Dispose()
     {
         if (disposed)

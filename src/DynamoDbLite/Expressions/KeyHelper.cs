@@ -1,7 +1,7 @@
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
 
-namespace DynamoDbLite;
+namespace DynamoDbLite.Expressions;
 
 internal static class KeyHelper
 {

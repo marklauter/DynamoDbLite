@@ -1,11 +1,10 @@
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
 using Dapper;
-using DynamoDbLite.Expressions;
 using DynamoDbLite.SqliteStores.Models;
 using System.Globalization;
 
-namespace DynamoDbLite;
+namespace DynamoDbLite.Expressions;
 
 internal sealed record KeyConditionSql(
     string PkValue,

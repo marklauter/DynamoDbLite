@@ -2,7 +2,7 @@ using Amazon.DynamoDBv2.Model;
 using System.Buffers;
 using System.Text.Json;
 
-namespace DynamoDbLite;
+namespace DynamoDbLite.SqliteStores;
 
 internal static class AttributeValueSerializer
 {

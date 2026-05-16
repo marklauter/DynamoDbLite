@@ -1,17 +1,20 @@
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
+using DynamoDbLite.Expressions;
 using DynamoDbLite.SqliteStores;
 using DynamoDbLite.SqliteStores.Models;
 using System.Net;
 
 namespace DynamoDbLite;
 
-// ── Transactions & PartiQL ───────────────────────────────────────────
 public sealed partial class DynamoDbClient
 {
+    /// <summary>Not supported.</summary>
     public Task<ExecuteStatementResponse> ExecuteStatementAsync(ExecuteStatementRequest request, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+    /// <summary>Not supported.</summary>
     public Task<ExecuteTransactionResponse> ExecuteTransactionAsync(ExecuteTransactionRequest request, CancellationToken cancellationToken = default) => throw new NotSupportedException();
 
+    /// <inheritdoc/>
     public async Task<TransactWriteItemsResponse> TransactWriteItemsAsync(
         TransactWriteItemsRequest request,
         CancellationToken cancellationToken = default)
@@ -37,7 +40,6 @@ public sealed partial class DynamoDbClient
                 return cached.Response;
         }
 
-        // ── Validation phase ─────────────────────────────────────────
         var actions = request.TransactItems;
         var seenKeys = new HashSet<(string, string, string)>(actions.Count);
         var keyInfoByTable = new Dictionary<string, KeySchemaInfo>();
@@ -94,7 +96,6 @@ public sealed partial class DynamoDbClient
                 ActionType: extracted.ActionType));
         }
 
-        // ── Pre-read phase ───────────────────────────────────────────
         var nowEpoch = SqliteStore.NowEpoch();
         var existingItems = new string?[actions.Count];
         for (var i = 0; i < resolvedActions.Count; i++)
@@ -113,7 +114,6 @@ public sealed partial class DynamoDbClient
                 existingItems[i] = await store.GetItemAsync(ra.TableName, ra.Pk, ra.Sk, nowEpoch, cancellationToken);
         }
 
-        // ── Condition evaluation phase ───────────────────────────────
         var cancellationReasons = new CancellationReason[actions.Count];
         var anyFailed = false;
 
@@ -160,7 +160,6 @@ public sealed partial class DynamoDbClient
                 CancellationReasons = [.. cancellationReasons]
             };
 
-        // ── Update expression application ────────────────────────────
         var computedItems = new Dictionary<string, AttributeValue>?[actions.Count];
 
         for (var i = 0; i < resolvedActions.Count; i++)
@@ -193,7 +192,6 @@ public sealed partial class DynamoDbClient
             }
         }
 
-        // ── Write phase (single SQLite transaction) ──────────────────
         var operations = new List<TransactWriteOperation>(resolvedActions.Count);
         var ttlConfigByTable = new Dictionary<string, string?>();
 
@@ -252,6 +250,7 @@ public sealed partial class DynamoDbClient
         return response;
     }
 
+    /// <inheritdoc/>
     public async Task<TransactGetItemsResponse> TransactGetItemsAsync(
         TransactGetItemsRequest request,
         CancellationToken cancellationToken = default)

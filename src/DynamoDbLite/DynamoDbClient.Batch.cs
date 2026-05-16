@@ -1,5 +1,6 @@
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
+using DynamoDbLite.Expressions;
 using DynamoDbLite.SqliteStores;
 using DynamoDbLite.SqliteStores.Models;
 using System.Net;
@@ -8,19 +9,23 @@ namespace DynamoDbLite;
 
 public sealed partial class DynamoDbClient
 {
+    /// <summary>Not supported.</summary>
     public Task<BatchExecuteStatementResponse> BatchExecuteStatementAsync(BatchExecuteStatementRequest request, CancellationToken cancellationToken = default) => throw new NotImplementedException();
 
+    /// <inheritdoc/>
     public Task<BatchGetItemResponse> BatchGetItemAsync(
         Dictionary<string, KeysAndAttributes> requestItems,
         ReturnConsumedCapacity returnConsumedCapacity,
         CancellationToken cancellationToken = default) =>
         BatchGetItemAsync(new BatchGetItemRequest { RequestItems = requestItems, ReturnConsumedCapacity = returnConsumedCapacity }, cancellationToken);
 
+    /// <inheritdoc/>
     public Task<BatchGetItemResponse> BatchGetItemAsync(
         Dictionary<string, KeysAndAttributes> requestItems,
         CancellationToken cancellationToken = default) =>
         BatchGetItemAsync(new BatchGetItemRequest { RequestItems = requestItems }, cancellationToken);
 
+    /// <inheritdoc/>
     public async Task<BatchGetItemResponse> BatchGetItemAsync(
         BatchGetItemRequest request,
         CancellationToken cancellationToken = default)
@@ -92,11 +97,13 @@ public sealed partial class DynamoDbClient
         };
     }
 
+    /// <inheritdoc/>
     public Task<BatchWriteItemResponse> BatchWriteItemAsync(
         Dictionary<string, List<WriteRequest>> requestItems,
         CancellationToken cancellationToken = default) =>
         BatchWriteItemAsync(new BatchWriteItemRequest { RequestItems = requestItems }, cancellationToken);
 
+    /// <inheritdoc/>
     public async Task<BatchWriteItemResponse> BatchWriteItemAsync(
         BatchWriteItemRequest request,
         CancellationToken cancellationToken = default)

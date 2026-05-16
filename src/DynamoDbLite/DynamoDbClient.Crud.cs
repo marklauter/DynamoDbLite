@@ -1,5 +1,6 @@
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
+using DynamoDbLite.Expressions;
 using DynamoDbLite.SqliteStores;
 using DynamoDbLite.SqliteStores.Models;
 using System.Diagnostics.CodeAnalysis;
@@ -9,12 +10,14 @@ namespace DynamoDbLite;
 
 public sealed partial class DynamoDbClient
 {
+    /// <inheritdoc/>
     public Task<PutItemResponse> PutItemAsync(
         string tableName,
         Dictionary<string, AttributeValue> item,
         CancellationToken cancellationToken = default) =>
         PutItemAsync(new PutItemRequest { TableName = tableName, Item = item }, cancellationToken);
 
+    /// <inheritdoc/>
     public Task<PutItemResponse> PutItemAsync(
         string tableName,
         Dictionary<string, AttributeValue> item,
@@ -22,6 +25,7 @@ public sealed partial class DynamoDbClient
         CancellationToken cancellationToken = default) =>
         PutItemAsync(new PutItemRequest { TableName = tableName, Item = item, ReturnValues = returnValues }, cancellationToken);
 
+    /// <inheritdoc/>
     public async Task<PutItemResponse> PutItemAsync(
         PutItemRequest request,
         CancellationToken cancellationToken = default)
@@ -74,12 +78,14 @@ public sealed partial class DynamoDbClient
         return response;
     }
 
+    /// <inheritdoc/>
     public Task<GetItemResponse> GetItemAsync(
         string tableName,
         Dictionary<string, AttributeValue> key,
         CancellationToken cancellationToken = default) =>
         GetItemAsync(new GetItemRequest { TableName = tableName, Key = key }, cancellationToken);
 
+    /// <inheritdoc/>
     public Task<GetItemResponse> GetItemAsync(
         string tableName,
         Dictionary<string, AttributeValue> key,
@@ -87,6 +93,7 @@ public sealed partial class DynamoDbClient
         CancellationToken cancellationToken = default) =>
         GetItemAsync(new GetItemRequest { TableName = tableName, Key = key, ConsistentRead = consistentRead }, cancellationToken);
 
+    /// <inheritdoc/>
     public async Task<GetItemResponse> GetItemAsync(
         GetItemRequest request,
         CancellationToken cancellationToken = default)
@@ -127,12 +134,14 @@ public sealed partial class DynamoDbClient
         return response;
     }
 
+    /// <inheritdoc/>
     public Task<DeleteItemResponse> DeleteItemAsync(
         string tableName,
         Dictionary<string, AttributeValue> key,
         CancellationToken cancellationToken = default) =>
         DeleteItemAsync(new DeleteItemRequest { TableName = tableName, Key = key }, cancellationToken);
 
+    /// <inheritdoc/>
     public Task<DeleteItemResponse> DeleteItemAsync(
         string tableName,
         Dictionary<string, AttributeValue> key,
@@ -140,6 +149,7 @@ public sealed partial class DynamoDbClient
         CancellationToken cancellationToken = default) =>
         DeleteItemAsync(new DeleteItemRequest { TableName = tableName, Key = key, ReturnValues = returnValues }, cancellationToken);
 
+    /// <inheritdoc/>
     public async Task<DeleteItemResponse> DeleteItemAsync(
         DeleteItemRequest request,
         CancellationToken cancellationToken = default)
@@ -185,6 +195,7 @@ public sealed partial class DynamoDbClient
         return response;
     }
 
+    /// <inheritdoc/>
     public async Task<UpdateItemResponse> UpdateItemAsync(
         UpdateItemRequest request,
         CancellationToken cancellationToken = default)
@@ -290,6 +301,7 @@ public sealed partial class DynamoDbClient
         return response;
     }
 
+    /// <inheritdoc/>
     [ExcludeFromCodeCoverage(Justification = "Deprecated AWS DynamoDB AttributeUpdates API — superseded by UpdateExpression")]
     public Task<UpdateItemResponse> UpdateItemAsync(
         string tableName,
@@ -303,6 +315,7 @@ public sealed partial class DynamoDbClient
             AttributeUpdates = attributeUpdates,
         }, cancellationToken);
 
+    /// <inheritdoc/>
     [ExcludeFromCodeCoverage(Justification = "Deprecated AWS DynamoDB AttributeUpdates API — superseded by UpdateExpression")]
     public Task<UpdateItemResponse> UpdateItemAsync(
         string tableName,

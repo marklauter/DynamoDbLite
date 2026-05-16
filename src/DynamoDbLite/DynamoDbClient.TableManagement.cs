@@ -6,6 +6,7 @@ namespace DynamoDbLite;
 
 public sealed partial class DynamoDbClient
 {
+    /// <inheritdoc/>
     public Task<CreateTableResponse> CreateTableAsync(
         string tableName,
         List<KeySchemaElement> keySchema,
@@ -20,6 +21,7 @@ public sealed partial class DynamoDbClient
             ProvisionedThroughput = provisionedThroughput
         }, cancellationToken);
 
+    /// <inheritdoc/>
     public async Task<CreateTableResponse> CreateTableAsync(
         CreateTableRequest request,
         CancellationToken cancellationToken = default)
@@ -66,11 +68,13 @@ public sealed partial class DynamoDbClient
         };
     }
 
+    /// <inheritdoc/>
     public Task<DeleteTableResponse> DeleteTableAsync(
         string tableName,
         CancellationToken cancellationToken = default) =>
         DeleteTableAsync(new DeleteTableRequest { TableName = tableName }, cancellationToken);
 
+    /// <inheritdoc/>
     public async Task<DeleteTableResponse> DeleteTableAsync(
         DeleteTableRequest request,
         CancellationToken cancellationToken = default)
@@ -93,11 +97,13 @@ public sealed partial class DynamoDbClient
         };
     }
 
+    /// <inheritdoc/>
     public Task<DescribeTableResponse> DescribeTableAsync(
         string tableName,
         CancellationToken cancellationToken = default) =>
         DescribeTableAsync(new DescribeTableRequest { TableName = tableName }, cancellationToken);
 
+    /// <inheritdoc/>
     public async Task<DescribeTableResponse> DescribeTableAsync(
         DescribeTableRequest request,
         CancellationToken cancellationToken = default)
@@ -116,10 +122,12 @@ public sealed partial class DynamoDbClient
         };
     }
 
+    /// <inheritdoc/>
     public Task<ListTablesResponse> ListTablesAsync(
         CancellationToken cancellationToken = default) =>
         ListTablesAsync(new ListTablesRequest(), cancellationToken);
 
+    /// <inheritdoc/>
     public Task<ListTablesResponse> ListTablesAsync(
         string exclusiveStartTableName,
         CancellationToken cancellationToken = default) =>
@@ -128,6 +136,7 @@ public sealed partial class DynamoDbClient
             ExclusiveStartTableName = exclusiveStartTableName
         }, cancellationToken);
 
+    /// <inheritdoc/>
     public Task<ListTablesResponse> ListTablesAsync(
         string exclusiveStartTableName,
         int? limit,
@@ -138,11 +147,13 @@ public sealed partial class DynamoDbClient
             Limit = limit ?? DefaultListTablesLimit
         }, cancellationToken);
 
+    /// <inheritdoc/>
     public Task<ListTablesResponse> ListTablesAsync(
         int? limit,
         CancellationToken cancellationToken = default) =>
         ListTablesAsync(new ListTablesRequest { Limit = limit ?? DefaultListTablesLimit }, cancellationToken);
 
+    /// <inheritdoc/>
     public async Task<ListTablesResponse> ListTablesAsync(
         ListTablesRequest request,
         CancellationToken cancellationToken = default)

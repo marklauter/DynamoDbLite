@@ -9,9 +9,9 @@ using System.Text.Json;
 
 namespace DynamoDbLite;
 
-// ── Export & Import ──────────────────────────────────────────────────
 public sealed partial class DynamoDbClient
 {
+    /// <inheritdoc/>
     public async Task<ExportTableToPointInTimeResponse> ExportTableToPointInTimeAsync(
         ExportTableToPointInTimeRequest request,
         CancellationToken cancellationToken = default)
@@ -103,6 +103,7 @@ public sealed partial class DynamoDbClient
         }
     }
 
+    /// <inheritdoc/>
     public async Task<DescribeExportResponse> DescribeExportAsync(
         DescribeExportRequest request,
         CancellationToken cancellationToken = default)
@@ -121,6 +122,7 @@ public sealed partial class DynamoDbClient
         };
     }
 
+    /// <inheritdoc/>
     public async Task<ListExportsResponse> ListExportsAsync(
         ListExportsRequest request,
         CancellationToken cancellationToken = default)
@@ -149,6 +151,7 @@ public sealed partial class DynamoDbClient
         };
     }
 
+    /// <inheritdoc/>
     public async Task<ImportTableResponse> ImportTableAsync(
         ImportTableRequest request,
         CancellationToken cancellationToken = default)
@@ -284,6 +287,7 @@ public sealed partial class DynamoDbClient
         }
     }
 
+    /// <inheritdoc/>
     public async Task<DescribeImportResponse> DescribeImportAsync(
         DescribeImportRequest request,
         CancellationToken cancellationToken = default)
@@ -302,6 +306,7 @@ public sealed partial class DynamoDbClient
         };
     }
 
+    /// <inheritdoc/>
     public async Task<ListImportsResponse> ListImportsAsync(
         ListImportsRequest request,
         CancellationToken cancellationToken = default)
