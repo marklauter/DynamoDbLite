@@ -12,11 +12,11 @@ Empirical (Mark's prior experiment, no formal numbers yet): on the same workload
 
 Hypothesis: the expression parser is the dominant write-side cost. It runs on every mutating call — `PutItem`, `UpdateItem`, `DeleteItem`, `TransactWriteItems` — for `ConditionExpression` and `UpdateExpression`. The read path touches the parser less; `GetItem` skips it entirely when no `ProjectionExpression` is supplied, and `Query` / `Scan` pay the parser cost once per request, amortized over every result row.
 
-Caveat: this is a hypothesis, not a measurement. The read-path win could equally come from indexed SQLite lookups beating HTTP-over-loopback round-trips to `amazon/dynamodb-local`. See [sqlitestore-index-gaps](sqlitestore-index-gaps.md) for the read-path SQL details that are also unmeasured.
+Caveat: this is a hypothesis, not a measurement. The read-path win could equally come from indexed SQLite lookups beating HTTP-over-loopback round-trips to `amazon/dynamodb-local`.
 
 ## Next
 
-Quantify via the planned parity benchmarks project (see `docs/parity.md`, "Parity benchmarks" under Next). Workloads worth running:
+Quantify via the planned parity benchmarks project — see [parity-benchmarks-project](parity-benchmarks-project.md). Workloads worth running:
 
 - Bulk `PutItem` (write-heavy, parser-light).
 - `PutItem` with `ConditionExpression` (write-heavy, parser-heavy).

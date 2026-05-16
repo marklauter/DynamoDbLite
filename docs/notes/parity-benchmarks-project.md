@@ -6,7 +6,7 @@ BenchmarkDotNet project comparing DdbLite / DdbLiteFile / amazon/dynamodb-local 
 
 ## Observation
 
-`docs/parity.md` mentions this idea under Next ("Parity benchmarks"). No benchmark project exists yet. The perf hypothesis in [dynamodblite-write-path-is-slower-than-read-path](dynamodblite-write-path-is-slower-than-read-path.md) is unmeasured; the indexes shipped in commit `6c6a8ca` are unmeasured; the parallel-scan fix is unmeasured.
+No benchmark project exists yet. The perf hypothesis in [dynamodblite-write-path-is-slower-than-read-path](dynamodblite-write-path-is-slower-than-read-path.md) is unmeasured; the indexes shipped in commit `6c6a8ca` are unmeasured; the parallel-scan fix is unmeasured.
 
 ## Interpretation
 
