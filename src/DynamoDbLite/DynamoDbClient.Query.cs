@@ -421,7 +421,6 @@ public sealed partial class DynamoDbClient
         return response;
     }
 
-
     /// <inheritdoc/>
     public Task<ScanResponse> ScanAsync(
         string tableName,
@@ -492,7 +491,6 @@ public sealed partial class DynamoDbClient
 
         return (string.Join(", ", aliases), names);
     }
-
 
     private static Dictionary<string, AttributeValue> BuildLastEvaluatedKey(string pk, string sk, KeySchemaInfo keyInfo)
     {

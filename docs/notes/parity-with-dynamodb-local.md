@@ -30,6 +30,7 @@ The suite under [`tests/DynamoDbLite.Parity.Tests/`](../../tests/DynamoDbLite.Pa
 - [`ReservedWordParityTests`](../../tests/DynamoDbLite.Parity.Tests/ReservedWordParityTests.cs) — raw reserved words in `UpdateExpression`/`ConditionExpression`/`ProjectionExpression` throw `AmazonDynamoDBException` with `ErrorCode == "ValidationException"`; the same word escaped via `ExpressionAttributeNames` is accepted.
 - [`EmptyStringParityTests`](../../tests/DynamoDbLite.Parity.Tests/EmptyStringParityTests.cs) — empty-string scalar values round-trip through `PutItem` + `GetItem` (real DynamoDB rejected these pre-2020; current behavior accepts them).
 - [`SizeOperatorParityTests`](../../tests/DynamoDbLite.Parity.Tests/SizeOperatorParityTests.cs) — `size()` in `ConditionExpression` on `UpdateItem` (success and `ConditionalCheckFailedException`); `size()` in `FilterExpression` on `Scan`.
+- [`TableManagementParityTests`](../../tests/DynamoDbLite.Parity.Tests/TableManagementParityTests.cs) — `DescribeTable` returns `ACTIVE` with the supplied key schema; `ListTables` pagination via `ExclusiveStartTableName` returns all created tables; `UpdateTable` adds a GSI in-place that backfills existing items and becomes queryable; `DeleteTable` removes the table from `ListTables` and subsequent `DescribeTable` throws `ResourceNotFoundException`.
 
 ## Uncovered (permanently out of scope)
 

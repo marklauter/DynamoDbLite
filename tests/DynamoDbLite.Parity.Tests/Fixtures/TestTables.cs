@@ -168,4 +168,18 @@ internal static class TestTables
 
         throw new TimeoutException($"Table {tableName} did not become ACTIVE within 5 seconds.");
     }
+
+    public static async Task WaitForGsiActiveAsync(IAmazonDynamoDB client, string tableName, string indexName, CancellationToken ct)
+    {
+        for (var i = 0; i < 50; i++)
+        {
+            var response = await client.DescribeTableAsync(tableName, ct);
+            var gsi = response.Table.GlobalSecondaryIndexes?.FirstOrDefault(g => g.IndexName == indexName);
+            if (gsi is not null && gsi.IndexStatus == IndexStatus.ACTIVE)
+                return;
+            await Task.Delay(100, ct);
+        }
+
+        throw new TimeoutException($"GSI {indexName} on table {tableName} did not become ACTIVE within 5 seconds.");
+    }
 }

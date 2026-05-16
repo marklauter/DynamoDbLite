@@ -202,7 +202,6 @@ public sealed partial class DynamoDbClient
             await store.BackfillIndexTtlEpochAsync(tableName, idx.IndexName, ttlAttributeName, cancellationToken);
     }
 
-
     /// <inheritdoc/>
     public Task<DescribeEndpointsResponse> DescribeEndpointsAsync(DescribeEndpointsRequest request, CancellationToken cancellationToken = default)
     {
@@ -238,7 +237,6 @@ public sealed partial class DynamoDbClient
         ArgumentNullException.ThrowIfNull(request);
         return new Amazon.Runtime.Endpoints.Endpoint("http://dynamodb.localhost");
     }
-
 
     /// <inheritdoc/>
     public async Task<UpdateTableResponse> UpdateTableAsync(
