@@ -9,6 +9,9 @@ internal sealed class FileSqliteStore
     internal FileSqliteStore(DynamoDbLiteOptions options)
         : base(options, createTables: true)
     {
+        if (!options.UseWriteAheadLog)
+            return;
+
         using var connection = new SqliteConnection(ConnectionString);
         connection.Open();
         using var cmd = connection.CreateCommand();

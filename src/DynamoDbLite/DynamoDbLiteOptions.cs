@@ -1,7 +1,7 @@
 namespace DynamoDbLite;
 
 /// <summary>
-/// Configuration for <see cref="DynamoDbClient"/>. The single required parameter is the SQLite connection string;
+/// Configuration for <see cref="DynamoDbClient"/>. The required parameter is the SQLite connection string;
 /// see <see cref="ConnectionString"/> for the in-memory and file-based forms.
 /// </summary>
 public sealed record DynamoDbLiteOptions(
@@ -20,4 +20,13 @@ public sealed record DynamoDbLiteOptions(
     /// isolation, suffix the name with a unique value such as <c>$"Data Source=app_{Guid.NewGuid():N};Mode=Memory;Cache=Shared"</c>.
     /// </para>
     /// </summary>
-    string ConnectionString);
+    string ConnectionString,
+    /// <summary>
+    /// Enables SQLite Write-Ahead Logging on file-backed stores. Default <c>false</c>. When using
+    /// <see cref="DynamoDbLiteOptionsBuilder"/>, set this by calling <see cref="DynamoDbLiteOptionsBuilder.WithWriteAheadLog"/>.
+    /// WAL improves reader-writer concurrency by letting readers proceed while a writer holds the write lock.
+    /// Has no effect on in-memory stores (SQLite does not support WAL for <c>:memory:</c> databases and silently
+    /// falls back to the <c>memory</c> journal mode). WAL is persistent on the database file once enabled;
+    /// disabling later requires an explicit <c>PRAGMA journal_mode=DELETE</c> outside this library.
+    /// </summary>
+    bool UseWriteAheadLog = false);
