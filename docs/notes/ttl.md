@@ -1,6 +1,6 @@
 # Time To Live
 
-DynamoDbLite implements TTL the same way the user proposed: each item carries an absolute expiration epoch, reads filter expired rows out, and a throttled background sweep deletes them. Tracks Phase 7 in [`architecture-decisions.md`](architecture-decisions.md).
+DynamoDbLite implements TTL the same way the user proposed: each item carries an absolute expiration epoch, reads filter expired rows out, and a throttled background sweep deletes them. Tracks Phase 7 in [`adrs/0005-implementation-phases.md`](../adrs/0005-implementation-phases.md).
 
 ## Model
 

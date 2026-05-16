@@ -27,7 +27,7 @@ These will not be added regardless of release pressure. Each has a load-bearing 
 
 - **Real AWS DynamoDB cloud backend.** Requires credentials, costs money, network-dependent. The three local backends already exercise the contract; the cloud backend would prove the same thing at recurring cost and CI flakiness.
 - **TTL parity.** `amazon/dynamodb-local` runs TTL on a long internal cron — expiration windows are minutes-to-hours, which makes CI-friendly cross-backend tests impractical. DynamoDbLite's own TTL behaviour is covered in the main test suite; cross-backend equivalence isn't observable without waiting for the container's cron.
-- **Export / Import.** Out of scope per [`architecture-decisions.md`](../architecture-decisions.md). The semantics are S3-coupled in real DynamoDB; an in-process emulator and `amazon/dynamodb-local` necessarily diverge from S3, so there's nothing meaningful to assert across the three backends.
+- **Export / Import.** Out of scope per [`adrs/index.md`](../adrs/index.md). The semantics are S3-coupled in real DynamoDB; an in-process emulator and `amazon/dynamodb-local` necessarily diverge from S3, so there's nothing meaningful to assert across the three backends.
 - **Cross-client response-shape equality.** Replaced by the explicit-expected-outcome strategy. The three clients legitimately differ on `TableArn`, `CreationDateTime`, `ResponseMetadata.RequestId`, capacity numbers, and free-text error messages; a shared bug between two implementations would also pass cross-comparison silently. Each test asserts what the AWS API contract says should happen, not what each client happens to return.
 
 ## Gaps that were investigated and closed
@@ -44,4 +44,4 @@ Both library gaps surfaced by the parity suite during initial development have b
 ## Cross-references
 
 - [`parity-with-dynamodb-local.md`](parity-with-dynamodb-local.md) — design, rationale, and full coverage list.
-- [`docs/architecture-decisions.md`](../architecture-decisions.md) — Phase 14 lineage; out-of-scope justifications.
+- [`docs/adrs/index.md`](../adrs/index.md) — Phase 14 lineage; out-of-scope justifications.

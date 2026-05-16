@@ -4,7 +4,7 @@ Tags: parity, coverage, reference, dynamodb-local
 Authoritative file-by-file list of every scenario the parity test suite asserts across DdbLite, DdbLiteFile, and amazon/dynamodb-local.
 
 
-The suite under [`tests/DynamoDbLite.Parity.Tests/`](../../tests/DynamoDbLite.Parity.Tests/) runs each scenario three times — once per backend — and asserts the same explicit AWS-API-contract outcome on each. The main test project stays container-free; only this suite touches `amazon/dynamodb-local`. Tracks Phase 14 in [`docs/architecture-decisions.md`](../architecture-decisions.md). Closed library gaps and the v1.0 audit history live in [`parity-coverage-status.md`](parity-coverage-status.md).
+The suite under [`tests/DynamoDbLite.Parity.Tests/`](../../tests/DynamoDbLite.Parity.Tests/) runs each scenario three times — once per backend — and asserts the same explicit AWS-API-contract outcome on each. The main test project stays container-free; only this suite touches `amazon/dynamodb-local`. Tracks Phase 14 in [`docs/adrs/index.md`](../adrs/index.md). Closed library gaps and the v1.0 audit history live in [`parity-coverage-status.md`](parity-coverage-status.md).
 
 ## Backends
 
@@ -37,7 +37,7 @@ Each item below is deliberate — there's a load-bearing reason that doesn't go 
 
 - **Real AWS DynamoDB cloud backend.** Requires credentials, costs money, network-dependent. The three local backends already exercise the contract; a cloud backend would prove the same thing at recurring cost and CI flakiness.
 - **TTL parity.** `amazon/dynamodb-local` runs TTL on a long internal cron — expiration windows are minutes-to-hours, which makes CI-friendly cross-backend tests impractical. DynamoDbLite's own TTL behaviour is covered in the main test suite; cross-backend equivalence isn't observable without waiting for the container's cron.
-- **Export / Import.** Out of scope per [`docs/architecture-decisions.md`](../architecture-decisions.md). The semantics are S3-coupled in real DynamoDB; an in-process emulator and `amazon/dynamodb-local` necessarily diverge from S3, so there's nothing meaningful to assert across the three backends.
+- **Export / Import.** Out of scope per [`docs/adrs/index.md`](../adrs/index.md). The semantics are S3-coupled in real DynamoDB; an in-process emulator and `amazon/dynamodb-local` necessarily diverge from S3, so there's nothing meaningful to assert across the three backends.
 - **Cross-client response-shape equality.** Replaced by the explicit-expected-outcome strategy. The three clients legitimately differ on `TableArn`, `CreationDateTime`, `ResponseMetadata.RequestId`, capacity numbers, and free-text error messages; a shared bug between two implementations would also pass cross-comparison silently. Each test asserts what the AWS API contract says should happen, not what each client happens to return.
 
 ## Three-backend rationale

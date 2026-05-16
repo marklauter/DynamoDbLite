@@ -35,5 +35,5 @@ For the operation-by-operation support matrix and limitations, see the [API Pari
 ## Documentation
 
 - [Wiki](https://github.com/marklauter/DynamoDbLite/wiki) — usage guide, API reference, and behaviour notes
-- [Architecture Decisions](docs/architecture-decisions.md) — design rationale and phase status
+- [Architecture Decisions](docs/adrs/index.md) — design rationale and phase status
 - [API Parity](https://github.com/marklauter/DynamoDbLite/wiki/API-Parity) — what's supported, what's stubbed, what's out of scope

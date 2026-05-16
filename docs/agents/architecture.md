@@ -13,4 +13,4 @@ Library code under `src/`, tests under `tests/`; add new projects to `DynamoDbLi
   - `FileSqliteStore` — WAL mode handles concurrency; no in-process lock needed
 - `Expressions/` — Superpower-based pipeline: `DynamoDbTokenizer` → `Ast` → `*Parser` → `*Evaluator`
 
-For storage schema and design rationale, see [`../architecture-decisions.md`](../architecture-decisions.md) and the [Storage Architecture](https://github.com/marklauter/DynamoDbLite/wiki/Storage-Architecture) wiki page.
+For storage schema and design rationale, see [`../adrs/index.md`](../adrs/index.md) and the [Storage Architecture](https://github.com/marklauter/DynamoDbLite/wiki/Storage-Architecture) wiki page.

@@ -8,4 +8,4 @@ In-process `IAmazonDynamoDB` backed by SQLite — local dev/testing, mobile apps
 - Architecture: [`docs/agents/architecture.md`](docs/agents/architecture.md)
 - Testing: [`docs/agents/testing.md`](docs/agents/testing.md)
 - Gotchas: [`docs/agents/gotchas.md`](docs/agents/gotchas.md)
-- Design rationale: [`docs/architecture-decisions.md`](docs/architecture-decisions.md)
+- Design rationale: [`docs/adrs/index.md`](docs/adrs/index.md)
