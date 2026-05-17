@@ -1,11 +1,10 @@
-![DynamoDbLite Logo](https://raw.githubusercontent.com/marklauter/DynamoDbLite/refs/heads/main/images/dynamodblite-logo-2.png)
-
-# DynamoDbLite
-
 [![.NET Tests](https://github.com/marklauter/DynamoDbLite/actions/workflows/dotnet.tests.yml/badge.svg)](https://github.com/marklauter/DynamoDbLite/actions/workflows/dotnet.tests.yml)
 [![.NET Publish](https://github.com/marklauter/DynamoDbLite/actions/workflows/dotnet.publish.yml/badge.svg)](https://github.com/marklauter/DynamoDbLite/actions/workflows/dotnet.publish.yml)
 [![NuGet](https://img.shields.io/nuget/v/MSL.DynamoDbLite?logo=nuget)](https://www.nuget.org/packages/MSL.DynamoDbLite/)
 [![.NET](https://img.shields.io/badge/.NET-10.0-blue)](https://dotnet.microsoft.com/en-us/download/dotnet/10.0/)
+![DynamoDbLite Logo](https://raw.githubusercontent.com/marklauter/DynamoDbLite/refs/heads/main/images/dynamodblite-logo-2.png)
+
+# DynamoDbLite
 
 A lightweight implementation of the AWS DynamoDB client interface backed by SQLite.
 
