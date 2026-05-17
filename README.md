@@ -8,7 +8,7 @@
 
 # DynamoDbLite
 
-*Another weapon from the MSL Armory.*
+*Another weapon from the MSL Armory*
 
 A lightweight implementation of the AWS DynamoDB client interface backed by SQLite.
 
