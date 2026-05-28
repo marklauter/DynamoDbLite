@@ -22,6 +22,7 @@ internal sealed class InMemorySqliteStore
     {
         var connection = new SqliteConnection(ConnectionString);
         await connection.OpenAsync(ct).ConfigureAwait(false);
+        await ApplyConnectionPragmasAsync(connection, ct).ConfigureAwait(false);
         return connection;
     }
 

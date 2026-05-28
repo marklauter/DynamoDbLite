@@ -149,6 +149,13 @@ internal abstract class SqliteStore
 
     protected abstract Task<DbConnection> OpenConnectionAsync(CancellationToken ct);
 
+    protected static async Task ApplyConnectionPragmasAsync(DbConnection connection, CancellationToken ct)
+    {
+        using var cmd = connection.CreateCommand();
+        cmd.CommandText = "PRAGMA synchronous=NORMAL; PRAGMA temp_store=MEMORY;";
+        _ = await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
+    }
+
     protected virtual ValueTask<IDisposable?> AcquireReadLockAsync(CancellationToken ct) =>
         default;
 
