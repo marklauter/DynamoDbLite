@@ -23,7 +23,7 @@ internal sealed class FileSqliteStore
     {
         var connection = new SqliteConnection(ConnectionString);
         await connection.OpenAsync(ct).ConfigureAwait(false);
-        await ApplyConnectionPragmasAsync(connection, ct).ConfigureAwait(false);
+        await PrepareConnectionAsync(connection, ct).ConfigureAwait(false);
         return connection;
     }
 }

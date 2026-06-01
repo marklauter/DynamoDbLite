@@ -7,6 +7,7 @@ using DynamoDbLite.SqliteStores.Models;
 using Microsoft.Data.Sqlite;
 using System.Collections.Concurrent;
 using System.Data.Common;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Text;
 using System.Text.Json;
@@ -18,6 +19,8 @@ internal abstract class SqliteStore
 {
     protected readonly string ConnectionString;
     private readonly ConcurrentDictionary<string, DateTime> lastCleanupByTable = new();
+    private readonly string connectionPragmaSql;
+    private readonly Action<SqliteConnection>? connectionInitializer;
 
     protected SqliteStore(
         DynamoDbLiteOptions options,
@@ -31,9 +34,25 @@ internal abstract class SqliteStore
         };
 
         ConnectionString = builder.ToString();
+        connectionPragmaSql = BuildConnectionPragmaSql(options.Pragmas);
+        connectionInitializer = options.ConnectionInitializer;
 
         if (createTables)
             CreateTables();
+    }
+
+    // Library defaults run on every per-operation connection, followed by the caller's pragmas (validated for
+    // injection safety since pragma values cannot be parameterized). Built once here, not per connection open.
+    private static string BuildConnectionPragmaSql(IReadOnlyList<KeyValuePair<string, string>> pragmas)
+    {
+        var sql = new StringBuilder("PRAGMA synchronous=NORMAL; PRAGMA temp_store=MEMORY;");
+        foreach (var (name, value) in pragmas)
+        {
+            PragmaValidator.Validate(name, value);
+            _ = sql.Append(" PRAGMA ").Append(name).Append('=').Append(value).Append(';');
+        }
+
+        return sql.ToString();
     }
 
     protected void CreateTables()
@@ -149,11 +168,18 @@ internal abstract class SqliteStore
 
     protected abstract Task<DbConnection> OpenConnectionAsync(CancellationToken ct);
 
-    protected static async Task ApplyConnectionPragmasAsync(DbConnection connection, CancellationToken ct)
+    // Applies the library + caller pragmas, then the optional caller initializer, to a freshly opened
+    // per-operation connection. Setup connections (schema creation, WAL enable, in-memory keep-alive) bypass this.
+    [SuppressMessage("Security", "CA2100:Review SQL queries for security vulnerabilities", Justification = "connectionPragmaSql is built from library constants plus pragma names/values validated by PragmaValidator (identifier names; signed-integer or keyword values). PRAGMA values cannot be parameterized, and the validation rejects anything that could break out of the statement.")]
+    protected async Task PrepareConnectionAsync(SqliteConnection connection, CancellationToken ct)
     {
-        using var cmd = connection.CreateCommand();
-        cmd.CommandText = "PRAGMA synchronous=NORMAL; PRAGMA temp_store=MEMORY;";
-        _ = await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
+        using (var cmd = connection.CreateCommand())
+        {
+            cmd.CommandText = connectionPragmaSql;
+            _ = await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
+        }
+
+        connectionInitializer?.Invoke(connection);
     }
 
     protected virtual ValueTask<IDisposable?> AcquireReadLockAsync(CancellationToken ct) =>

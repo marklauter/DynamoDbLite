@@ -1,10 +1,15 @@
+---
+title: C# Guidance
+summary: Build, test, and format commands plus the C# conventions for DynamoDbLite that the analyzers and .editorconfig do not catch.
+---
+
 # C# Guidance
 
 ## Commands
 
 - Build: `dotnet build "DynamoDbLite.slnx"`
 - Test: `dotnet test "DynamoDbLite.slnx"`
-- Single test: `dotnet test "DynamoDbLite.slnx" --filter "FullyQualifiedClassName~MethodName"`
+- Single test: `dotnet test "DynamoDbLite.slnx" --filter "FullyQualifiedName~MethodName"` (xunit v3 — `FullyQualifiedName`, not `FullyQualifiedClassName`; `~` matches a substring of the namespace.class.method name, so a class name works too)
 - Format (fix): `dotnet format "DynamoDbLite.slnx" --severity info`
 - Format (verify, CI-style): `dotnet format "DynamoDbLite.slnx" --severity info --verify-no-changes`
 

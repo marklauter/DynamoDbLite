@@ -10,6 +10,8 @@ public sealed class DynamoDbLiteOptionsBuilder
 {
     private string? ConnectionString { get; set; }
     private bool UseWriteAheadLog { get; set; }
+    private List<KeyValuePair<string, string>> Pragmas { get; } = [];
+    private Action<SqliteConnection>? ConnectionInitializer { get; set; }
 
     /// <summary>
     /// Sets the SQLite connection string after validating it parses as a SQLite connection string.
@@ -36,11 +38,49 @@ public sealed class DynamoDbLiteOptionsBuilder
         return this;
     }
 
+    /// <summary>
+    /// Adds a SQLite pragma applied to every connection the client opens for an operation. Repeatable; entries run
+    /// in call order after the library's own pragmas, so a later call for the same pragma wins. See
+    /// <see cref="DynamoDbLiteOptions.Pragmas"/> for application semantics and the in-memory/file note.
+    /// </summary>
+    /// <param name="name">A pragma name: a SQLite identifier matching <c>[A-Za-z_][A-Za-z0-9_]*</c>.</param>
+    /// <param name="value">A pragma value: a signed integer (e.g. <c>5000</c>) or a bare keyword (e.g. <c>NORMAL</c>).
+    /// Pragma values cannot be parameterized; string-valued pragmas and other custom setup belong in
+    /// <see cref="WithConnectionInitializer"/>.</param>
+    /// <returns>This builder, for chaining.</returns>
+    /// <exception cref="DynamoDbLiteConfigurationException">The name or value is null, empty, or contains characters outside the allowed set.</exception>
+    public DynamoDbLiteOptionsBuilder WithPragma(string name, string value)
+    {
+        PragmaValidator.Validate(name, value);
+        Pragmas.Add(new KeyValuePair<string, string>(name, value));
+        return this;
+    }
+
+    /// <summary>
+    /// Sets a callback invoked on every connection the client opens for an operation, after any
+    /// <see cref="WithPragma"/> pragmas. Use it for setup that does not fit a simple <c>PRAGMA name=value</c> —
+    /// string-valued pragmas, custom functions, collations. See <see cref="DynamoDbLiteOptions.ConnectionInitializer"/>
+    /// for the run boundary and cost note. Calling this more than once replaces the previous callback.
+    /// </summary>
+    /// <param name="configure">Callback receiving the open <see cref="SqliteConnection"/>.</param>
+    /// <returns>This builder, for chaining.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="configure"/> is null.</exception>
+    public DynamoDbLiteOptionsBuilder WithConnectionInitializer(Action<SqliteConnection> configure)
+    {
+        ArgumentNullException.ThrowIfNull(configure);
+        ConnectionInitializer = configure;
+        return this;
+    }
+
     internal DynamoDbLiteOptions Build() =>
         new(ConnectionString
             ?? throw new DynamoDbLiteConfigurationException(
                 "Connection string was not configured. Call WithConnectionString before Build."),
-            UseWriteAheadLog);
+            UseWriteAheadLog)
+        {
+            Pragmas = [.. Pragmas],
+            ConnectionInitializer = ConnectionInitializer,
+        };
 
     /// <summary>
     /// Validates that <paramref name="connectionString"/> is a non-empty, well-formed SQLite connection string,
