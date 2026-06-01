@@ -390,6 +390,43 @@ internal abstract class SqliteStore
             : new KeySchemaInfo(DeserializeKeySchema(row.KeySchemaJson), DeserializeAttributeDefinitions(row.AttributeDefinitionsJson));
     }
 
+    // Everything BatchWriteItem needs per table in one round-trip: key schema, attribute
+    // definitions, and index definitions all live in the single `tables` row, and the TTL
+    // attribute joins from `ttl_config`. Replaces the separate GetKeySchema / GetTtlAttributeName
+    // / GetIndexDefinitions calls (four reads per table) the batch path used to make.
+    internal async Task<BatchWriteTableMetadata?> GetBatchWriteMetadataAsync(string tableName, CancellationToken cancellationToken = default)
+    {
+        using var connection = await OpenConnectionAsync(cancellationToken);
+        var row = await connection.QuerySingleOrDefaultAsync<BatchWriteMetadataRow>(
+            """
+            SELECT
+                t.key_schema_json               AS KeySchemaJson,
+                t.attribute_definitions_json     AS AttributeDefinitionsJson,
+                t.global_secondary_indexes_json AS GlobalSecondaryIndexesJson,
+                t.local_secondary_indexes_json  AS LocalSecondaryIndexesJson,
+                c.attribute_name                AS TtlAttributeName
+            FROM tables t
+            LEFT JOIN ttl_config c ON c.table_name = t.table_name
+            WHERE t.table_name = @tableName
+            """,
+            new { tableName });
+
+        if (row is null)
+            return null;
+
+        var keyInfo = new KeySchemaInfo(
+            DeserializeKeySchema(row.KeySchemaJson),
+            DeserializeAttributeDefinitions(row.AttributeDefinitionsJson));
+
+        List<IndexDefinition> indexes =
+        [
+            .. DeserializeIndexDefinitions(row.GlobalSecondaryIndexesJson),
+            .. DeserializeIndexDefinitions(row.LocalSecondaryIndexesJson)
+        ];
+
+        return new BatchWriteTableMetadata(keyInfo, row.TtlAttributeName, indexes);
+    }
+
     internal async Task<string?> PutItemAsync(string tableName, string pk, string sk, string itemJson, double? skNum = null, double? ttlEpoch = null, double? nowEpoch = null, CancellationToken cancellationToken = default)
     {
         using var connection = await OpenConnectionAsync(cancellationToken);

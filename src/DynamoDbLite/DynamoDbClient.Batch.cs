@@ -116,19 +116,17 @@ public sealed partial class DynamoDbClient
         if (totalOps > 25)
             throw new AmazonDynamoDBException("Too many items requested for the BatchWriteItem call");
 
-        var seenKeys = new HashSet<(string, string, string)>();
+        var seenKeys = new HashSet<(string, string, string)>(totalOps);
         var operations = new List<BatchWriteOperation>(totalOps);
-        var ttlConfigByTable = new Dictionary<string, string?>();
+        Dictionary<string, (List<IndexDefinition> Indexes, List<AttributeDefinition> AttrDefs)>? indexInfoByTable = null;
 
         foreach (var (tableName, writeRequests) in request.RequestItems)
         {
-            var keyInfo = await store.GetKeySchemaAsync(tableName, cancellationToken)
+            var metadata = await store.GetBatchWriteMetadataAsync(tableName, cancellationToken)
                 ?? throw new ResourceNotFoundException($"Requested resource not found: Table: {tableName} not found");
 
-            if (!ttlConfigByTable.ContainsKey(tableName))
-                ttlConfigByTable[tableName] = await store.GetTtlAttributeNameAsync(tableName, cancellationToken);
-
-            var ttlAttr = ttlConfigByTable[tableName];
+            var keyInfo = metadata.KeyInfo;
+            var ttlAttr = metadata.TtlAttributeName;
 
             foreach (var writeRequest in writeRequests)
             {
@@ -155,23 +153,11 @@ public sealed partial class DynamoDbClient
                     operations.Add(new BatchWriteOperation(tableName, pk, sk, null, null, null));
                 }
             }
-        }
 
-        // Load index info for tables that have indexes
-        Dictionary<string, (List<IndexDefinition> Indexes, List<AttributeDefinition> AttrDefs)>? indexInfoByTable = null;
-        foreach (var (tableName, _) in request.RequestItems)
-        {
-            if (indexInfoByTable?.ContainsKey(tableName) is true)
-                continue;
-
-            var keyInfo = await store.GetKeySchemaAsync(tableName, cancellationToken)
-                ?? throw new ResourceNotFoundException($"Requested resource not found: Table: {tableName} not found");
-            var indexes = await store.GetIndexDefinitionsAsync(tableName, cancellationToken);
-
-            if (indexes.Count > 0)
+            if (metadata.Indexes.Count > 0)
             {
                 indexInfoByTable ??= [];
-                indexInfoByTable[tableName] = (indexes, keyInfo.AttributeDefinitions);
+                indexInfoByTable[tableName] = (metadata.Indexes, keyInfo.AttributeDefinitions);
             }
         }
 
