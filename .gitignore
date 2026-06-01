@@ -75,6 +75,9 @@ dlldata.c
 # Benchmark Results
 BenchmarkDotNet.Artifacts/
 
+# Leaked SQLite database files from benchmark runs (GUID-named, no extension, repo root)
+/bench_*
+
 # .NET Core
 project.lock.json
 project.fragment.lock.json

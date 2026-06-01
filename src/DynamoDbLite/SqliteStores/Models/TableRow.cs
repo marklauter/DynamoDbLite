@@ -8,6 +8,4 @@ internal sealed record TableRow(
     string GlobalSecondaryIndexesJson,
     string LocalSecondaryIndexesJson,
     string CreatedAt,
-    string Status,
-    long ItemCount,
-    long TableSizeBytes);
+    string Status);

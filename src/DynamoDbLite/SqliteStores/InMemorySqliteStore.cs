@@ -7,12 +7,15 @@ internal sealed class InMemorySqliteStore
     : SqliteStore
 {
     private readonly SqliteConnection sentinel;
-    private readonly AsyncReaderWriterLock rwLock = new();
     private bool disposed;
 
     internal InMemorySqliteStore(DynamoDbLiteOptions options)
         : base(options, createTables: false)
     {
+        // The sentinel keeps the shared in-memory database alive: a Mode=Memory;Cache=Shared
+        // database is reclaimed when its last connection closes, and the store opens a fresh
+        // connection per operation. Concurrency is left to SQLite and the Microsoft.Data.Sqlite
+        // driver, which serialize writers via retry — no in-process lock (see ADR 0008).
         sentinel = new SqliteConnection(ConnectionString);
         sentinel.Open();
         CreateTables();
@@ -26,18 +29,11 @@ internal sealed class InMemorySqliteStore
         return connection;
     }
 
-    protected override ValueTask<IDisposable?> AcquireReadLockAsync(CancellationToken ct) =>
-        rwLock.AcquireReadLockAsync(ct);
-
-    protected override ValueTask<IDisposable?> AcquireWriteLockAsync(CancellationToken ct) =>
-        rwLock.AcquireWriteLockAsync(ct);
-
     public override void Dispose()
     {
         if (!disposed)
         {
             sentinel.Dispose();
-            rwLock.Dispose();
             disposed = true;
         }
 

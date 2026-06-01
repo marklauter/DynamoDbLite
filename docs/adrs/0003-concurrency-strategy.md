@@ -1,6 +1,15 @@
+---
+title: Concurrency Strategy
+summary: Per-connection-mode concurrency. Superseded by ADR 0008 — the in-memory store no longer holds an in-process lock.
+document:
+  tags: [adr, concurrency, sqlite]
+  status: superseded
+edge.superseded_by: [docs/adrs/0008-in-memory-needs-no-app-lock.md]
+---
+
 # ADR 0003 — Concurrency Strategy
 
-Status: Accepted
+Status: Superseded by [0008](0008-in-memory-needs-no-app-lock.md)
 
 Concurrency strategy depends on the connection mode (Phase 11 split — see [ADR 0005](0005-implementation-phases.md)):
 
