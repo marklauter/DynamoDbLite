@@ -1,5 +1,6 @@
 <Solution>
   <Project Path="src/DynamoDbLite/DynamoDbLite.csproj" />
+  <Project Path="bench/DynamoDbLite.Bench/DynamoDbLite.Bench.csproj" />
   <Project Path="tests/DynamoDbLite.Tests/DynamoDbLite.Tests.csproj" />
   <Project Path="tests/DynamoDbLite.Parity.Tests/DynamoDbLite.Parity.Tests.csproj" />
 </Solution>
