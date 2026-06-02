@@ -935,7 +935,6 @@ internal abstract class SqliteStore
     private static object ToDbValue(double? value) =>
         value is double d ? d : DBNull.Value;
 
-
     internal async Task TransactWriteItemsAsync(
         List<TransactWriteOperation> operations,
         Dictionary<string, (List<IndexDefinition> Indexes, List<AttributeDefinition> AttrDefs)>? indexInfoByTable,
