@@ -1,3 +1,30 @@
+    9f95f6f (after "cache table metadata" commits)
+    ┌─────────────────────────────┬──────────────────┬─────────────────┐
+    │           config            │ single (med/min) │ batch (med/min) │
+    ├─────────────────────────────┼──────────────────┼─────────────────┤
+    │ inmem                       │        874 / 854 │       121 / 115 │
+    ├─────────────────────────────┼──────────────────┼─────────────────┤
+    │ file: default-journal       │       29235 (×1) │       3306 (×1) │
+    ├─────────────────────────────┼──────────────────┼─────────────────┤
+    │ file: WAL ac=0 (none)       │        939 / 929 │       178 / 173 │
+    ├─────────────────────────────┼──────────────────┼─────────────────┤
+    │ file: WAL ac=1000 (default) │        962 / 926 │       272 / 268 │
+    ├─────────────────────────────┼──────────────────┼─────────────────┤
+    │ file: WAL ac=500            │      1099 / 1068 │       295 / 282 │
+    ├─────────────────────────────┼──────────────────┼─────────────────┤
+    │ file: WAL ac=100            │      2313 / 1997 │       511 / 503 │
+    └─────────────────────────────┴──────────────────┴─────────────────┘
+
+
+ 2. Single writes still read unconditionally — PutItemCoreAsync always does
+  the SELECT-old (for ReturnValues / index upkeep), which is exactly why
+  single stayed flat while batch dropped. The same gate — skip the read when
+  there are no indexes and the caller didn't ask for ReturnValues — is the
+  obvious next single-path win. (TransactWriteItems is in the same boat — it
+  still goes through PutItemCoreAsync/DeleteItemCoreAsync and reads every
+  item.)
+
+
   1. It re-reads immutable metadata on every operation. Key schema, attribute definitions, index definitions,
   the TTL attribute — these only change on control-plane calls (CreateTable, UpdateTable, UpdateTimeToLive).
   Yet every Put/Update/Delete/Batch/Transact/Query/Scan reads them back out of SQLite. The honest fix isn't
