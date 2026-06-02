@@ -122,7 +122,7 @@ public sealed partial class DynamoDbClient
 
         foreach (var (tableName, writeRequests) in request.RequestItems)
         {
-            var metadata = await store.GetBatchWriteMetadataAsync(tableName, cancellationToken)
+            var metadata = store.GetBatchWriteMetadata(tableName)
                 ?? throw new ResourceNotFoundException($"Requested resource not found: Table: {tableName} not found");
 
             var keyInfo = metadata.KeyInfo;

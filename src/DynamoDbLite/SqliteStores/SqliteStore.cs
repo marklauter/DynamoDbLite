@@ -173,11 +173,17 @@ internal abstract class SqliteStore
         using (var cmd = connection.CreateCommand())
         {
             cmd.CommandText = connectionPragmaSql;
-            _ = await cmd.ExecuteNonQueryAsync(ct);
+            _ = await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
         }
 
         connectionInitializer?.Invoke(connection);
     }
+
+    protected virtual ValueTask<IDisposable?> AcquireReadLockAsync(CancellationToken ct) =>
+        default;
+
+    protected virtual ValueTask<IDisposable?> AcquireWriteLockAsync(CancellationToken ct) =>
+        default;
 
     internal static double NowEpoch() => DateTimeOffset.UtcNow.ToUnixTimeSeconds();
 
@@ -185,6 +191,7 @@ internal abstract class SqliteStore
 
     internal async Task SetTtlConfigAsync(string tableName, string attributeName, CancellationToken cancellationToken = default)
     {
+        using var @lock = await AcquireWriteLockAsync(cancellationToken).ConfigureAwait(false);
         using var connection = await OpenConnectionAsync(cancellationToken);
         _ = await connection.ExecuteAsync(
             """
@@ -196,6 +203,7 @@ internal abstract class SqliteStore
 
     internal async Task RemoveTtlConfigAsync(string tableName, CancellationToken cancellationToken = default)
     {
+        using var @lock = await AcquireWriteLockAsync(cancellationToken).ConfigureAwait(false);
         using var connection = await OpenConnectionAsync(cancellationToken);
         _ = await connection.ExecuteAsync(
             "DELETE FROM ttl_config WHERE table_name = @tableName",
@@ -204,6 +212,7 @@ internal abstract class SqliteStore
 
     internal async Task<string?> GetTtlAttributeNameAsync(string tableName, CancellationToken cancellationToken = default)
     {
+        using var @lock = await AcquireReadLockAsync(cancellationToken).ConfigureAwait(false);
         using var connection = await OpenConnectionAsync(cancellationToken);
         return await connection.QuerySingleOrDefaultAsync<string>(
             "SELECT attribute_name FROM ttl_config WHERE table_name = @tableName",
@@ -225,6 +234,7 @@ internal abstract class SqliteStore
 
     internal async Task SetTagsAsync(string tableName, List<(string Key, string Value)> tags, CancellationToken cancellationToken = default)
     {
+        using var @lock = await AcquireWriteLockAsync(cancellationToken).ConfigureAwait(false);
         using var connection = await OpenConnectionAsync(cancellationToken);
         foreach (var (key, value) in tags)
         {
@@ -239,6 +249,7 @@ internal abstract class SqliteStore
 
     internal async Task RemoveTagsAsync(string tableName, List<string> tagKeys, CancellationToken cancellationToken = default)
     {
+        using var @lock = await AcquireWriteLockAsync(cancellationToken).ConfigureAwait(false);
         using var connection = await OpenConnectionAsync(cancellationToken);
         foreach (var tagKey in tagKeys)
         {
@@ -250,6 +261,7 @@ internal abstract class SqliteStore
 
     internal async Task<List<(string Key, string Value)>> GetTagsAsync(string tableName, CancellationToken cancellationToken = default)
     {
+        using var @lock = await AcquireReadLockAsync(cancellationToken).ConfigureAwait(false);
         using var connection = await OpenConnectionAsync(cancellationToken);
         var rows = await connection.QueryAsync<(string Key, string Value)>(
             "SELECT tag_key AS Key, tag_value AS Value FROM table_tags WHERE table_name = @tableName",
@@ -259,6 +271,7 @@ internal abstract class SqliteStore
 
     internal async Task<bool> TableExistsAsync(string tableName, CancellationToken cancellationToken = default)
     {
+        using var @lock = await AcquireReadLockAsync(cancellationToken).ConfigureAwait(false);
         using var connection = await OpenConnectionAsync(cancellationToken);
         return await connection.ExecuteScalarAsync<int>(
             "SELECT COUNT(1) FROM tables WHERE table_name = @tableName",
@@ -289,6 +302,7 @@ internal abstract class SqliteStore
         var gsiJson = (gsiDefinitions ?? []).ToJson();
         var lsiJson = (lsiDefinitions ?? []).ToJson();
 
+        using var @lock = await AcquireWriteLockAsync(cancellationToken).ConfigureAwait(false);
         using var connection = await OpenConnectionAsync(cancellationToken);
         using var transaction = await connection.BeginTransactionAsync(cancellationToken);
 
@@ -310,6 +324,7 @@ internal abstract class SqliteStore
 
     internal async Task DeleteTableAsync(string tableName, CancellationToken cancellationToken = default)
     {
+        using var @lock = await AcquireWriteLockAsync(cancellationToken).ConfigureAwait(false);
         using var connection = await OpenConnectionAsync(cancellationToken);
         using var transaction = await connection.BeginTransactionAsync(cancellationToken);
 
@@ -342,6 +357,7 @@ internal abstract class SqliteStore
 
     internal async Task<TableDescription?> GetTableDescriptionAsync(string tableName, CancellationToken cancellationToken = default)
     {
+        using var @lock = await AcquireReadLockAsync(cancellationToken).ConfigureAwait(false);
         using var connection = await OpenConnectionAsync(cancellationToken);
         var row = await connection.QuerySingleOrDefaultAsync<TableRow>(
             """
@@ -374,6 +390,7 @@ internal abstract class SqliteStore
 
     internal async Task<KeySchemaInfo?> GetKeySchemaAsync(string tableName, CancellationToken cancellationToken = default)
     {
+        using var @lock = await AcquireReadLockAsync(cancellationToken).ConfigureAwait(false);
         using var connection = await OpenConnectionAsync(cancellationToken);
         var row = await connection.QuerySingleOrDefaultAsync<KeySchemaRow>(
             """
@@ -390,45 +407,9 @@ internal abstract class SqliteStore
             : new KeySchemaInfo(DeserializeKeySchema(row.KeySchemaJson), DeserializeAttributeDefinitions(row.AttributeDefinitionsJson));
     }
 
-    // Everything BatchWriteItem needs per table in one round-trip: key schema, attribute
-    // definitions, and index definitions all live in the single `tables` row, and the TTL
-    // attribute joins from `ttl_config`. Replaces the separate GetKeySchema / GetTtlAttributeName
-    // / GetIndexDefinitions calls (four reads per table) the batch path used to make.
-    internal async Task<BatchWriteTableMetadata?> GetBatchWriteMetadataAsync(string tableName, CancellationToken cancellationToken = default)
-    {
-        using var connection = await OpenConnectionAsync(cancellationToken);
-        var row = await connection.QuerySingleOrDefaultAsync<BatchWriteMetadataRow>(
-            """
-            SELECT
-                t.key_schema_json               AS KeySchemaJson,
-                t.attribute_definitions_json     AS AttributeDefinitionsJson,
-                t.global_secondary_indexes_json AS GlobalSecondaryIndexesJson,
-                t.local_secondary_indexes_json  AS LocalSecondaryIndexesJson,
-                c.attribute_name                AS TtlAttributeName
-            FROM tables t
-            LEFT JOIN ttl_config c ON c.table_name = t.table_name
-            WHERE t.table_name = @tableName
-            """,
-            new { tableName });
-
-        if (row is null)
-            return null;
-
-        var keyInfo = new KeySchemaInfo(
-            DeserializeKeySchema(row.KeySchemaJson),
-            DeserializeAttributeDefinitions(row.AttributeDefinitionsJson));
-
-        List<IndexDefinition> indexes =
-        [
-            .. DeserializeIndexDefinitions(row.GlobalSecondaryIndexesJson),
-            .. DeserializeIndexDefinitions(row.LocalSecondaryIndexesJson)
-        ];
-
-        return new BatchWriteTableMetadata(keyInfo, row.TtlAttributeName, indexes);
-    }
-
     internal async Task<string?> PutItemAsync(string tableName, string pk, string sk, string itemJson, double? skNum = null, double? ttlEpoch = null, double? nowEpoch = null, CancellationToken cancellationToken = default)
     {
+        using var @lock = await AcquireWriteLockAsync(cancellationToken).ConfigureAwait(false);
         using var connection = await OpenConnectionAsync(cancellationToken);
         using var transaction = await connection.BeginTransactionAsync(cancellationToken);
         var oldJson = await PutItemCoreAsync(connection, transaction, tableName, pk, sk, itemJson, skNum, ttlEpoch, nowEpoch ?? NowEpoch());
@@ -467,6 +448,7 @@ internal abstract class SqliteStore
     internal async Task<string?> GetItemAsync(string tableName, string pk, string sk, double? nowEpoch = null, CancellationToken cancellationToken = default)
     {
         var epoch = nowEpoch ?? NowEpoch();
+        using var @lock = await AcquireReadLockAsync(cancellationToken).ConfigureAwait(false);
         using var connection = await OpenConnectionAsync(cancellationToken);
         return await connection.QuerySingleOrDefaultAsync<string>(
             "SELECT item_json FROM items WHERE table_name = @tableName AND pk = @pk AND sk = @sk AND (ttl_epoch IS NULL OR ttl_epoch >= @nowEpoch)",
@@ -475,6 +457,7 @@ internal abstract class SqliteStore
 
     internal async Task<string?> DeleteItemAsync(string tableName, string pk, string sk, double? nowEpoch = null, CancellationToken cancellationToken = default)
     {
+        using var @lock = await AcquireWriteLockAsync(cancellationToken).ConfigureAwait(false);
         using var connection = await OpenConnectionAsync(cancellationToken);
         using var transaction = await connection.BeginTransactionAsync(cancellationToken);
         var oldJson = await DeleteItemCoreAsync(connection, transaction, tableName, pk, sk, nowEpoch);
@@ -519,6 +502,7 @@ internal abstract class SqliteStore
         double? nowEpoch = null,
         CancellationToken cancellationToken = default)
     {
+        using var @lock = await AcquireReadLockAsync(cancellationToken).ConfigureAwait(false);
         using var connection = await OpenConnectionAsync(cancellationToken);
         var parameters = new DynamicParameters();
         parameters.Add("@tableName", tableName);
@@ -560,6 +544,7 @@ internal abstract class SqliteStore
         double? nowEpoch = null,
         CancellationToken cancellationToken = default)
     {
+        using var @lock = await AcquireReadLockAsync(cancellationToken).ConfigureAwait(false);
         using var connection = await OpenConnectionAsync(cancellationToken);
         var parameters = new DynamicParameters();
         parameters.Add("@tableName", tableName);
@@ -587,6 +572,7 @@ internal abstract class SqliteStore
 
     internal async Task<List<string>> ListTableNamesAsync(string? exclusiveStartTableName, int limit, CancellationToken cancellationToken = default)
     {
+        using var @lock = await AcquireReadLockAsync(cancellationToken).ConfigureAwait(false);
         using var connection = await OpenConnectionAsync(cancellationToken);
 
         if (exclusiveStartTableName is not null)
@@ -728,6 +714,7 @@ internal abstract class SqliteStore
         double? nowEpoch = null,
         CancellationToken cancellationToken = default)
     {
+        using var @lock = await AcquireReadLockAsync(cancellationToken).ConfigureAwait(false);
         using var connection = await OpenConnectionAsync(cancellationToken);
         var epoch = nowEpoch ?? NowEpoch();
         var results = new List<(string TableName, string ItemJson)>(keys.Count);
@@ -750,6 +737,7 @@ internal abstract class SqliteStore
         Dictionary<string, (List<IndexDefinition> Indexes, List<AttributeDefinition> AttrDefs)>? indexInfoByTable,
         CancellationToken cancellationToken = default)
     {
+        using var @lock = await AcquireWriteLockAsync(cancellationToken).ConfigureAwait(false);
         using var connection = await OpenConnectionAsync(cancellationToken);
         using var transaction = await connection.BeginTransactionAsync(cancellationToken);
 
@@ -810,6 +798,7 @@ internal abstract class SqliteStore
         CancellationToken cancellationToken = default)
     {
         var epoch = nowEpoch ?? NowEpoch();
+        using var @lock = await AcquireWriteLockAsync(cancellationToken).ConfigureAwait(false);
         using var connection = await OpenConnectionAsync(cancellationToken);
         using var transaction = await connection.BeginTransactionAsync(cancellationToken);
 
@@ -903,6 +892,7 @@ internal abstract class SqliteStore
         string tableName,
         CancellationToken cancellationToken = default)
     {
+        using var @lock = await AcquireReadLockAsync(cancellationToken).ConfigureAwait(false);
         using var connection = await OpenConnectionAsync(cancellationToken);
         return await GetIndexDefinitionsAsync(connection, tableName, null);
     }
@@ -936,6 +926,7 @@ internal abstract class SqliteStore
         string indexName,
         CancellationToken cancellationToken = default)
     {
+        using var @lock = await AcquireReadLockAsync(cancellationToken).ConfigureAwait(false);
         using var connection = await OpenConnectionAsync(cancellationToken);
         var row = await connection.QuerySingleOrDefaultAsync<KeySchemaRow>(
             """
@@ -1063,6 +1054,7 @@ internal abstract class SqliteStore
         double? nowEpoch = null,
         CancellationToken cancellationToken = default)
     {
+        using var @lock = await AcquireReadLockAsync(cancellationToken).ConfigureAwait(false);
         using var connection = await OpenConnectionAsync(cancellationToken);
         var idxTable = IndexTableName(tableName, indexName);
         var parameters = new DynamicParameters();
@@ -1109,6 +1101,7 @@ internal abstract class SqliteStore
         double? nowEpoch = null,
         CancellationToken cancellationToken = default)
     {
+        using var @lock = await AcquireReadLockAsync(cancellationToken).ConfigureAwait(false);
         using var connection = await OpenConnectionAsync(cancellationToken);
         var idxTable = IndexTableName(tableName, indexName);
         var parameters = new DynamicParameters();
@@ -1144,6 +1137,7 @@ internal abstract class SqliteStore
         CancellationToken cancellationToken = default)
     {
         var gsiJson = gsiDefinitions.ToJson();
+        using var @lock = await AcquireWriteLockAsync(cancellationToken).ConfigureAwait(false);
         using var connection = await OpenConnectionAsync(cancellationToken);
         _ = await connection.ExecuteAsync(
             "UPDATE tables SET global_secondary_indexes_json = @gsiJson WHERE table_name = @tableName",
@@ -1181,6 +1175,7 @@ internal abstract class SqliteStore
         string tableName,
         CancellationToken cancellationToken = default)
     {
+        using var @lock = await AcquireReadLockAsync(cancellationToken).ConfigureAwait(false);
         using var connection = await OpenConnectionAsync(cancellationToken);
         return (await connection.QueryAsync<ItemRow>(
             "SELECT pk AS Pk, sk AS Sk, item_json AS ItemJson FROM items WHERE table_name = @tableName",
@@ -1202,6 +1197,7 @@ internal abstract class SqliteStore
         Dictionary<string, AttributeValue> newItem,
         CancellationToken cancellationToken = default)
     {
+        using var @lock = await AcquireWriteLockAsync(cancellationToken).ConfigureAwait(false);
         using var connection = await OpenConnectionAsync(cancellationToken);
         using var transaction = await connection.BeginTransactionAsync(cancellationToken);
         var oldJson = await PutItemCoreAsync(connection, transaction, tableName, pk, sk, itemJson, skNum, ttlEpoch, nowEpoch);
@@ -1219,6 +1215,7 @@ internal abstract class SqliteStore
         List<AttributeDefinition> attrDefs,
         CancellationToken cancellationToken = default)
     {
+        using var @lock = await AcquireWriteLockAsync(cancellationToken).ConfigureAwait(false);
         using var connection = await OpenConnectionAsync(cancellationToken);
         using var transaction = await connection.BeginTransactionAsync(cancellationToken);
         var oldJson = await DeleteItemCoreAsync(connection, transaction, tableName, pk, sk, nowEpoch);
@@ -1237,6 +1234,7 @@ internal abstract class SqliteStore
         List<AttributeDefinition>? updatedAttrDefs,
         CancellationToken cancellationToken = default)
     {
+        using var @lock = await AcquireWriteLockAsync(cancellationToken).ConfigureAwait(false);
         using var connection = await OpenConnectionAsync(cancellationToken);
         using var transaction = await connection.BeginTransactionAsync(cancellationToken);
 
@@ -1267,6 +1265,7 @@ internal abstract class SqliteStore
         List<IndexDefinition> updatedGsiDefs,
         CancellationToken cancellationToken = default)
     {
+        using var @lock = await AcquireWriteLockAsync(cancellationToken).ConfigureAwait(false);
         using var connection = await OpenConnectionAsync(cancellationToken);
         using var transaction = await connection.BeginTransactionAsync(cancellationToken);
 
@@ -1329,6 +1328,7 @@ internal abstract class SqliteStore
         lastCleanupByTable[tableName] = now;
 
         var nowEpoch = NowEpoch();
+        using var @lock = await AcquireWriteLockAsync(cancellationToken).ConfigureAwait(false);
         using var connection = await OpenConnectionAsync(cancellationToken);
         using var transaction = await connection.BeginTransactionAsync(cancellationToken);
 
@@ -1352,6 +1352,7 @@ internal abstract class SqliteStore
 
     internal async Task BatchUpdateTtlEpochAsync(string tableName, List<(string Pk, string Sk, double? TtlEpoch)> updates, CancellationToken cancellationToken = default)
     {
+        using var @lock = await AcquireWriteLockAsync(cancellationToken).ConfigureAwait(false);
         using var connection = await OpenConnectionAsync(cancellationToken);
         using var transaction = await connection.BeginTransactionAsync(cancellationToken);
 
@@ -1368,6 +1369,7 @@ internal abstract class SqliteStore
 
     internal async Task ClearTtlEpochAsync(string tableName, CancellationToken cancellationToken = default)
     {
+        using var @lock = await AcquireWriteLockAsync(cancellationToken).ConfigureAwait(false);
         using var connection = await OpenConnectionAsync(cancellationToken);
         using var transaction = await connection.BeginTransactionAsync(cancellationToken);
 
@@ -1391,6 +1393,7 @@ internal abstract class SqliteStore
     internal async Task BackfillIndexTtlEpochAsync(string tableName, string indexName, string ttlAttributeName, CancellationToken cancellationToken = default)
     {
         var idxTable = IndexTableName(tableName, indexName);
+        using var @lock = await AcquireWriteLockAsync(cancellationToken).ConfigureAwait(false);
         using var connection = await OpenConnectionAsync(cancellationToken);
 
         var rows = (await connection.QueryAsync<IndexItemRow>(
@@ -1418,6 +1421,7 @@ internal abstract class SqliteStore
         string bucket, string prefix, string startTime, string? clientToken,
         CancellationToken cancellationToken = default)
     {
+        using var @lock = await AcquireWriteLockAsync(cancellationToken).ConfigureAwait(false);
         using var connection = await OpenConnectionAsync(cancellationToken);
         _ = await connection.ExecuteAsync(
             """
@@ -1433,6 +1437,7 @@ internal abstract class SqliteStore
         string? failureCode, string? failureMessage,
         CancellationToken cancellationToken = default)
     {
+        using var @lock = await AcquireWriteLockAsync(cancellationToken).ConfigureAwait(false);
         using var connection = await OpenConnectionAsync(cancellationToken);
         _ = await connection.ExecuteAsync(
             """
@@ -1447,6 +1452,7 @@ internal abstract class SqliteStore
 
     internal async Task<ExportRow?> GetExportRecordAsync(string exportArn, CancellationToken cancellationToken = default)
     {
+        using var @lock = await AcquireReadLockAsync(cancellationToken).ConfigureAwait(false);
         using var connection = await OpenConnectionAsync(cancellationToken);
         return await connection.QuerySingleOrDefaultAsync<ExportRow>(
             """
@@ -1475,6 +1481,7 @@ internal abstract class SqliteStore
         string? tableArn, int? maxResults, string? nextToken,
         CancellationToken cancellationToken = default)
     {
+        using var @lock = await AcquireReadLockAsync(cancellationToken).ConfigureAwait(false);
         using var connection = await OpenConnectionAsync(cancellationToken);
         var parameters = new DynamicParameters();
         var sql = new StringBuilder("SELECT export_arn AS ExportArn, status AS Status FROM exports");
@@ -1514,6 +1521,7 @@ internal abstract class SqliteStore
         string bucket, string prefix, string tableCreationJson, string startTime, string? clientToken,
         CancellationToken cancellationToken = default)
     {
+        using var @lock = await AcquireWriteLockAsync(cancellationToken).ConfigureAwait(false);
         using var connection = await OpenConnectionAsync(cancellationToken);
         _ = await connection.ExecuteAsync(
             """
@@ -1529,6 +1537,7 @@ internal abstract class SqliteStore
         string? failureCode, string? failureMessage,
         CancellationToken cancellationToken = default)
     {
+        using var @lock = await AcquireWriteLockAsync(cancellationToken).ConfigureAwait(false);
         using var connection = await OpenConnectionAsync(cancellationToken);
         _ = await connection.ExecuteAsync(
             """
@@ -1544,6 +1553,7 @@ internal abstract class SqliteStore
 
     internal async Task<ImportRow?> GetImportRecordAsync(string importArn, CancellationToken cancellationToken = default)
     {
+        using var @lock = await AcquireReadLockAsync(cancellationToken).ConfigureAwait(false);
         using var connection = await OpenConnectionAsync(cancellationToken);
         return await connection.QuerySingleOrDefaultAsync<ImportRow>(
             """
@@ -1575,6 +1585,7 @@ internal abstract class SqliteStore
         string? tableArn, int? pageSize, string? nextToken,
         CancellationToken cancellationToken = default)
     {
+        using var @lock = await AcquireReadLockAsync(cancellationToken).ConfigureAwait(false);
         using var connection = await OpenConnectionAsync(cancellationToken);
         var parameters = new DynamicParameters();
         var sql = new StringBuilder("SELECT import_arn AS ImportArn, table_name AS TableName, status AS Status, s3_bucket AS S3Bucket, s3_key_prefix AS S3KeyPrefix, input_format AS InputFormat, start_time AS StartTime, end_time AS EndTime FROM imports");
