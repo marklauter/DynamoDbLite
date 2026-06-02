@@ -798,9 +798,10 @@ internal abstract class SqliteStore
     private const string BatchWriteDelete =
         "DELETE FROM items WHERE table_name = @TableName AND pk = @Pk AND sk = @Sk";
 
-    // Puts to non-indexed tables are flushed as chunked multi-row upserts. Each row binds 6 parameters;
-    // SQLITE_MAX_VARIABLE_NUMBER is 32766, so 5000 rows * 6 = 30000 stays comfortably under the cap.
-    internal const int MaxUpsertRowsPerChunk = 5000;
+    // Non-indexed puts are flushed as chunked multi-row upserts. 100 rows/statement trades round-trips
+    // against statement size: the default 25-item batch stays one chunk, and a raised MaxBatchWriteItems
+    // splits into 100-row INSERTs. 100 rows * 6 params = 600, far under SQLITE_MAX_VARIABLE_NUMBER (32766).
+    internal const int MaxUpsertRowsPerChunk = 100;
 
     internal async Task BatchWriteItemsAsync(
         List<BatchWriteOperation> operations,
