@@ -788,6 +788,16 @@ internal abstract class SqliteStore
         return results;
     }
 
+    private const string BatchWriteUpsert =
+        """
+        INSERT INTO items (table_name, pk, sk, sk_num, ttl_epoch, item_json)
+        VALUES (@TableName, @Pk, @Sk, @SkNum, @TtlEpoch, @ItemJson)
+        ON CONFLICT (table_name, pk, sk) DO UPDATE SET item_json = @ItemJson, sk_num = @SkNum, ttl_epoch = @TtlEpoch
+        """;
+
+    private const string BatchWriteDelete =
+        "DELETE FROM items WHERE table_name = @TableName AND pk = @Pk AND sk = @Sk";
+
     internal async Task BatchWriteItemsAsync(
         List<BatchWriteOperation> operations,
         Dictionary<string, (List<IndexDefinition> Indexes, List<AttributeDefinition> AttrDefs)>? indexInfoByTable,
@@ -798,38 +808,32 @@ internal abstract class SqliteStore
 
         foreach (var op in operations)
         {
-            var executeTask = op.ItemJson is not null
-                ? connection.ExecuteAsync(
-                    """
-                    INSERT INTO items (table_name, pk, sk, sk_num, ttl_epoch, item_json)
-                    VALUES (@TableName, @Pk, @Sk, @SkNum, @TtlEpoch, @ItemJson)
-                    ON CONFLICT (table_name, pk, sk) DO UPDATE SET item_json = @ItemJson, sk_num = @SkNum, ttl_epoch = @TtlEpoch
-                    """,
-                    op,
-                    transaction)
-                : connection.ExecuteAsync(
-                    "DELETE FROM items WHERE table_name = @TableName AND pk = @Pk AND sk = @Sk",
-                    op,
-                    transaction);
-
-            _ = await executeTask;
-
-            if (indexInfoByTable is not null
+            var indexInfo = indexInfoByTable is not null
                 && indexInfoByTable.TryGetValue(op.TableName, out var info)
-                && info.Indexes.Count > 0)
-            {
-                var oldJson = await connection.QuerySingleOrDefaultAsync<string>(
+                && info.Indexes.Count > 0
+                    ? info
+                    : ((List<IndexDefinition> Indexes, List<AttributeDefinition> AttrDefs)?)null;
+
+            var oldJson = indexInfo is not null
+                ? await connection.QuerySingleOrDefaultAsync<string>(
                     "SELECT item_json FROM items WHERE table_name = @TableName AND pk = @Pk AND sk = @Sk",
                     new { op.TableName, op.Pk, op.Sk },
-                    transaction);
+                    transaction)
+                : null;
 
+            _ = op.ItemJson is not null
+                ? await connection.ExecuteAsync(BatchWriteUpsert, op, transaction)
+                : await connection.ExecuteAsync(BatchWriteDelete, op, transaction);
+
+            if (indexInfo is { } ix)
+            {
                 var newItem = op.ItemJson is not null
                     ? AttributeValueSerializer.Deserialize(op.ItemJson)
                     : null;
 
                 await MaintainIndexesAsync(
                     connection, transaction, op.TableName, op.Pk, op.Sk,
-                    info.Indexes, info.AttrDefs, newItem, oldJson, op.TtlEpoch);
+                    ix.Indexes, ix.AttrDefs, newItem, oldJson, op.TtlEpoch);
             }
         }
 
