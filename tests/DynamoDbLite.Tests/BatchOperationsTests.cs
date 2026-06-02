@@ -511,6 +511,92 @@ public sealed class BatchOperationsTests
     [Theory]
     [InlineData(StoreType.DdbLiteFile)]
     [InlineData(StoreType.DdbLite)]
+    public async Task BatchWriteItemAsync_PutOverExistingKey_ReplacesItem(StoreType st)
+    {
+        var client = Client(st);
+
+        // Seed an item with two attributes.
+        _ = await client.PutItemAsync(new PutItemRequest
+        {
+            TableName = TestTableName,
+            Item = new Dictionary<string, AttributeValue>
+            {
+                ["PK"] = new() { S = "USER#1" }, ["SK"] = new() { S = "PROFILE" },
+                ["name"] = new() { S = "Alice" }, ["email"] = new() { S = "alice@example.com" }
+            }
+        }, TestContext.Current.CancellationToken);
+
+        // Batch-put the same key with a different shape (no email).
+        _ = await client.BatchWriteItemAsync(new BatchWriteItemRequest
+        {
+            RequestItems = new Dictionary<string, List<WriteRequest>>
+            {
+                [TestTableName] =
+                [
+                    new WriteRequest { PutRequest = new PutRequest { Item = new Dictionary<string, AttributeValue>
+                    {
+                        ["PK"] = new() { S = "USER#1" }, ["SK"] = new() { S = "PROFILE" }, ["name"] = new() { S = "Alice2" }
+                    }}}
+                ]
+            }
+        }, TestContext.Current.CancellationToken);
+
+        var get = await client.GetItemAsync(TestTableName,
+            new Dictionary<string, AttributeValue> { ["PK"] = new() { S = "USER#1" }, ["SK"] = new() { S = "PROFILE" } },
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal("Alice2", get.Item["name"].S);     // value overwritten
+        Assert.False(get.Item.ContainsKey("email"));     // full replacement, not a merge
+    }
+
+    [Theory]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
+    public async Task BatchWriteItemAsync_PutOverExistingKey_UpdatesTtl(StoreType st)
+    {
+        var client = Client(st);
+        _ = await client.UpdateTimeToLiveAsync(new UpdateTimeToLiveRequest
+        {
+            TableName = TestTableName,
+            TimeToLiveSpecification = new TimeToLiveSpecification { Enabled = true, AttributeName = "ttl" }
+        }, TestContext.Current.CancellationToken);
+
+        // Seed with a far-future TTL so the item is live.
+        _ = await client.PutItemAsync(new PutItemRequest
+        {
+            TableName = TestTableName,
+            Item = new Dictionary<string, AttributeValue>
+            {
+                ["PK"] = new() { S = "USER#1" }, ["SK"] = new() { S = "PROFILE" }, ["ttl"] = new() { N = "99999999999" }
+            }
+        }, TestContext.Current.CancellationToken);
+
+        // Batch-put the same key with an already-expired TTL.
+        _ = await client.BatchWriteItemAsync(new BatchWriteItemRequest
+        {
+            RequestItems = new Dictionary<string, List<WriteRequest>>
+            {
+                [TestTableName] =
+                [
+                    new WriteRequest { PutRequest = new PutRequest { Item = new Dictionary<string, AttributeValue>
+                    {
+                        ["PK"] = new() { S = "USER#1" }, ["SK"] = new() { S = "PROFILE" }, ["ttl"] = new() { N = "1" }
+                    }}}
+                ]
+            }
+        }, TestContext.Current.CancellationToken);
+
+        var get = await client.GetItemAsync(TestTableName,
+            new Dictionary<string, AttributeValue> { ["PK"] = new() { S = "USER#1" }, ["SK"] = new() { S = "PROFILE" } },
+            TestContext.Current.CancellationToken);
+
+        // The upsert overwrote ttl_epoch with the past value, so the item is now filtered out.
+        Assert.False(get.IsItemSet);
+    }
+
+    [Theory]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task BatchWriteItemAsync_MultipleTables_Succeeds(StoreType st)
     {
         var client = Client(st);

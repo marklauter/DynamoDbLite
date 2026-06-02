@@ -1034,6 +1034,61 @@ public sealed class SecondaryIndexTests
         Assert.Equal(2, response.Count);
     }
 
+    [Theory]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
+    public async Task BatchWriteItem_PutOverExistingIndexedItem_MovesIndexEntry(StoreType st)
+    {
+        var client = Client(st);
+        await CreateTableWithGsiAsync(client);
+
+        // Seed an item indexed under "old_gsi".
+        _ = await client.PutItemAsync(new PutItemRequest
+        {
+            TableName = TestTableName,
+            Item = new Dictionary<string, AttributeValue>
+            {
+                ["PK"] = new() { S = "pk1" }, ["SK"] = new() { S = "sk1" },
+                ["GSI_PK"] = new() { S = "old_gsi" }, ["GSI_SK"] = new() { S = "A" }
+            }
+        }, TestContext.Current.CancellationToken);
+
+        // Batch-put the same base-table key with a changed GSI partition key.
+        _ = await client.BatchWriteItemAsync(new BatchWriteItemRequest
+        {
+            RequestItems = new Dictionary<string, List<WriteRequest>>
+            {
+                [TestTableName] =
+                [
+                    new WriteRequest { PutRequest = new PutRequest { Item = new Dictionary<string, AttributeValue>
+                    {
+                        ["PK"] = new() { S = "pk1" }, ["SK"] = new() { S = "sk1" },
+                        ["GSI_PK"] = new() { S = "new_gsi" }, ["GSI_SK"] = new() { S = "A" }
+                    }}}
+                ]
+            }
+        }, TestContext.Current.CancellationToken);
+
+        var oldEntries = await client.QueryAsync(new QueryRequest
+        {
+            TableName = TestTableName,
+            IndexName = "GSI1",
+            KeyConditionExpression = "GSI_PK = :g",
+            ExpressionAttributeValues = new Dictionary<string, AttributeValue> { [":g"] = new() { S = "old_gsi" } }
+        }, TestContext.Current.CancellationToken);
+
+        var newEntries = await client.QueryAsync(new QueryRequest
+        {
+            TableName = TestTableName,
+            IndexName = "GSI1",
+            KeyConditionExpression = "GSI_PK = :g",
+            ExpressionAttributeValues = new Dictionary<string, AttributeValue> { [":g"] = new() { S = "new_gsi" } }
+        }, TestContext.Current.CancellationToken);
+
+        Assert.Empty(oldEntries.Items);        // stale index entry removed on overwrite
+        _ = Assert.Single(newEntries.Items);   // new index entry created
+    }
+
     // -- GSI Query with FilterExpression ---------------------------------
 
     [Theory]
