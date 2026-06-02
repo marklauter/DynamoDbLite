@@ -506,6 +506,56 @@ public sealed class UpdateExpressionTests
     }
 
     [Fact]
+    public void Set_ListIndex_OnNonListValue_ThrowsValidation()
+    {
+        // `a.b` exists but is a map, not a list — indexing it must reject, not NullReferenceException.
+        var item = new Dictionary<string, AttributeValue>
+        {
+            ["PK"] = new() { S = "USER#1" },
+            ["a"] = new()
+            {
+                M = new Dictionary<string, AttributeValue>
+                {
+                    ["b"] = new() { M = [] }
+                }
+            }
+        };
+
+        var ast = UpdateExpressionParser.Parse("SET a.b[0] = :v");
+
+        var ex = Assert.Throws<AmazonDynamoDBException>(() => UpdateExpressionEvaluator.Apply(
+            ast, item, null,
+            new Dictionary<string, AttributeValue> { [":v"] = new() { S = "X" } }));
+
+        Assert.Contains("document path", ex.Message);
+    }
+
+    [Fact]
+    public void Set_IntermediateListIndex_OnNonListValue_ThrowsValidation()
+    {
+        // `a.b` is a map; `a.b[0].c` hits a non-list at an intermediate path element.
+        var item = new Dictionary<string, AttributeValue>
+        {
+            ["PK"] = new() { S = "USER#1" },
+            ["a"] = new()
+            {
+                M = new Dictionary<string, AttributeValue>
+                {
+                    ["b"] = new() { M = [] }
+                }
+            }
+        };
+
+        var ast = UpdateExpressionParser.Parse("SET a.b[0].c = :v");
+
+        var ex = Assert.Throws<AmazonDynamoDBException>(() => UpdateExpressionEvaluator.Apply(
+            ast, item, null,
+            new Dictionary<string, AttributeValue> { [":v"] = new() { S = "X" } }));
+
+        Assert.Contains("document path", ex.Message);
+    }
+
+    [Fact]
     public void Remove_NestedListIndex_RemovesElement()
     {
         var item = new Dictionary<string, AttributeValue>

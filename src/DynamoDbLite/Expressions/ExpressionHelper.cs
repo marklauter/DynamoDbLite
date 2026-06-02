@@ -1,3 +1,4 @@
+using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
 
 namespace DynamoDbLite.Expressions;
@@ -79,7 +80,7 @@ internal static class ExpressionHelper
                     break;
 
                 case ListIndexElement indexEl:
-                    var list = current!.L;
+                    var list = RequireList(current);
                     while (list.Count <= indexEl.Index)
                         list.Add(new AttributeValue { NULL = true });
                     current = list[indexEl.Index];
@@ -98,7 +99,7 @@ internal static class ExpressionHelper
                 break;
 
             case ListIndexElement indexEl:
-                var finalList = current!.L;
+                var finalList = RequireList(current);
                 while (finalList.Count <= indexEl.Index)
                     finalList.Add(new AttributeValue { NULL = true });
                 finalList[indexEl.Index] = value;
@@ -173,4 +174,12 @@ internal static class ExpressionHelper
 
     private static InvalidOperationException UnhandledPathElement(PathElement element) =>
         new($"Unhandled PathElement: {element.GetType().Name}");
+
+    // A list-index element requires the resolved value to be a list. When the path walks into a
+    // non-list value (e.g. `a.b[0]` where `a.b` is a map), the SDK's `.L` is null — match DynamoDB's
+    // validation rejection instead of throwing NullReferenceException.
+    private static List<AttributeValue> RequireList(AttributeValue? current) =>
+        current?.L
+        ?? throw new AmazonDynamoDBException(
+            "The document path provided in the update expression is invalid for update");
 }
