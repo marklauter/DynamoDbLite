@@ -12,6 +12,8 @@
 		<IncludeSymbols>true</IncludeSymbols>
 		<PublishRepositoryUrl>true</PublishRepositoryUrl>
 		<EmbedUntrackedSources>true</EmbedUntrackedSources>
+		<!-- CA2007: we don't use ConfigureAwait anywhere; this is a test/dev library with no sync-context callers. -->
+		<NoWarn>CA2007</NoWarn>
 	</PropertyGroup>
 
 	<PropertyGroup Condition="$(MSBuildProjectName.EndsWith('.Tests'))">
@@ -33,8 +35,7 @@
 		<!-- CA1051: test fixtures expose public fields for brevity. -->
 		<!-- IDISP026: test fixture base classes are unsealed by design (abstract base + sealed subclasses pattern). -->
 		<!-- IDE1006: naming-rule violations (e.g. missing 'Async' suffix) are noise on test methods. -->
-		<!-- CA2007: ConfigureAwait is irrelevant in test code. -->
-		<NoWarn>CA1707;CA1051;IDISP026;IDE1006;CA2007</NoWarn>
+		<NoWarn>$(NoWarn);CA1707;CA1051;IDISP026;IDE1006</NoWarn>
 	</PropertyGroup>
 
 </Project>

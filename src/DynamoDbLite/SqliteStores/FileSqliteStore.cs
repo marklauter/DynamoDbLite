@@ -22,8 +22,8 @@ internal sealed class FileSqliteStore
     protected override async Task<DbConnection> OpenConnectionAsync(CancellationToken ct)
     {
         var connection = new SqliteConnection(ConnectionString);
-        await connection.OpenAsync(ct).ConfigureAwait(false);
-        await PrepareConnectionAsync(connection, ct).ConfigureAwait(false);
+        await connection.OpenAsync(ct);
+        await PrepareConnectionAsync(connection, ct);
         return connection;
     }
 }

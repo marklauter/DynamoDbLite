@@ -173,7 +173,7 @@ internal abstract class SqliteStore
         using (var cmd = connection.CreateCommand())
         {
             cmd.CommandText = connectionPragmaSql;
-            _ = await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
+            _ = await cmd.ExecuteNonQueryAsync(ct);
         }
 
         connectionInitializer?.Invoke(connection);
