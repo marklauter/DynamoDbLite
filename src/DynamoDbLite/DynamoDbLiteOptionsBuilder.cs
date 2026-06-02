@@ -10,6 +10,7 @@ public sealed class DynamoDbLiteOptionsBuilder
 {
     private string? ConnectionString { get; set; }
     private bool UseWriteAheadLog { get; set; }
+    private int MaxBatchWriteItems { get; set; } = 25;
     private List<KeyValuePair<string, string>> Pragmas { get; } = [];
     private Action<SqliteConnection>? ConnectionInitializer { get; set; }
 
@@ -35,6 +36,24 @@ public sealed class DynamoDbLiteOptionsBuilder
     public DynamoDbLiteOptionsBuilder WithWriteAheadLog()
     {
         UseWriteAheadLog = true;
+        return this;
+    }
+
+    /// <summary>
+    /// Sets the maximum number of put/delete requests a single <c>BatchWriteItemAsync</c> call accepts. Defaults to
+    /// <c>25</c> (AWS DynamoDB parity); raise it to seed more rows per call than DynamoDB allows, or lower it to
+    /// tighten the cap. See <see cref="DynamoDbLiteOptions.MaxBatchWriteItems"/> for the validation semantics.
+    /// </summary>
+    /// <param name="maxBatchWriteItems">The per-call limit. Must be at least 1.</param>
+    /// <returns>This builder, for chaining.</returns>
+    /// <exception cref="DynamoDbLiteConfigurationException"><paramref name="maxBatchWriteItems"/> is less than 1.</exception>
+    public DynamoDbLiteOptionsBuilder WithMaxBatchWriteItems(int maxBatchWriteItems)
+    {
+        if (maxBatchWriteItems < 1)
+            throw new DynamoDbLiteConfigurationException(
+                $"MaxBatchWriteItems must be at least 1, but was {maxBatchWriteItems}.");
+
+        MaxBatchWriteItems = maxBatchWriteItems;
         return this;
     }
 
@@ -78,6 +97,7 @@ public sealed class DynamoDbLiteOptionsBuilder
                 "Connection string was not configured. Call WithConnectionString before Build."),
             UseWriteAheadLog)
         {
+            MaxBatchWriteItems = MaxBatchWriteItems,
             Pragmas = [.. Pragmas],
             ConnectionInitializer = ConnectionInitializer,
         };

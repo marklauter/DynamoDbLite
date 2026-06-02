@@ -24,6 +24,7 @@ public sealed partial class DynamoDbClient(
     private const int MaxTransactItems = 100;
 
     private readonly SqliteStore store = CreateStore(options);
+    private readonly int maxBatchWriteItems = options.MaxBatchWriteItems;
     private readonly ConcurrentDictionary<string, (DateTime Expiry, TransactWriteItemsResponse Response)> transactWriteTokenCache = new();
     private readonly ILogger<DynamoDbClient> logger = logger ?? NullLogger<DynamoDbClient>.Instance;
     private bool disposed;

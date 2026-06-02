@@ -30,6 +30,19 @@ namespace DynamoDbLite;
 public sealed record DynamoDbLiteOptions(string ConnectionString, bool UseWriteAheadLog = false)
 {
     /// <summary>
+    /// Maximum number of put/delete requests a single <c>BatchWriteItemAsync</c> call accepts before it throws.
+    /// Default <c>25</c>, matching the limit the real AWS DynamoDB client (<see cref="Amazon.DynamoDBv2.IAmazonDynamoDB"/>)
+    /// enforces on <c>BatchWriteItem</c>. Override it to relax that cap — for example, to seed more rows per call in
+    /// tests than DynamoDB would allow in production. Lowering it below 25 tightens the cap instead.
+    /// <para>
+    /// This shifts only the request-size validation; it does not change how DynamoDB batches or how requests map to
+    /// SQLite. When using <see cref="DynamoDbLiteOptionsBuilder"/>, set it with
+    /// <see cref="DynamoDbLiteOptionsBuilder.WithMaxBatchWriteItems"/>.
+    /// </para>
+    /// </summary>
+    public int MaxBatchWriteItems { get; init; } = 25;
+
+    /// <summary>
     /// SQLite pragmas applied to every connection the client opens for an operation, after the library's own
     /// pragmas (<c>synchronous=NORMAL</c>, <c>temp_store=MEMORY</c>) and before <see cref="ConnectionInitializer"/>.
     /// Each entry becomes <c>PRAGMA Key=Value;</c>; entries run in order, so a later entry for the same pragma wins.

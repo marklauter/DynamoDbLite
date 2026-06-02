@@ -113,7 +113,7 @@ public sealed partial class DynamoDbClient
             throw new AmazonDynamoDBException("1 validation error detected: Value at 'requestItems' failed to satisfy constraint: Member must have length greater than or equal to 1");
 
         var totalOps = request.RequestItems.Values.Sum(static writes => writes.Count);
-        if (totalOps > 25)
+        if (totalOps > maxBatchWriteItems)
             throw new AmazonDynamoDBException("Too many items requested for the BatchWriteItem call");
 
         var seenKeys = new HashSet<(string, string, string)>(totalOps);
