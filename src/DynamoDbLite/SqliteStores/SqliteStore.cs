@@ -788,6 +788,21 @@ internal abstract class SqliteStore
         return results;
     }
 
+    internal async Task BatchWriteItemsAsync(
+        List<BatchWriteOperation> operations,
+        Dictionary<string, (List<IndexDefinition> Indexes, List<AttributeDefinition> AttrDefs)>? indexInfoByTable,
+        CancellationToken cancellationToken = default)
+    {
+        await BatchUpsertItemsAsync(
+            operations.Where(o => o.ItemJson is not null),
+            indexInfoByTable,
+            cancellationToken);
+        await BatchDeleteItemsAsync(
+            operations.Where(o => o.ItemJson is null),
+            indexInfoByTable,
+            cancellationToken);
+    }
+
     private const string BatchWriteUpsert =
         """
         INSERT INTO items (table_name, pk, sk, sk_num, ttl_epoch, item_json)
@@ -795,16 +810,26 @@ internal abstract class SqliteStore
         ON CONFLICT (table_name, pk, sk) DO UPDATE SET item_json = @ItemJson, sk_num = @SkNum, ttl_epoch = @TtlEpoch
         """;
 
-    private const string BatchWriteDelete =
-        "DELETE FROM items WHERE table_name = @TableName AND pk = @Pk AND sk = @Sk";
-
-    internal async Task BatchWriteItemsAsync(
-        List<BatchWriteOperation> operations,
+    internal async Task BatchUpsertItemsAsync(
+        IEnumerable<BatchWriteOperation> operations,
         Dictionary<string, (List<IndexDefinition> Indexes, List<AttributeDefinition> AttrDefs)>? indexInfoByTable,
         CancellationToken cancellationToken = default)
     {
         using var connection = await OpenConnectionAsync(cancellationToken);
         using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+
+        // Prepare the upsert once and reuse it for every item — the SQL is invariant, so we compile
+        // it a single time and rebind values per row instead of letting each call recompile.
+        using var upsert = connection.CreateCommand();
+        upsert.Transaction = transaction;
+        upsert.CommandText = BatchWriteUpsert;
+        var pTableName = AddParameter(upsert, "@TableName");
+        var pPk = AddParameter(upsert, "@Pk");
+        var pSk = AddParameter(upsert, "@Sk");
+        var pSkNum = AddParameter(upsert, "@SkNum");
+        var pTtlEpoch = AddParameter(upsert, "@TtlEpoch");
+        var pItemJson = AddParameter(upsert, "@ItemJson");
+        await upsert.PrepareAsync(cancellationToken);
 
         foreach (var op in operations)
         {
@@ -821,9 +846,13 @@ internal abstract class SqliteStore
                     transaction)
                 : null;
 
-            _ = op.ItemJson is not null
-                ? await connection.ExecuteAsync(BatchWriteUpsert, op, transaction)
-                : await connection.ExecuteAsync(BatchWriteDelete, op, transaction);
+            pTableName.Value = op.TableName;
+            pPk.Value = op.Pk;
+            pSk.Value = op.Sk;
+            pSkNum.Value = ToDbValue(op.SkNum);
+            pTtlEpoch.Value = ToDbValue(op.TtlEpoch);
+            pItemJson.Value = op.ItemJson;
+            _ = await upsert.ExecuteNonQueryAsync(cancellationToken);
 
             if (indexInfo is { } ix)
             {
@@ -839,6 +868,73 @@ internal abstract class SqliteStore
 
         await transaction.CommitAsync(cancellationToken);
     }
+
+    private const string BatchWriteDelete =
+        "DELETE FROM items WHERE table_name = @TableName AND pk = @Pk AND sk = @Sk";
+
+    internal async Task BatchDeleteItemsAsync(
+        IEnumerable<BatchWriteOperation> operations,
+        Dictionary<string, (List<IndexDefinition> Indexes, List<AttributeDefinition> AttrDefs)>? indexInfoByTable,
+        CancellationToken cancellationToken = default)
+    {
+        using var connection = await OpenConnectionAsync(cancellationToken);
+        using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+
+        // Prepare the delete once and reuse it for every item, same as the upsert path.
+        using var delete = connection.CreateCommand();
+        delete.Transaction = transaction;
+        delete.CommandText = BatchWriteDelete;
+        var pTableName = AddParameter(delete, "@TableName");
+        var pPk = AddParameter(delete, "@Pk");
+        var pSk = AddParameter(delete, "@Sk");
+        await delete.PrepareAsync(cancellationToken);
+
+        foreach (var op in operations)
+        {
+            var indexInfo = indexInfoByTable is not null
+                && indexInfoByTable.TryGetValue(op.TableName, out var info)
+                && info.Indexes.Count > 0
+                    ? info
+                    : ((List<IndexDefinition> Indexes, List<AttributeDefinition> AttrDefs)?)null;
+
+            var oldJson = indexInfo is not null
+                ? await connection.QuerySingleOrDefaultAsync<string>(
+                    "SELECT item_json FROM items WHERE table_name = @TableName AND pk = @Pk AND sk = @Sk",
+                    new { op.TableName, op.Pk, op.Sk },
+                    transaction)
+                : null;
+
+            pTableName.Value = op.TableName;
+            pPk.Value = op.Pk;
+            pSk.Value = op.Sk;
+            _ = await delete.ExecuteNonQueryAsync(cancellationToken);
+
+            if (indexInfo is { } ix)
+            {
+                var newItem = op.ItemJson is not null
+                    ? AttributeValueSerializer.Deserialize(op.ItemJson)
+                    : null;
+
+                await MaintainIndexesAsync(
+                    connection, transaction, op.TableName, op.Pk, op.Sk,
+                    ix.Indexes, ix.AttrDefs, newItem, oldJson, op.TtlEpoch);
+            }
+        }
+
+        await transaction.CommitAsync(cancellationToken);
+    }
+
+    private static DbParameter AddParameter(DbCommand command, string name)
+    {
+        var parameter = command.CreateParameter();
+        parameter.ParameterName = name;
+        _ = command.Parameters.Add(parameter);
+        return parameter;
+    }
+
+    private static object ToDbValue(double? value) =>
+        value is double d ? d : DBNull.Value;
+
 
     internal async Task TransactWriteItemsAsync(
         List<TransactWriteOperation> operations,
