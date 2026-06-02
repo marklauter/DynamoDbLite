@@ -1,3 +1,21 @@
+  1. It re-reads immutable metadata on every operation. Key schema, attribute definitions, index definitions,
+  the TTL attribute — these only change on control-plane calls (CreateTable, UpdateTable, UpdateTimeToLive).
+  Yet every Put/Update/Delete/Batch/Transact/Query/Scan reads them back out of SQLite. The honest fix isn't
+  a faster or combined query — it's to not read them: cache per-table metadata in-process (a
+  ConcurrentDictionary), invalidated on those few DDL ops. That drops metadata reads to zero across the whole
+  client, not just BatchWrite — and it makes my GetBatchWriteMetadataAsync moot. You don't optimize a read
+  you've eliminated.
+
+  2. It opens a fresh connection per store call. Every store.X() is new SqliteConnection → open (pooled, so
+  cheap-ish) → re-apply PRAGMA synchronous/temp_store (+ your pragmas + initializer) → query → dispose. So
+  the old BatchWrite was ~5 connection lifecycles — 4 reads + 1 write — each re-running the pragma setup,
+  with the metadata reads and the write landing on different connections in different transactions. The lever
+  is one connection (one transaction) per logical operation, threaded through the reads and the write:
+  collapses N opens to 1 and closes the read-then-write gap. My change shrank N; it didn't touch the model.
+  (Connection-per-call is a defensible simplicity choice, to be fair — it just isn't free.)
+
+
+
 I have the full picture now. I traced every store call this method makes down to its connection/lock/query cost. Here's the analysis — no
   changes made yet.
 
