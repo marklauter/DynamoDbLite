@@ -521,8 +521,10 @@ public sealed class BatchOperationsTests
             TableName = TestTableName,
             Item = new Dictionary<string, AttributeValue>
             {
-                ["PK"] = new() { S = "USER#1" }, ["SK"] = new() { S = "PROFILE" },
-                ["name"] = new() { S = "Alice" }, ["email"] = new() { S = "alice@example.com" }
+                ["PK"] = new() { S = "USER#1" },
+                ["SK"] = new() { S = "PROFILE" },
+                ["name"] = new() { S = "Alice" },
+                ["email"] = new() { S = "alice@example.com" }
             }
         }, TestContext.Current.CancellationToken);
 
@@ -567,7 +569,9 @@ public sealed class BatchOperationsTests
             TableName = TestTableName,
             Item = new Dictionary<string, AttributeValue>
             {
-                ["PK"] = new() { S = "USER#1" }, ["SK"] = new() { S = "PROFILE" }, ["ttl"] = new() { N = "99999999999" }
+                ["PK"] = new() { S = "USER#1" },
+                ["SK"] = new() { S = "PROFILE" },
+                ["ttl"] = new() { N = "99999999999" }
             }
         }, TestContext.Current.CancellationToken);
 

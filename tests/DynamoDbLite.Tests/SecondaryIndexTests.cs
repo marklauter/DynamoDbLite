@@ -1048,8 +1048,10 @@ public sealed class SecondaryIndexTests
             TableName = TestTableName,
             Item = new Dictionary<string, AttributeValue>
             {
-                ["PK"] = new() { S = "pk1" }, ["SK"] = new() { S = "sk1" },
-                ["GSI_PK"] = new() { S = "old_gsi" }, ["GSI_SK"] = new() { S = "A" }
+                ["PK"] = new() { S = "pk1" },
+                ["SK"] = new() { S = "sk1" },
+                ["GSI_PK"] = new() { S = "old_gsi" },
+                ["GSI_SK"] = new() { S = "A" }
             }
         }, TestContext.Current.CancellationToken);
 

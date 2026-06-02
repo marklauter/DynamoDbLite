@@ -798,6 +798,10 @@ internal abstract class SqliteStore
     private const string BatchWriteDelete =
         "DELETE FROM items WHERE table_name = @TableName AND pk = @Pk AND sk = @Sk";
 
+    // Puts to non-indexed tables are flushed as chunked multi-row upserts. Each row binds 6 parameters;
+    // SQLITE_MAX_VARIABLE_NUMBER is 32766, so 5000 rows * 6 = 30000 stays comfortably under the cap.
+    internal const int MaxUpsertRowsPerChunk = 5000;
+
     internal async Task BatchWriteItemsAsync(
         List<BatchWriteOperation> operations,
         Dictionary<string, (List<IndexDefinition> Indexes, List<AttributeDefinition> AttrDefs)>? indexInfoByTable,
@@ -806,6 +810,11 @@ internal abstract class SqliteStore
         using var connection = await OpenConnectionAsync(cancellationToken);
         using var transaction = await connection.BeginTransactionAsync(cancellationToken);
 
+        // Puts to non-indexed tables carry no per-row work (no oldJson read, no index maintenance),
+        // so they are deferred and flushed as chunked multi-row upserts after the loop. Keys are unique
+        // across the batch (DynamoDbClient rejects duplicates), so the two passes touch disjoint rows.
+        var bulkPuts = new List<BatchWriteOperation>(operations.Count);
+
         foreach (var op in operations)
         {
             var indexInfo = indexInfoByTable is not null
@@ -813,6 +822,12 @@ internal abstract class SqliteStore
                 && info.Indexes.Count > 0
                     ? info
                     : ((List<IndexDefinition> Indexes, List<AttributeDefinition> AttrDefs)?)null;
+
+            if (indexInfo is null && op.ItemJson is not null)
+            {
+                bulkPuts.Add(op);
+                continue;
+            }
 
             var oldJson = indexInfo is not null
                 ? await connection.QuerySingleOrDefaultAsync<string>(
@@ -837,7 +852,53 @@ internal abstract class SqliteStore
             }
         }
 
+        foreach (var chunk in bulkPuts.Chunk(MaxUpsertRowsPerChunk))
+            await BulkUpsertChunkAsync(connection, transaction, chunk);
+
         await transaction.CommitAsync(cancellationToken);
+    }
+
+    // Builds one multi-row INSERT ... VALUES (...),(...) ON CONFLICT DO UPDATE for a chunk of puts.
+    // The DO UPDATE must reference excluded.<col> (the row proposed for insertion), not @Param — with
+    // many VALUES rows there is no single bound value per column. All item values stay parameterized;
+    // only the fixed column list and the @Name{i} placeholder text are concatenated into the SQL.
+    private static async Task BulkUpsertChunkAsync(
+        DbConnection connection,
+        DbTransaction transaction,
+        BatchWriteOperation[] chunk)
+    {
+        var sql = new StringBuilder(
+            "INSERT INTO items (table_name, pk, sk, sk_num, ttl_epoch, item_json) VALUES ");
+        var parameters = new DynamicParameters();
+
+        for (var i = 0; i < chunk.Length; i++)
+        {
+            var op = chunk[i];
+
+            if (i > 0)
+                _ = sql.Append(',');
+
+            _ = sql.Append("(@TableName").Append(i)
+                .Append(",@Pk").Append(i)
+                .Append(",@Sk").Append(i)
+                .Append(",@SkNum").Append(i)
+                .Append(",@TtlEpoch").Append(i)
+                .Append(",@ItemJson").Append(i)
+                .Append(')');
+
+            parameters.Add("@TableName" + i, op.TableName);
+            parameters.Add("@Pk" + i, op.Pk);
+            parameters.Add("@Sk" + i, op.Sk);
+            parameters.Add("@SkNum" + i, op.SkNum);
+            parameters.Add("@TtlEpoch" + i, op.TtlEpoch);
+            parameters.Add("@ItemJson" + i, op.ItemJson);
+        }
+
+        _ = sql.Append(
+            " ON CONFLICT (table_name, pk, sk) DO UPDATE SET "
+            + "item_json = excluded.item_json, sk_num = excluded.sk_num, ttl_epoch = excluded.ttl_epoch");
+
+        _ = await connection.ExecuteAsync(sql.ToString(), parameters, transaction);
     }
 
     internal async Task TransactWriteItemsAsync(
