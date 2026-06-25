@@ -12,18 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v7
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v5
-      with:
-        dotnet-version: 10.0.x
-
-    - name: Cache NuGet packages
-      uses: actions/cache@v6
-      with:
-        path: ~/.nuget/packages
-        key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', 'Directory.Packages.props') }}
-        restore-keys: |
-          ${{ runner.os }}-nuget-
+    - uses: ./.github/actions/setup-dotnet
 
     - name: Build
       run: dotnet build "DynamoDbLite.slnx" -c Release
@@ -39,18 +28,7 @@ jobs:
       packages: write
     steps:
     - uses: actions/checkout@v7
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v5
-      with:
-        dotnet-version: 10.0.x
-
-    - name: Cache NuGet packages
-      uses: actions/cache@v6
-      with:
-        path: ~/.nuget/packages
-        key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', 'Directory.Packages.props') }}
-        restore-keys: |
-          ${{ runner.os }}-nuget-
+    - uses: ./.github/actions/setup-dotnet
 
     - name: Resolve package version
       env:
