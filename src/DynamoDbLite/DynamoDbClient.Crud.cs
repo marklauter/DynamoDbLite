@@ -386,7 +386,7 @@ public sealed partial class DynamoDbClient
                     if (result.TryGetValue(attrName, out var numVal))
                     {
                         if (numVal.N is null)
-                            throw new AmazonDynamoDBException($"Type mismatch for attribute {attrName}: ADD of a number requires an existing number");
+                            throw new AmazonDynamoDBException("Type mismatch for attribute to update");
                         var current = double.Parse(numVal.N, CultureInfo.InvariantCulture);
                         var addend = double.Parse(update.Value.N, CultureInfo.InvariantCulture);
                         result[attrName] = new AttributeValue { N = (current + addend).ToString(CultureInfo.InvariantCulture) };
@@ -401,7 +401,7 @@ public sealed partial class DynamoDbClient
                     if (result.TryGetValue(attrName, out var addSsVal))
                     {
                         if (addSsVal.SS is null)
-                            throw new AmazonDynamoDBException($"Type mismatch for attribute {attrName}: ADD of a string set requires an existing string set");
+                            throw new AmazonDynamoDBException("Type mismatch for attribute to update");
                         foreach (var s in update.Value.SS)
                             if (!addSsVal.SS.Contains(s))
                                 addSsVal.SS.Add(s);
@@ -416,7 +416,7 @@ public sealed partial class DynamoDbClient
                     if (result.TryGetValue(attrName, out var addNsVal))
                     {
                         if (addNsVal.NS is null)
-                            throw new AmazonDynamoDBException($"Type mismatch for attribute {attrName}: ADD of a number set requires an existing number set");
+                            throw new AmazonDynamoDBException("Type mismatch for attribute to update");
                         foreach (var n in update.Value.NS)
                             if (!addNsVal.NS.Contains(n))
                                 addNsVal.NS.Add(n);
@@ -431,7 +431,7 @@ public sealed partial class DynamoDbClient
                     if (result.TryGetValue(attrName, out var addBsVal))
                     {
                         if (addBsVal.BS is null)
-                            throw new AmazonDynamoDBException($"Type mismatch for attribute {attrName}: ADD of a binary set requires an existing binary set");
+                            throw new AmazonDynamoDBException("Type mismatch for attribute to update");
                         foreach (var b in update.Value.BS)
                             if (!Expressions.ExpressionHelper.BinarySetContains(addBsVal.BS, b))
                                 addBsVal.BS.Add(b);
