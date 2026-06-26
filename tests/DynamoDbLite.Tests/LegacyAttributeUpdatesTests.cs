@@ -31,9 +31,12 @@ public sealed class LegacyAttributeUpdatesTests
     {
         var client = Client(st);
         var ct = TestContext.Current.CancellationToken;
-        _ = await PutItemAsync(client, "USER#1", "PROFILE", []);
+        _ = await PutItemAsync(client, "USER#1", "PROFILE", new Dictionary<string, AttributeValue>
+        {
+            ["status"] = new() { S = "active" }
+        });
 
-        _ = await Assert.ThrowsAsync<AmazonDynamoDBException>(() =>
+        var ex = await Assert.ThrowsAsync<AmazonDynamoDBException>(() =>
             client.UpdateItemAsync(new UpdateItemRequest
             {
                 TableName = TestTableName,
@@ -47,6 +50,16 @@ public sealed class LegacyAttributeUpdatesTests
                     }
                 }
             }, ct));
+
+        Assert.Contains(keyAttribute, ex.Message, StringComparison.Ordinal);
+
+        // The reject must be atomic: the original item is left fully intact, with no
+        // partial write of the rejected key or any other attribute.
+        var item = await GetItemAsync(client, "USER#1", "PROFILE", ct);
+        Assert.Equal("USER#1", item["PK"].S);
+        Assert.Equal("PROFILE", item["SK"].S);
+        Assert.Equal("active", item["status"].S);
+        Assert.DoesNotContain("MUTATED", item.Values.Select(static v => v.S));
     }
 
     // ── Defect 2: ADD to a string/number set must enforce set uniqueness ───
