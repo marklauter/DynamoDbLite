@@ -364,10 +364,11 @@ public abstract class ImportTestsBase
 
         var description = await ImportAndWaitForTerminalStatusAsync(missingPath, "ImportMissingPathTable");
 
-        // Real DynamoDB fails an import whose source location has no valid data files.
-        // It must not silently report COMPLETED with zero items.
+        // Real DynamoDB fails an import whose source location does not exist / has no export.
+        // The documented failure code for a missing source is S3NoSuchBucket.
         Assert.Equal(ImportStatus.FAILED, description.ImportStatus);
         Assert.Equal(0, description.ImportedItemCount);
+        Assert.Equal("S3NoSuchBucket", description.FailureCode);
     }
 
     [Fact]
@@ -379,10 +380,12 @@ public abstract class ImportTestsBase
         {
             var description = await ImportAndWaitForTerminalStatusAsync(emptyPath, "ImportEmptyPathTable");
 
-            // Source path exists but contains no data files — must surface a failure,
-            // not a silent COMPLETED-with-zero-items success.
+            // Source directory exists but holds no AWSDynamoDB export structure — there is no
+            // export at this location, so DynamoDB fails it with the missing-source code
+            // S3NoSuchBucket, not a silent COMPLETED-with-zero-items success.
             Assert.Equal(ImportStatus.FAILED, description.ImportStatus);
             Assert.Equal(0, description.ImportedItemCount);
+            Assert.Equal("S3NoSuchBucket", description.FailureCode);
         }
         finally
         {
