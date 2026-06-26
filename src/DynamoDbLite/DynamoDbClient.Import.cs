@@ -85,19 +85,23 @@ public sealed partial class DynamoDbClient
             var basePath = string.IsNullOrEmpty(s3KeyPrefix)
                 ? s3Bucket
                 : Path.Combine(s3Bucket, s3KeyPrefix);
-            var dataFiles = ExportHelper.FindDataFiles(basePath);
 
-            // Real DynamoDB fails the import when the source has no importable data.
-            // Without this check an empty/wrong source path would complete with
-            // importedCount=0 and status COMPLETED, hiding the misconfiguration.
-            if (dataFiles.Count == 0)
+            // Real DynamoDB fails an import only when the source location itself is missing
+            // or inaccessible (FailureCode S3NoSuchBucket) — a valid export that happens to
+            // contain zero items imports successfully with 0 items. DynamoDbLite reuses the
+            // S3Bucket field as a local path, so the analog of "the source doesn't exist" is
+            // the absence of an AWSDynamoDB export directory at the path. A present export
+            // with no data files (an empty-table export) is left to import as 0 items.
+            if (!Directory.Exists(Path.Combine(basePath, "AWSDynamoDB")))
             {
                 var failTime = DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture);
                 await store.UpdateImportStatusAsync(
                     importArn, "FAILED", failTime, null, null, null, null,
-                    "S3NoSuchKey", "No data files found at the specified S3 location");
+                    "S3NoSuchBucket", "The specified S3 location does not exist");
                 return;
             }
+
+            var dataFiles = ExportHelper.FindDataFiles(basePath);
 
             long importedCount = 0;
             long processedCount = 0;
