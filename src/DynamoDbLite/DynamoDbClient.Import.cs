@@ -87,6 +87,18 @@ public sealed partial class DynamoDbClient
                 : Path.Combine(s3Bucket, s3KeyPrefix);
             var dataFiles = ExportHelper.FindDataFiles(basePath);
 
+            // Real DynamoDB fails the import when the source has no importable data.
+            // Without this check an empty/wrong source path would complete with
+            // importedCount=0 and status COMPLETED, hiding the misconfiguration.
+            if (dataFiles.Count == 0)
+            {
+                var failTime = DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture);
+                await store.UpdateImportStatusAsync(
+                    importArn, "FAILED", failTime, null, null, null, null,
+                    "S3NoSuchKey", "No data files found at the specified S3 location");
+                return;
+            }
+
             long importedCount = 0;
             long processedCount = 0;
             long processedBytes = 0;
