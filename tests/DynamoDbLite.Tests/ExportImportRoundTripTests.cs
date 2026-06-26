@@ -191,6 +191,104 @@ public sealed class ExportImportRoundTripTests
     [Theory]
     [InlineData(StoreType.DdbLiteFile)]
     [InlineData(StoreType.DdbLite)]
+    public async Task Export_And_Import_Empty_Table_Completes_With_Zero_Items(StoreType st)
+    {
+        var client = Client(st);
+        var ct = TestContext.Current.CancellationToken;
+        const string sourceTable = "EmptyRoundTripSource";
+        const string sourceArn = "arn:aws:dynamodb:local:000000000000:table/EmptyRoundTripSource";
+        const string targetTable = "EmptyRoundTripTarget";
+
+        // Create the source table but leave it EMPTY — no PutItem calls.
+        _ = await client.CreateTableAsync(new CreateTableRequest
+        {
+            TableName = sourceTable,
+            KeySchema =
+            [
+                new KeySchemaElement { AttributeName = "PK", KeyType = KeyType.HASH },
+                new KeySchemaElement { AttributeName = "SK", KeyType = KeyType.RANGE }
+            ],
+            AttributeDefinitions =
+            [
+                new AttributeDefinition { AttributeName = "PK", AttributeType = ScalarAttributeType.S },
+                new AttributeDefinition { AttributeName = "SK", AttributeType = ScalarAttributeType.S }
+            ]
+        }, ct);
+
+        // Export the empty table — this produces a valid AWSDynamoDB export with zero data rows.
+        var exportResponse = await client.ExportTableToPointInTimeAsync(new ExportTableToPointInTimeRequest
+        {
+            TableArn = sourceArn,
+            S3Bucket = tempDir,
+            ExportFormat = ExportFormat.DYNAMODB_JSON
+        }, ct);
+
+        ExportStatus? exportFinalStatus = null;
+        for (var i = 0; i < 100; i++)
+        {
+            await Task.Delay(100, ct);
+            var desc = await client.DescribeExportAsync(new DescribeExportRequest
+            {
+                ExportArn = exportResponse.ExportDescription.ExportArn
+            }, ct);
+            if (desc.ExportDescription.ExportStatus != ExportStatus.IN_PROGRESS)
+            {
+                exportFinalStatus = desc.ExportDescription.ExportStatus;
+                break;
+            }
+        }
+
+        Assert.Equal(ExportStatus.COMPLETED, exportFinalStatus);
+
+        // Import from that same valid (but empty) export location.
+        var importResponse = await client.ImportTableAsync(new ImportTableRequest
+        {
+            S3BucketSource = new S3BucketSource { S3Bucket = tempDir },
+            InputFormat = InputFormat.DYNAMODB_JSON,
+            TableCreationParameters = new TableCreationParameters
+            {
+                TableName = targetTable,
+                KeySchema =
+                [
+                    new KeySchemaElement { AttributeName = "PK", KeyType = KeyType.HASH },
+                    new KeySchemaElement { AttributeName = "SK", KeyType = KeyType.RANGE }
+                ],
+                AttributeDefinitions =
+                [
+                    new AttributeDefinition { AttributeName = "PK", AttributeType = ScalarAttributeType.S },
+                    new AttributeDefinition { AttributeName = "SK", AttributeType = ScalarAttributeType.S }
+                ]
+            }
+        }, ct);
+
+        ImportTableDescription? importDescription = null;
+        for (var i = 0; i < 100; i++)
+        {
+            await Task.Delay(100, ct);
+            var desc = await client.DescribeImportAsync(new DescribeImportRequest
+            {
+                ImportArn = importResponse.ImportTableDescription.ImportArn
+            }, ct);
+            importDescription = desc.ImportTableDescription;
+            if (importDescription.ImportStatus != ImportStatus.IN_PROGRESS)
+                break;
+        }
+
+        Assert.NotNull(importDescription);
+
+        // A valid-but-empty export is not a misconfiguration. Real DynamoDB completes such an
+        // import successfully with zero imported items — it does NOT fail it.
+        Assert.Equal(ImportStatus.COMPLETED, importDescription.ImportStatus);
+        Assert.Equal(0, importDescription.ImportedItemCount);
+
+        // The imported table exists and is empty.
+        var scanResponse = await client.ScanAsync(new ScanRequest { TableName = targetTable }, ct);
+        Assert.Equal(0, scanResponse.Count);
+    }
+
+    [Theory]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
     public async Task Export_And_Import_With_GSI_PreservesIndex(StoreType st)
     {
         var client = Client(st);

@@ -321,6 +321,85 @@ public abstract class ImportTestsBase
         Assert.All(response.ImportSummaryList, s => Assert.Equal(targetArn, s.TableArn));
     }
 
+    private async Task<ImportTableDescription> ImportAndWaitForTerminalStatusAsync(
+        string s3Bucket, string tableName)
+    {
+        var importResponse = await client.ImportTableAsync(new ImportTableRequest
+        {
+            S3BucketSource = new S3BucketSource { S3Bucket = s3Bucket },
+            InputFormat = InputFormat.DYNAMODB_JSON,
+            TableCreationParameters = new TableCreationParameters
+            {
+                TableName = tableName,
+                KeySchema = [new KeySchemaElement { AttributeName = "PK", KeyType = KeyType.HASH }],
+                AttributeDefinitions = [new AttributeDefinition { AttributeName = "PK", AttributeType = ScalarAttributeType.S }]
+            }
+        }, TestContext.Current.CancellationToken);
+
+        var importArn = importResponse.ImportTableDescription.ImportArn;
+
+        ImportTableDescription? description = null;
+        for (var i = 0; i < 100; i++)
+        {
+            await Task.Delay(100, TestContext.Current.CancellationToken);
+            var desc = await client.DescribeImportAsync(new DescribeImportRequest
+            {
+                ImportArn = importArn
+            }, TestContext.Current.CancellationToken);
+            description = desc.ImportTableDescription;
+            if (description.ImportStatus != ImportStatus.IN_PROGRESS)
+                break;
+        }
+
+        Assert.NotNull(description);
+        Assert.NotEqual(ImportStatus.IN_PROGRESS, description.ImportStatus);
+        return description;
+    }
+
+    [Fact]
+    public async Task Import_From_Nonexistent_Source_Path_Fails()
+    {
+        var missingPath = Path.Combine(Path.GetTempPath(), $"dynamo_import_missing_{Guid.NewGuid():N}");
+        Assert.False(Directory.Exists(missingPath));
+
+        var description = await ImportAndWaitForTerminalStatusAsync(missingPath, "ImportMissingPathTable");
+
+        // Real DynamoDB fails an import whose source location does not exist / has no export.
+        // The documented failure code for a missing source is S3NoSuchBucket.
+        Assert.Equal(ImportStatus.FAILED, description.ImportStatus);
+        Assert.Equal(0, description.ImportedItemCount);
+        Assert.Equal("S3NoSuchBucket", description.FailureCode);
+    }
+
+    [Fact]
+    public async Task Import_From_Empty_Source_Path_Fails()
+    {
+        var emptyPath = Path.Combine(Path.GetTempPath(), $"dynamo_import_empty_{Guid.NewGuid():N}");
+        _ = Directory.CreateDirectory(emptyPath);
+        try
+        {
+            var description = await ImportAndWaitForTerminalStatusAsync(emptyPath, "ImportEmptyPathTable");
+
+            // Source directory exists but holds no AWSDynamoDB export structure — there is no
+            // export at this location, so DynamoDB fails it with the missing-source code
+            // S3NoSuchBucket, not a silent COMPLETED-with-zero-items success.
+            Assert.Equal(ImportStatus.FAILED, description.ImportStatus);
+            Assert.Equal(0, description.ImportedItemCount);
+            Assert.Equal("S3NoSuchBucket", description.FailureCode);
+        }
+        finally
+        {
+            try
+            {
+                Directory.Delete(emptyPath, true);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // Best-effort cleanup
+            }
+        }
+    }
+
     [Fact]
     public async Task ListImports_With_NextToken_Accepts_Continuation()
     {
