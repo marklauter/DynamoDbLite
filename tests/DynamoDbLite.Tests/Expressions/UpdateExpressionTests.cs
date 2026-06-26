@@ -188,6 +188,29 @@ public sealed class UpdateExpressionTests
         Assert.Contains("c", result["tags"].SS);
     }
 
+    [Fact]
+    public void Add_MismatchedType_Throws()
+    {
+        // ADD a number set onto an attribute stored as a string set. Real DynamoDB
+        // rejects the operand-type mismatch rather than overwriting the attribute.
+        var item = new Dictionary<string, AttributeValue>
+        {
+            ["PK"] = new() { S = "USER#1" },
+            ["tags"] = new() { SS = ["a", "b"] }
+        };
+
+        var ast = UpdateExpressionParser.Parse("ADD tags :nums");
+        var ex = Assert.Throws<AmazonDynamoDBException>(() =>
+            UpdateExpressionEvaluator.Apply(
+                ast, item, null,
+                new Dictionary<string, AttributeValue> { [":nums"] = new() { NS = ["1", "2"] } }));
+
+        Assert.Contains("incorrect data type", ex.Message, StringComparison.Ordinal);
+
+        // The original set must be left intact — no partial overwrite.
+        Assert.Equal(["a", "b"], item["tags"].SS.OrderBy(static s => s, StringComparer.Ordinal));
+    }
+
     // ── DELETE ──────────────────────────────────────────────────────────
 
     [Fact]

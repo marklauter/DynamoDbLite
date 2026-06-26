@@ -172,6 +172,34 @@ internal static class ExpressionHelper
         }
     }
 
+    // Binary sets compare by content, not by MemoryStream reference, so set ADD/DELETE must
+    // compare the underlying bytes. Shared by the UpdateExpression evaluator and the legacy
+    // AttributeUpdates path.
+    internal static bool BinarySetContains(List<MemoryStream> set, MemoryStream value)
+    {
+        var valueSpan = GetSpan(value);
+        foreach (var item in set)
+        {
+            if (GetSpan(item).SequenceEqual(valueSpan))
+                return true;
+        }
+
+        return false;
+    }
+
+    internal static void BinarySetRemoveAll(List<MemoryStream> set, MemoryStream value)
+    {
+        var valueSpan = GetSpan(value);
+        for (var i = set.Count - 1; i >= 0; i--)
+        {
+            if (GetSpan(set[i]).SequenceEqual(valueSpan))
+                set.RemoveAt(i);
+        }
+    }
+
+    private static ReadOnlySpan<byte> GetSpan(MemoryStream ms) =>
+        ms.TryGetBuffer(out var segment) ? segment.AsSpan() : ms.ToArray(); // streams created via ReadableStream always expose their buffer
+
     private static InvalidOperationException UnhandledPathElement(PathElement element) =>
         new($"Unhandled PathElement: {element.GetType().Name}");
 

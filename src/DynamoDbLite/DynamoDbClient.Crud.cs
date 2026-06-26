@@ -271,7 +271,7 @@ public sealed partial class DynamoDbClient
         }
         else if (request.AttributeUpdates is { Count: > 0 })
         {
-            existingItem = ApplyAttributeUpdates(existingItem, request.AttributeUpdates);
+            existingItem = ApplyAttributeUpdates(existingItem, request.AttributeUpdates, keyInfo);
         }
 
         var itemJson = AttributeValueSerializer.Serialize(existingItem);
@@ -334,8 +334,18 @@ public sealed partial class DynamoDbClient
     [ExcludeFromCodeCoverage(Justification = "Deprecated AWS DynamoDB AttributeUpdates API — superseded by UpdateExpression")]
     private static Dictionary<string, AttributeValue> ApplyAttributeUpdates(
         Dictionary<string, AttributeValue> item,
-        Dictionary<string, AttributeValueUpdate> attributeUpdates)
+        Dictionary<string, AttributeValueUpdate> attributeUpdates,
+        KeySchemaInfo keyInfo)
     {
+        // Key attributes cannot be modified through UpdateItem — reject any attempt, matching the
+        // UpdateExpression path and real DynamoDB.
+        foreach (var key in keyInfo.KeySchema)
+        {
+            if (attributeUpdates.ContainsKey(key.AttributeName))
+                throw new AmazonDynamoDBException(
+                    $"One or more parameter values were invalid: Cannot update attribute {key.AttributeName}. This attribute is part of the key");
+        }
+
         var result = new Dictionary<string, AttributeValue>(item);
         foreach (var (attrName, update) in attributeUpdates)
         {
@@ -364,9 +374,19 @@ public sealed partial class DynamoDbClient
                     }
 
                     break;
-                case "ADD" when update.Value.N is not null:
-                    if (result.TryGetValue(attrName, out var numVal) && numVal.N is not null)
+                case "DELETE" when update.Value.BS is { Count: > 0 }:
+                    if (result.TryGetValue(attrName, out var bsVal) && bsVal.BS is not null)
                     {
+                        foreach (var b in update.Value.BS)
+                            Expressions.ExpressionHelper.BinarySetRemoveAll(bsVal.BS, b);
+                    }
+
+                    break;
+                case "ADD" when update.Value.N is not null:
+                    if (result.TryGetValue(attrName, out var numVal))
+                    {
+                        if (numVal.N is null)
+                            throw new AmazonDynamoDBException("Type mismatch for attribute to update");
                         var current = double.Parse(numVal.N, CultureInfo.InvariantCulture);
                         var addend = double.Parse(update.Value.N, CultureInfo.InvariantCulture);
                         result[attrName] = new AttributeValue { N = (current + addend).ToString(CultureInfo.InvariantCulture) };
@@ -378,16 +398,49 @@ public sealed partial class DynamoDbClient
 
                     break;
                 case "ADD" when update.Value.SS is { Count: > 0 }:
-                    if (result.TryGetValue(attrName, out var addSsVal) && addSsVal.SS is not null)
-                        addSsVal.SS.AddRange(update.Value.SS);
+                    if (result.TryGetValue(attrName, out var addSsVal))
+                    {
+                        if (addSsVal.SS is null)
+                            throw new AmazonDynamoDBException("Type mismatch for attribute to update");
+                        foreach (var s in update.Value.SS)
+                            if (!addSsVal.SS.Contains(s))
+                                addSsVal.SS.Add(s);
+                    }
                     else
+                    {
                         result[attrName] = update.Value;
+                    }
+
                     break;
                 case "ADD" when update.Value.NS is { Count: > 0 }:
-                    if (result.TryGetValue(attrName, out var addNsVal) && addNsVal.NS is not null)
-                        addNsVal.NS.AddRange(update.Value.NS);
+                    if (result.TryGetValue(attrName, out var addNsVal))
+                    {
+                        if (addNsVal.NS is null)
+                            throw new AmazonDynamoDBException("Type mismatch for attribute to update");
+                        foreach (var n in update.Value.NS)
+                            if (!addNsVal.NS.Contains(n))
+                                addNsVal.NS.Add(n);
+                    }
                     else
+                    {
                         result[attrName] = update.Value;
+                    }
+
+                    break;
+                case "ADD" when update.Value.BS is { Count: > 0 }:
+                    if (result.TryGetValue(attrName, out var addBsVal))
+                    {
+                        if (addBsVal.BS is null)
+                            throw new AmazonDynamoDBException("Type mismatch for attribute to update");
+                        foreach (var b in update.Value.BS)
+                            if (!Expressions.ExpressionHelper.BinarySetContains(addBsVal.BS, b))
+                                addBsVal.BS.Add(b);
+                    }
+                    else
+                    {
+                        result[attrName] = update.Value;
+                    }
+
                     break;
                 default:
                     result[attrName] = update.Value;
