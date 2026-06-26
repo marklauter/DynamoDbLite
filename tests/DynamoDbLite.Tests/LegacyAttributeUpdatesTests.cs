@@ -198,6 +198,48 @@ public sealed class LegacyAttributeUpdatesTests
         Assert.Equal(["0A", "0C"], HexSet(item["blobs"].BS));
     }
 
+    // ── Defect 5: ADD onto a mismatched existing type must be rejected ─────
+    // Real DynamoDB rejects an ADD whose operand type differs from the stored
+    // attribute (e.g. ADD a number set onto an existing string set) instead of
+    // silently overwriting. The legacy path's per-type ADD cases fall through to
+    // the else branch and clobber the attribute with the operand. The modern
+    // UpdateExpression path already throws here — this brings parity.
+
+    [Theory]
+    [InlineData(StoreType.DdbLite)]
+    [InlineData(StoreType.DdbLiteFile)]
+    public async Task AttributeUpdates_AddMismatchedSetType_ThrowsAndLeavesItemIntact(StoreType st)
+    {
+        var client = Client(st);
+        var ct = TestContext.Current.CancellationToken;
+        _ = await PutItemAsync(client, "USER#1", "PROFILE", new Dictionary<string, AttributeValue>
+        {
+            ["colors"] = new() { SS = ["red", "green"] }
+        });
+
+        // ADD a number set onto an attribute that is stored as a string set.
+        _ = await Assert.ThrowsAsync<AmazonDynamoDBException>(() =>
+            client.UpdateItemAsync(new UpdateItemRequest
+            {
+                TableName = TestTableName,
+                Key = Key("USER#1", "PROFILE"),
+                AttributeUpdates = new Dictionary<string, AttributeValueUpdate>
+                {
+                    ["colors"] = new()
+                    {
+                        Action = AttributeAction.ADD,
+                        Value = new AttributeValue { NS = ["1", "2"] }
+                    }
+                }
+            }, ct));
+
+        // The reject must be atomic: the stored string set is untouched, not
+        // overwritten with the number set.
+        var item = await GetItemAsync(client, "USER#1", "PROFILE", ct);
+        Assert.Equal(["green", "red"], item["colors"].SS.OrderBy(static s => s, StringComparer.Ordinal));
+        Assert.True(item["colors"].NS is null or { Count: 0 });
+    }
+
     // ── Helpers ────────────────────────────────────────────────────────────
 
     private static Dictionary<string, AttributeValue> Key(string pk, string sk) => new()
