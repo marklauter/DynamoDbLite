@@ -10,7 +10,7 @@ superseded-by: "[[not-supported-exception-for-out-of-scope]]"
 
 # Out-of-scope Operations
 
-Status: Superseded on the exception type only by [`NotSupportedException` for out-of-scope operations](not-supported-exception-for-out-of-scope.md). The set of out-of-scope operations below still stands.
+Superseded on the exception type only by [`NotSupportedException` for out-of-scope operations](not-supported-exception-for-out-of-scope.md). The set of out-of-scope operations below still stands.
 
 These operations are not meaningful for a local embedded emulator and will remain as `NotImplementedException` stubs:
 

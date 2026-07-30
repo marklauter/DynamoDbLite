@@ -9,8 +9,6 @@ status: locked
 
 # Behavioral Fidelity
 
-Status: Accepted
-
 Full fidelity with DynamoDB semantics:
 
 - Parse and evaluate `ConditionExpression`, `FilterExpression`, `KeyConditionExpression`, `ProjectionExpression`

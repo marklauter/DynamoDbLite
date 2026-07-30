@@ -10,7 +10,7 @@ superseded-by: "[[in-memory-needs-no-app-lock]]"
 
 # Concurrency Strategy
 
-Status: Superseded by [In-memory store needs no in-process lock](in-memory-needs-no-app-lock.md) — the file-based half below still stands; only the in-memory store changed, dropping its `AsyncReaderWriterLock`.
+Superseded by [In-memory store needs no in-process lock](in-memory-needs-no-app-lock.md). The file-based half below still stands; only the in-memory store changed, dropping its `AsyncReaderWriterLock`.
 
 Concurrency strategy depends on the connection mode (see the Phase 11 split in [Implementation Phases](implementation-phases.md)):
 

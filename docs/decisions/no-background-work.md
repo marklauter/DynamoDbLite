@@ -10,7 +10,7 @@ supersedes: "[[implementation-phases]]"
 
 # Export, import, and TTL cleanup run inline
 
-Status: Accepted (supersedes the execution model in phases 7 and 10 of [Implementation Phases](implementation-phases.md))
+Supersedes the execution model in phases 7 and 10 of [Implementation Phases](implementation-phases.md).
 
 No DynamoDbLite operation defers work past its own return. Three call sites previously discarded a
 task: `ExecuteExportAsync`, `ExecuteImportAsync`, and the TTL sweep. All three now run to completion

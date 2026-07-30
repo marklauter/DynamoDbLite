@@ -9,8 +9,6 @@ status: locked
 
 # Storage Model
 
-Status: Accepted
-
 All data lives in SQLite. The schema centers on an `items` table with `(table_name, pk, sk)` as primary key and a JSON payload column. Two denormalized columns sit alongside it: `sk_num` holds the numeric sort key for ordered range queries, and `ttl_epoch` drives read-time TTL filtering. Table metadata, TTL config, tags, exports, imports, and per-index tables are separate.
 
 Each GSI and LSI gets its own `idx_{tableName}_{indexName}` table. For the column-by-column schema, see [Storage Architecture](https://github.com/marklauter/DynamoDbLite/wiki/Storage-Architecture) in the wiki.

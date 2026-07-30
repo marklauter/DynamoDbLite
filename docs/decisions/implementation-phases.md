@@ -9,7 +9,7 @@ status: locked
 
 # Implementation Phases
 
-Status: Informational (status log, not a decision)
+This is a status log of delivered work, not a decision.
 
 The execution model recorded in phases 7 and 10 below is superseded by
 [Export, import, and TTL cleanup run inline](no-background-work.md). Those phases describe background

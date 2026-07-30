@@ -10,7 +10,7 @@ supersedes: "[[out-of-scope-operations]]"
 
 # `NotSupportedException` for out-of-scope operations
 
-Status: Accepted (supersedes the exception-type choice in [Out-of-scope Operations](out-of-scope-operations.md))
+Supersedes the exception-type choice in [Out-of-scope Operations](out-of-scope-operations.md).
 
 The set of out-of-scope operations is unchanged.
 

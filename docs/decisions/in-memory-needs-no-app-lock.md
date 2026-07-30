@@ -10,7 +10,7 @@ supersedes: "[[concurrency-strategy]]"
 
 # In-memory store needs no in-process lock
 
-Status: Accepted (supersedes [Concurrency Strategy](concurrency-strategy.md))
+Supersedes [Concurrency Strategy](concurrency-strategy.md).
 
 The in-memory store no longer holds an in-process lock. `InMemorySqliteStore` previously wrapped every store call in an `AsyncReaderWriterLock` to serialize writes. Experiments showed the lock is redundant.
 
