@@ -16,9 +16,15 @@ internal sealed class CleanupFailingStore
     // a Mode=Memory;Cache=Shared database is reclaimed when its last connection closes.
     private readonly SqliteConnection sentinel;
 
-    internal CleanupFailingStore(DynamoDbLiteOptions options)
+    // A factory rather than a single exception, so each throw is a fresh instance with its own stack.
+    private readonly Func<Exception> sweepFailure;
+
+    internal CleanupFailingStore(DynamoDbLiteOptions options, Func<Exception>? sweepFailure = null)
         : base(options, createTables: false)
     {
+        this.sweepFailure = sweepFailure
+            ?? (static () => new InvalidOperationException("simulated TTL sweep failure"));
+
         sentinel = new SqliteConnection(ConnectionString);
         sentinel.Open();
         CreateTables();
@@ -27,7 +33,7 @@ internal sealed class CleanupFailingStore
     internal override Task CleanupExpiredItemsAsync(
         string tableName,
         CancellationToken cancellationToken = default) =>
-        throw new InvalidOperationException("simulated TTL sweep failure");
+        throw sweepFailure();
 
     protected override async Task<DbConnection> OpenConnectionAsync(CancellationToken ct)
     {

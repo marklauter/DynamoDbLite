@@ -357,4 +357,125 @@ public sealed class ProjectionExpressionTests
 
         Assert.Equal("name", ((AttributeNameElement)paths[0].Elements[0]).Name);
     }
+
+    // ── Evaluation: revisiting a container, and paths that cannot resolve ─
+    //
+    // The evaluator creates each container detached and attaches it only once the whole path
+    // resolves, and it recurses into a container a previous path already put in the result. A defect
+    // in either returns a wrongly shaped item rather than an error, so the shape is what these
+    // assert. The cases above cover distinct list slots; these cover revisiting the same one and the
+    // paths that must resolve to nothing.
+
+    private static AttributeValue Map(params (string Key, AttributeValue Value)[] entries) =>
+        new() { M = entries.ToDictionary(static e => e.Key, static e => e.Value) };
+
+    private static AttributeValue Str(string value) =>
+        new() { S = value };
+
+    private static Dictionary<string, AttributeValue> Project(
+        Dictionary<string, AttributeValue> item, string projection) =>
+        ProjectionExpressionEvaluator.Apply(item, ProjectionExpressionParser.Parse(projection));
+
+    [Fact]
+    public void Apply_TwoPathsSharingNestedMapPrefix_MergeIntoOneContainer()
+    {
+        var item = new Dictionary<string, AttributeValue>
+        {
+            ["a"] = Map(("b", Map(("c", Str("see")), ("d", Str("dee")), ("e", Str("ee")))))
+        };
+
+        var result = Project(item, "a.b.c, a.b.d");
+
+        // The second path recurses into the "b" the first path already attached, rather than
+        // replacing it and losing "c".
+        var b = Assert.Single(result).Value.M!["b"];
+        Assert.Equal(2, b.M!.Count);
+        Assert.Equal("see", b.M["c"].S);
+        Assert.Equal("dee", b.M["d"].S);
+    }
+
+    [Fact]
+    public void Apply_TwoPathsIntoSameListIndex_MergeIntoOneElement()
+    {
+        var item = new Dictionary<string, AttributeValue>
+        {
+            ["entries"] = new()
+            {
+                L = [Map(("label", Str("first")), ("qty", Str("1")), ("extra", Str("x")))]
+            }
+        };
+
+        var result = Project(item, "entries[0].label, entries[0].qty");
+
+        var element = Assert.Single(Assert.Single(result).Value.L!);
+        Assert.Equal(2, element.M!.Count);
+        Assert.Equal("first", element.M["label"].S);
+        Assert.Equal("1", element.M["qty"].S);
+    }
+
+    [Fact]
+    public void Apply_MapPathThroughScalar_ReturnsNothing()
+    {
+        var item = new Dictionary<string, AttributeValue>
+        {
+            ["a"] = Map(("b", Str("scalar, not a container")))
+        };
+
+        var result = Project(item, "a.b.c");
+
+        Assert.Empty(result);
+    }
+
+    [Fact]
+    public void Apply_NestedMapPathWithMissingLeaf_LeavesResultUntouched()
+    {
+        var item = new Dictionary<string, AttributeValue>
+        {
+            ["a"] = Map(("b", Map(("c", Str("see")))))
+        };
+
+        var result = Project(item, "a.b.nope");
+
+        // The detached containers are discarded rather than attached, so "a" does not appear at all.
+        Assert.Empty(result);
+    }
+
+    [Fact]
+    public void Apply_ListPathThroughScalarElement_ReturnsNothing()
+    {
+        var item = new Dictionary<string, AttributeValue>
+        {
+            ["entries"] = new() { L = [Str("scalar, not a container")] }
+        };
+
+        var result = Project(item, "entries[0].label");
+
+        Assert.Empty(result);
+    }
+
+    [Fact]
+    public void Apply_ListElementWithMissingLeaf_LeavesResultUntouched()
+    {
+        var item = new Dictionary<string, AttributeValue>
+        {
+            ["entries"] = new() { L = [Map(("label", Str("first")))] }
+        };
+
+        var result = Project(item, "entries[0].nope");
+
+        Assert.Empty(result);
+    }
+
+    [Fact]
+    public void Apply_RootPathThroughScalar_ReturnsNothing()
+    {
+        var item = new Dictionary<string, AttributeValue>
+        {
+            ["a"] = Str("scalar, not a container")
+        };
+
+        var result = Project(item, "a.b");
+
+        Assert.Empty(result);
+    }
 }

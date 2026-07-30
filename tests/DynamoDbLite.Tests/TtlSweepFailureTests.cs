@@ -11,10 +11,13 @@ public sealed class TtlSweepFailureTests
 {
     private const string TableName = "SweepFailureTable";
 
-    private static async Task<DynamoDbClient> CreateClientWithFailingSweepAsync()
+    private static Task<DynamoDbClient> CreateClientWithFailingSweepAsync() =>
+        CreateClientWithFailingSweepAsync(null);
+
+    private static async Task<DynamoDbClient> CreateClientWithFailingSweepAsync(Func<Exception>? sweepFailure)
     {
         var options = new DynamoDbLiteOptions($"Data Source=sweepfail_{Guid.NewGuid():N};Mode=Memory;Cache=Shared");
-        var client = new DynamoDbClient(static o => new CleanupFailingStore(o), options);
+        var client = new DynamoDbClient(o => new CleanupFailingStore(o, sweepFailure), options);
 
         _ = await client.CreateTableAsync(new CreateTableRequest
         {
@@ -73,5 +76,35 @@ public sealed class TtlSweepFailureTests
         }, TestContext.Current.CancellationToken);
 
         Assert.Equal(1, response.Count);
+    }
+
+    // Cancellation is the one sweep exception that must not be swallowed. The sweep runs inside the
+    // caller's operation and shares its token, so a cancelled sweep means a cancelled request — the
+    // filter on the catch exists to keep that distinct from a sweep that genuinely failed.
+    [Fact]
+    public async Task GetItem_Propagates_Cancellation_From_The_Sweep()
+    {
+        using var client = await CreateClientWithFailingSweepAsync(
+            static () => new OperationCanceledException("sweep observed cancellation"));
+
+        _ = await Assert.ThrowsAsync<OperationCanceledException>(() =>
+            client.GetItemAsync(TableName,
+                new Dictionary<string, AttributeValue> { ["PK"] = new() { S = "pk1" } },
+                TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task Query_Propagates_Cancellation_From_The_Sweep()
+    {
+        using var client = await CreateClientWithFailingSweepAsync(
+            static () => new OperationCanceledException("sweep observed cancellation"));
+
+        _ = await Assert.ThrowsAsync<OperationCanceledException>(() =>
+            client.QueryAsync(new QueryRequest
+            {
+                TableName = TableName,
+                KeyConditionExpression = "PK = :pk",
+                ExpressionAttributeValues = new Dictionary<string, AttributeValue> { [":pk"] = new() { S = "pk1" } }
+            }, TestContext.Current.CancellationToken));
     }
 }

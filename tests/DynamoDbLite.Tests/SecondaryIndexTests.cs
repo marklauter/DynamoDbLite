@@ -1237,6 +1237,99 @@ public sealed class SecondaryIndexTests
             }, TestContext.Current.CancellationToken));
     }
 
+    // -- UpdateTable: Create GSI validation ------------------------------
+
+    private static GlobalSecondaryIndexUpdate CreateGsiUpdate(string indexName, string hashAttribute) =>
+        new()
+        {
+            Create = new CreateGlobalSecondaryIndexAction
+            {
+                IndexName = indexName,
+                KeySchema = [new KeySchemaElement { AttributeName = hashAttribute, KeyType = KeyType.HASH }],
+                Projection = new Projection { ProjectionType = ProjectionType.ALL }
+            }
+        };
+
+    [Theory]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
+    public async Task UpdateTableAsync_CreateGsi_Rejects_Duplicate_Index_Name(StoreType st)
+    {
+        var client = Client(st);
+        await CreateTableWithGsiAsync(client);
+
+        var ex = await Assert.ThrowsAsync<AmazonDynamoDBException>(() =>
+            client.UpdateTableAsync(new UpdateTableRequest
+            {
+                TableName = TestTableName,
+                GlobalSecondaryIndexUpdates = [CreateGsiUpdate("GSI1", "GSI_PK")]
+            }, TestContext.Current.CancellationToken));
+
+        Assert.Contains("Duplicate index name", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
+    public async Task UpdateTableAsync_CreateGsi_Rejects_Key_Attribute_Not_In_AttributeDefinitions(StoreType st)
+    {
+        var client = Client(st);
+        await CreateTableWithGsiAsync(client);
+
+        // No AttributeDefinitions on the request, so the table's own definitions are used — and they
+        // do not define UNDECLARED_PK.
+        var ex = await Assert.ThrowsAsync<AmazonDynamoDBException>(() =>
+            client.UpdateTableAsync(new UpdateTableRequest
+            {
+                TableName = TestTableName,
+                GlobalSecondaryIndexUpdates = [CreateGsiUpdate("GSI2", "UNDECLARED_PK")]
+            }, TestContext.Current.CancellationToken));
+
+        Assert.Contains("UNDECLARED_PK", ex.Message, StringComparison.Ordinal);
+        Assert.Contains("not defined in AttributeDefinitions", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
+    public async Task UpdateTableAsync_CreateGsi_Rejects_Sixth_Index(StoreType st)
+    {
+        var client = Client(st);
+
+        static AttributeDefinition Attr(string name) =>
+            new() { AttributeName = name, AttributeType = ScalarAttributeType.S };
+
+        _ = await client.CreateTableAsync(new CreateTableRequest
+        {
+            TableName = TestTableName,
+            KeySchema = [new KeySchemaElement { AttributeName = "PK", KeyType = KeyType.HASH }],
+            // Exactly the attributes the key schemas use: DynamoDB rejects unused definitions, so G6
+            // cannot be declared until the index that uses it is requested.
+            AttributeDefinitions =
+            [
+                Attr("PK"), Attr("G1"), Attr("G2"), Attr("G3"), Attr("G4"), Attr("G5")
+            ],
+            GlobalSecondaryIndexes =
+            [
+                .. Enumerable.Range(1, 5).Select(i => new GlobalSecondaryIndex
+                {
+                    IndexName = $"GSI{i}",
+                    KeySchema = [new KeySchemaElement { AttributeName = $"G{i}", KeyType = KeyType.HASH }],
+                    Projection = new Projection { ProjectionType = ProjectionType.ALL }
+                })
+            ]
+        }, TestContext.Current.CancellationToken);
+
+        var ex = await Assert.ThrowsAsync<AmazonDynamoDBException>(() =>
+            client.UpdateTableAsync(new UpdateTableRequest
+            {
+                TableName = TestTableName,
+                GlobalSecondaryIndexUpdates = [CreateGsiUpdate("GSI6", "G6")]
+            }, TestContext.Current.CancellationToken));
+
+        Assert.Contains("per-table limit of 5", ex.Message, StringComparison.Ordinal);
+    }
+
     // -- UpdateTable: Create GSI with backfill ---------------------------
 
     [Theory]
