@@ -1,4 +1,4 @@
-// Out of scope per ADR 0006. See docs/adrs/0006-out-of-scope-operations.md.
+// Out of scope by decision. See docs/decisions/out-of-scope-operations.md.
 // Every method in this file throws NotSupportedException by design and is excluded
 // from coverage — there is no behavior to exercise, and asserting "throws" on each
 // would add ceremony without signal.

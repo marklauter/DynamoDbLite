@@ -1,10 +1,10 @@
 ---
 title: The in-memory store needs no app-level write lock
-summary: Microsoft.Data.Sqlite's own retry serializes concurrent writers to the shared in-memory database, so the AsyncReaderWriterLock is redundant; busy_timeout is inert for shared-cache locks.
-document:
-  tags: [journal, sqlite, concurrency, performance, decision]
-  created: 2026-06-01
-edge.supersedes: [docs/adrs/0003-concurrency-strategy.md]
+type: journal
+summary: "Microsoft.Data.Sqlite's own retry serializes concurrent writers to the shared in-memory database, so the AsyncReaderWriterLock is redundant; busy_timeout is inert for shared-cache locks."
+tags: [sqlite, concurrency, performance]
+created: 2026-06-01
+supersedes: "[[concurrency-strategy]]"
 ---
 
 # The in-memory store needs no app-level write lock
@@ -13,7 +13,7 @@ Microsoft.Data.Sqlite's own retry serializes concurrent writers to the shared in
 
 ## Context
 
-The investigation opened as an efficiency review of `DynamoDbClient.BatchWriteItemAsync`. Costing each store call exposed that `InMemorySqliteStore` wraps every call in an `AsyncReaderWriterLock` per [[docs/adrs/0003-concurrency-strategy.md]]. That raised the question: does the in-memory store need an application-level lock, or do SQLite and the Microsoft.Data.Sqlite driver already serialize concurrent writers? Two things were open going in — whether concurrent writers fail without the lock, and whether `busy_timeout` governs that behavior.
+The investigation opened as an efficiency review of `DynamoDbClient.BatchWriteItemAsync`. Costing each store call exposed that `InMemorySqliteStore` wraps every call in an `AsyncReaderWriterLock` per [[docs/decisions/concurrency-strategy.md]]. That raised the question: does the in-memory store need an application-level lock, or do SQLite and the Microsoft.Data.Sqlite driver already serialize concurrent writers? Two things were open going in — whether concurrent writers fail without the lock, and whether `busy_timeout` governs that behavior.
 
 ## Attempted
 
@@ -41,10 +41,10 @@ Related finding, separate cycle: the `SqliteStore` constructor overwrote a calle
 
 ## Decision
 
-Remove the `AsyncReaderWriterLock` from `InMemorySqliteStore` and rely on SQLite plus the driver retry, matching `FileSqliteStore`. The lock is redundant for correctness — 800 concurrent writes pass without it. The only behavior it added over driver-retry was asynchronous waiting in place of a blocking retry, and avoiding a hard throw when a single operation exceeds `CommandTimeout`. At the target write concurrency — local development, tests, mobile — both are negligible. This supersedes [[docs/adrs/0003-concurrency-strategy.md]].
+Remove the `AsyncReaderWriterLock` from `InMemorySqliteStore` and rely on SQLite plus the driver retry, matching `FileSqliteStore`. The lock is redundant for correctness — 800 concurrent writes pass without it. The only behavior it added over driver-retry was asynchronous waiting in place of a blocking retry, and avoiding a hard throw when a single operation exceeds `CommandTimeout`. At the target write concurrency — local development, tests, mobile — both are negligible. This supersedes [[docs/decisions/concurrency-strategy.md]].
 
 Trade-off accepted: driver-retry serializes by blocking the calling thread during the retry rather than awaiting it. A single write that holds the lock past the 30 s `CommandTimeout` hard-fails rather than queuing — a pathological case, outside the target workload.
 
 ## Next
 
-Rip out the `rwLock` field, the two `Acquire*LockAsync` overrides, and their disposal from `InMemorySqliteStore`; update [[docs/adrs/0003-concurrency-strategy.md]]; run the batch and parity tests. `busy_timeout` belongs on the file path if anywhere, since file-lock conflicts return `SQLITE_BUSY` (5), which the busy handler does honor.
+Rip out the `rwLock` field, the two `Acquire*LockAsync` overrides, and their disposal from `InMemorySqliteStore`; update [[docs/decisions/concurrency-strategy.md]]; run the batch and parity tests. `busy_timeout` belongs on the file path if anywhere, since file-lock conflicts return `SQLITE_BUSY` (5), which the busy handler does honor.

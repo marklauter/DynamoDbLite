@@ -15,7 +15,7 @@ internal sealed class InMemorySqliteStore
         // The sentinel keeps the shared in-memory database alive: a Mode=Memory;Cache=Shared
         // database is reclaimed when its last connection closes, and the store opens a fresh
         // connection per operation. Concurrency is left to SQLite and the Microsoft.Data.Sqlite
-        // driver, which serialize writers via retry — no in-process lock (see ADR 0008).
+        // driver, which serialize writers via retry — no in-process lock (see docs/decisions/in-memory-needs-no-app-lock.md).
         sentinel = new SqliteConnection(ConnectionString);
         sentinel.Open();
         CreateTables();

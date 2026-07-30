@@ -1,6 +1,6 @@
 # Time To Live
 
-Each item carries an absolute expiration epoch, reads filter expired rows out, and a throttled sweep on the read path deletes them. Tracks Phase 7 in [`adrs/0005-implementation-phases.md`](../adrs/0005-implementation-phases.md).
+Each item carries an absolute expiration epoch, reads filter expired rows out, and a throttled sweep on the read path deletes them. Tracks Phase 7 in [`decisions/implementation-phases.md`](../decisions/implementation-phases.md).
 
 ## Model
 
