@@ -52,7 +52,7 @@ This appears in `GetItem`, `Query`, `Scan`, the conditional-write existence chec
 
 Effect: an expired item is invisible to every API surface the moment its epoch passes, regardless of whether the row has been swept yet. This is stricter than real DynamoDB, where expired-but-not-yet-deleted items can still appear in scans for up to 48h. Stricter is fine — tests written against real DynamoDB's documented contract pass against DynamoDbLite.
 
-## Background cleanup
+## Cleanup
 
 `SqliteStore.CleanupExpiredItemsAsync(tableName)` deletes rows where `ttl_epoch IS NOT NULL AND ttl_epoch < @nowEpoch` from `items` and from every index table for that table, then refreshes `item_count` / `table_size_bytes` on the `tables` row. The whole thing runs in a single write transaction.
 
@@ -64,25 +64,24 @@ await CleanupExpiredItemsSafeAsync(request.TableName, cancellationToken);
 ```
 
 Throttled to **once per 60 seconds per table** via an in-memory `lastCleanupByTable` dictionary
-inside the store. Because the call is awaited, the throttle is what makes the cost acceptable: one
-read per table per minute pays for the sweep, every other read returns after a dictionary lookup, so
-the cost amortises across read traffic. The throttle also keeps cleanup from taking a write lock on
-every burst.
+inside the store. The throttle is what makes an awaited sweep affordable: one read per table per
+minute pays for it, and every other read returns after a dictionary lookup. It also keeps cleanup
+from taking a write lock on every burst.
 
-Failures are logged, not propagated — the `CA1031` suppression is deliberate. Reclamation is never
-load-bearing, because reads filter expired rows by `ttl_epoch` regardless of whether the sweep has
-run, so a transient SQLite error should not fail a read that otherwise succeeded. Cancellation is
-the exception: `OperationCanceledException` propagates, since the sweep now runs inside the caller's
-operation and shares its token.
+Failures are logged, not propagated, and the `CA1031` suppression is deliberate. Reads filter expired
+rows by `ttl_epoch` whether or not the sweep has run, so reclamation is never load-bearing and a
+transient SQLite error must not fail a read that otherwise succeeded. Cancellation is the exception.
+`OperationCanceledException` propagates, because the sweep runs inside the caller's operation and
+shares its token.
 
-There is no timer or background thread. Cleanup happens opportunistically on the next read after the
-throttle window expires. If a table goes idle, expired rows stay on disk indefinitely — but they
-remain invisible to readers, so the only cost is storage. This matches the "lite" positioning: no
-thread overhead, correctness on read, eventual storage reclamation.
+There is no timer or background thread. Cleanup happens on the next read after the throttle window
+expires. If a table goes idle, expired rows stay on disk indefinitely while remaining invisible to
+readers, so the only cost is storage. That is the intended shape for this library: no thread
+overhead, correctness on read, eventual storage reclamation.
 
 One wart: the throttle timestamp is stamped before the sweep runs, so a sweep that fails or is
 cancelled still consumes its window and the next attempt waits the full 60 seconds. Reads stay
-correct throughout; only reclamation is delayed.
+correct throughout. Only reclamation is delayed.
 
 ## Enable / disable
 
