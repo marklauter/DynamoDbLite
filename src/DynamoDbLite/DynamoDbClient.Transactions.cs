@@ -285,7 +285,7 @@ public sealed partial class DynamoDbClient
                     get.ProjectionExpression, get.ExpressionAttributeNames);
 
             if (cleanedTables.Add(get.TableName))
-                TriggerBackgroundCleanup(get.TableName);
+                await CleanupExpiredItemsSafeAsync(get.TableName, cancellationToken);
 
             var (pk, sk) = KeyHelper.ExtractKeys(get.Key, keyInfo.KeySchema, keyInfo.AttributeDefinitions);
             var itemJson = await store.GetItemAsync(get.TableName, pk, sk, nowEpoch, cancellationToken);

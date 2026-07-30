@@ -1,6 +1,7 @@
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
 using DynamoDbLite.Tests.Fixtures;
+using System.Globalization;
 
 namespace DynamoDbLite.Tests;
 
@@ -254,6 +255,52 @@ public abstract class ExportTestsBase
             {
                 ExportArn = "arn:aws:dynamodb:local:000000000000:table/X/export/fake"
             }, TestContext.Current.CancellationToken));
+
+    [Fact]
+    public async Task Export_Excludes_Expired_Items()
+    {
+        _ = await client.UpdateTimeToLiveAsync(new UpdateTimeToLiveRequest
+        {
+            TableName = TableName,
+            TimeToLiveSpecification = new TimeToLiveSpecification { Enabled = true, AttributeName = "ttl" }
+        }, TestContext.Current.CancellationToken);
+
+        _ = await client.PutItemAsync(new PutItemRequest
+        {
+            TableName = TableName,
+            Item = new Dictionary<string, AttributeValue>
+            {
+                ["PK"] = new() { S = "expired-pk" },
+                ["SK"] = new() { S = "expired-sk" },
+                ["ttl"] = new() { N = DateTimeOffset.UtcNow.AddMinutes(-5).ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture) }
+            }
+        }, TestContext.Current.CancellationToken);
+
+        // Deliberately no read between the write and the export: a read would trigger the TTL
+        // sweep, which could physically delete the row and make this pass without the predicate.
+        var response = await client.ExportTableToPointInTimeAsync(new ExportTableToPointInTimeRequest
+        {
+            TableArn = TableArn,
+            S3Bucket = tempDir,
+            ExportFormat = ExportFormat.DYNAMODB_JSON
+        }, TestContext.Current.CancellationToken);
+
+        var described = await client.DescribeExportAsync(new DescribeExportRequest
+        {
+            ExportArn = response.ExportDescription.ExportArn
+        }, TestContext.Current.CancellationToken);
+
+        Assert.Equal(ExportStatus.COMPLETED, described.ExportDescription.ExportStatus);
+        Assert.Equal(5, described.ExportDescription.ItemCount);
+
+        var exportId = response.ExportDescription.ExportArn.Split('/')[^1];
+        var dataDir = Path.Combine(tempDir, "AWSDynamoDB", exportId, "data");
+        foreach (var file in Directory.GetFiles(dataDir, "*.json"))
+        {
+            var content = await File.ReadAllTextAsync(file, TestContext.Current.CancellationToken);
+            Assert.DoesNotContain("expired-pk", content, StringComparison.Ordinal);
+        }
+    }
 
     [Fact]
     public async Task Export_Failing_Mid_Flight_Records_Internal_Error()

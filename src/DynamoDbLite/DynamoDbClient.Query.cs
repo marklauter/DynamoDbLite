@@ -51,7 +51,7 @@ public sealed partial class DynamoDbClient
             request.TableName, sql.PkValue, sql.SkWhereSql, sql.SkParams,
             sql.OrderByColumn, ascending, request.Limit, exclusiveStartSk, nowEpoch, cancellationToken);
 
-        TriggerBackgroundCleanup(request.TableName);
+        await CleanupExpiredItemsSafeAsync(request.TableName, cancellationToken);
 
         var scannedCount = rows.Count;
         var items = new List<Dictionary<string, AttributeValue>>(rows.Count);

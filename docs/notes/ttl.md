@@ -1,6 +1,6 @@
 # Time To Live
 
-DynamoDbLite implements TTL the same way the user proposed: each item carries an absolute expiration epoch, reads filter expired rows out, and a throttled background sweep deletes them. Tracks Phase 7 in [`adrs/0005-implementation-phases.md`](../adrs/0005-implementation-phases.md).
+Each item carries an absolute expiration epoch, reads filter expired rows out, and a throttled sweep on the read path deletes them. Tracks Phase 7 in [`adrs/0005-implementation-phases.md`](../adrs/0005-implementation-phases.md).
 
 ## Model
 
@@ -56,16 +56,33 @@ Effect: an expired item is invisible to every API surface the moment its epoch p
 
 `SqliteStore.CleanupExpiredItemsAsync(tableName)` deletes rows where `ttl_epoch IS NOT NULL AND ttl_epoch < @nowEpoch` from `items` and from every index table for that table, then refreshes `item_count` / `table_size_bytes` on the `tables` row. The whole thing runs in a single write transaction.
 
-Triggering is fire-and-forget from `DynamoDbClient.TriggerBackgroundCleanup`, called after writes:
+The sweep is awaited on the read path. `GetItem`, `Query`, `Scan`, `BatchGetItem`, and
+`TransactGetItems` each call it for the tables they touched:
 
 ```csharp
-private void TriggerBackgroundCleanup(string tableName) =>
-    _ = CleanupExpiredItemsSafeAsync(tableName);
+await CleanupExpiredItemsSafeAsync(request.TableName, cancellationToken);
 ```
 
-Throttled to **once per 30 seconds per table** via an in-memory `lastCleanupByTable` dictionary inside the store. The throttle exists because cleanup takes a write lock and would otherwise contend with the write that just triggered it on every burst. Failures are logged but do not propagate (`CA1031` suppression is intentional — a fire-and-forget background task that crashes the process on a transient SQLite error would be worse than a missed sweep).
+Throttled to **once per 60 seconds per table** via an in-memory `lastCleanupByTable` dictionary
+inside the store. Because the call is awaited, the throttle is what makes the cost acceptable: one
+read per table per minute pays for the sweep, every other read returns after a dictionary lookup, so
+the cost amortises across read traffic. The throttle also keeps cleanup from taking a write lock on
+every burst.
 
-There is no timer or background thread. Cleanup happens opportunistically on the next write after the throttle window expires. If a table goes idle, expired rows stay on disk indefinitely — but they remain invisible to readers, so the only cost is storage. This matches the "lite" positioning: no thread overhead, correctness on read, eventual storage reclamation.
+Failures are logged, not propagated — the `CA1031` suppression is deliberate. Reclamation is never
+load-bearing, because reads filter expired rows by `ttl_epoch` regardless of whether the sweep has
+run, so a transient SQLite error should not fail a read that otherwise succeeded. Cancellation is
+the exception: `OperationCanceledException` propagates, since the sweep now runs inside the caller's
+operation and shares its token.
+
+There is no timer or background thread. Cleanup happens opportunistically on the next read after the
+throttle window expires. If a table goes idle, expired rows stay on disk indefinitely — but they
+remain invisible to readers, so the only cost is storage. This matches the "lite" positioning: no
+thread overhead, correctness on read, eventual storage reclamation.
+
+One wart: the throttle timestamp is stamped before the sweep runs, so a sweep that fails or is
+cancelled still consumes its window and the next attempt waits the full 60 seconds. Reads stay
+correct throughout; only reclamation is delayed.
 
 ## Enable / disable
 
