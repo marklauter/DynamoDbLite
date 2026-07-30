@@ -1,10 +1,20 @@
+---
+title: Parity coverage status
+type: note
+summary: "Snapshot of which DynamoDB API surfaces have parity coverage today, which are permanently out of scope, and which gaps were investigated and closed."
+tags: [parity, status, scope, reference]
+created: 2026-05-15
+status: evolving
+cites: "[[parity-with-dynamodb-local]]"
+tracks: "[[implementation-phases]]"
+---
+
 # Parity coverage status
 
-Tags: parity, status, scope, reference
 Snapshot of which DynamoDB API surfaces have parity coverage today, which are permanently out of scope, and which gaps were investigated and closed.
 
 
-Reference companion to [`parity-with-dynamodb-local.md`](parity-with-dynamodb-local.md), which carries the design (container lifecycle, error parity, assertion strategy) and the file-by-file coverage list. This note carries the current-state framing — closed gaps, knobs, and the audit trail.
+Reference companion to [`parity-with-dynamodb-local.md`](parity-with-dynamodb-local.md), which carries the design (container lifecycle, error parity, assertion strategy) and the file-by-file coverage list.
 
 ## What's covered
 
@@ -23,10 +33,10 @@ The parity suite under [`tests/DynamoDbLite.Parity.Tests/`](../../tests/DynamoDb
 
 ## Permanently out of scope
 
-These will not be added regardless of release pressure. Each has a load-bearing reason that doesn't go away:
+These will not be added regardless of release pressure:
 
 - **Real AWS DynamoDB cloud backend.** Requires credentials, costs money, network-dependent. The three local backends already exercise the contract; the cloud backend would prove the same thing at recurring cost and CI flakiness.
-- **TTL parity.** `amazon/dynamodb-local` runs TTL on a long internal cron — expiration windows are minutes-to-hours, which makes CI-friendly cross-backend tests impractical. DynamoDbLite's own TTL behaviour is covered in the main test suite; cross-backend equivalence isn't observable without waiting for the container's cron.
+- **TTL parity.** `amazon/dynamodb-local` runs TTL on a long internal cron — expiration windows are minutes-to-hours. That makes CI-friendly cross-backend tests impractical. DynamoDbLite's own TTL behaviour is covered in the main test suite; cross-backend equivalence isn't observable without waiting for the container's cron.
 - **Export / Import.** Out of scope per [`decisions/implementation-phases.md`](../decisions/implementation-phases.md). The semantics are S3-coupled in real DynamoDB; an in-process emulator and `amazon/dynamodb-local` necessarily diverge from S3, so there's nothing meaningful to assert across the three backends.
 - **Cross-client response-shape equality.** Replaced by the explicit-expected-outcome strategy. The three clients legitimately differ on `TableArn`, `CreationDateTime`, `ResponseMetadata.RequestId`, capacity numbers, and free-text error messages; a shared bug between two implementations would also pass cross-comparison silently. Each test asserts what the AWS API contract says should happen, not what each client happens to return.
 

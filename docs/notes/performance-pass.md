@@ -1,3 +1,15 @@
+---
+title: Performance pass
+type: note
+summary: "Raw write-path benchmark sweep across journal mode, WAL checkpoint interval, and batch size, plus the per-operation metadata-read and SELECT-old cost analysis."
+tags: [performance, write-path, batch, wal, sqlite, bench]
+created: 2026-06-01
+status: evolving
+part-of: "[[write-path-performance-findings]]"
+---
+
+# Performance pass
+
     9f95f6f (after "cache table metadata" commits)
     ┌─────────────────────────────┬──────────────────┬─────────────────┐
     │           config            │ single (med/min) │ batch (med/min) │
@@ -32,41 +44,38 @@
   └─────────────────────────────┴────────┴─────────┴──────────┴─────────────┘
 
 
- 2. Single writes still read unconditionally — PutItemCoreAsync always does
-  the SELECT-old (for ReturnValues / index upkeep), which is exactly why
-  single stayed flat while batch dropped. The same gate — skip the read when
-  there are no indexes and the caller didn't ask for ReturnValues — is the
-  obvious next single-path win. (TransactWriteItems is in the same boat — it
-  still goes through PutItemCoreAsync/DeleteItemCoreAsync and reads every
-  item.)
+ 2. Single writes still read unconditionally. PutItemCoreAsync always does
+  the SELECT-old (for ReturnValues / index upkeep), which is why single stayed
+  flat while batch dropped. The next single-path win is the same gate: skip the
+  read when there are no indexes and the caller didn't ask for ReturnValues.
+  TransactWriteItems needs it too. It still goes through
+  PutItemCoreAsync/DeleteItemCoreAsync and reads every item.
 
 
   1. It re-reads immutable metadata on every operation. Key schema, attribute definitions, index definitions,
   the TTL attribute — these only change on control-plane calls (CreateTable, UpdateTable, UpdateTimeToLive).
-  Yet every Put/Update/Delete/Batch/Transact/Query/Scan reads them back out of SQLite. The honest fix isn't
-  a faster or combined query — it's to not read them: cache per-table metadata in-process (a
-  ConcurrentDictionary), invalidated on those few DDL ops. That drops metadata reads to zero across the whole
-  client, not just BatchWrite — and it makes my GetBatchWriteMetadataAsync moot. You don't optimize a read
-  you've eliminated.
+  Every Put/Update/Delete/Batch/Transact/Query/Scan reads them back out of SQLite. The fix is to stop reading
+  them rather than to make the read faster: cache per-table metadata in-process (a ConcurrentDictionary),
+  invalidated on those few DDL ops. That drops metadata reads to zero across the whole client, and it makes my
+  GetBatchWriteMetadataAsync moot.
 
   2. It opens a fresh connection per store call. Every store.X() is new SqliteConnection → open (pooled, so
   cheap-ish) → re-apply PRAGMA synchronous/temp_store (+ your pragmas + initializer) → query → dispose. So
-  the old BatchWrite was ~5 connection lifecycles — 4 reads + 1 write — each re-running the pragma setup,
-  with the metadata reads and the write landing on different connections in different transactions. The lever
-  is one connection (one transaction) per logical operation, threaded through the reads and the write:
-  collapses N opens to 1 and closes the read-then-write gap. My change shrank N; it didn't touch the model.
-  (Connection-per-call is a defensible simplicity choice, to be fair — it just isn't free.)
+  the old BatchWrite was ~5 connection lifecycles (4 reads + 1 write), each re-running the pragma setup, with
+  the metadata reads and the write landing on different connections in different transactions. The lever is
+  one connection (one transaction) per logical operation, threaded through the reads and the write: collapses
+  N opens to 1 and closes the read-then-write gap. My change shrank N; it didn't touch the model.
+  (Connection-per-call is a defensible simplicity choice, but it isn't free.)
 
 
 
-I have the full picture now. I traced every store call this method makes down to its connection/lock/query cost. Here's the analysis — no
-  changes made yet.
+Every store call this method makes is traced to its connection/lock/query cost. No changes applied yet.
 
-  How BatchWriteItemAsync actually costs out
+  How BatchWriteItemAsync costs out
 
   Every store.* call in this method is a self-contained unit: acquire a lock → open a brand-new SqliteConnection → run PRAGMA 
-  synchronous=NORMAL; temp_store=MEMORY → run the query → tear down (SqliteStore.cs:152, InMemorySqliteStore.cs:21). So "round-trips" here
-  aren't cheap dictionary hits — each is a connection open + pragma command + SQL query under the RW-lock.
+  synchronous=NORMAL; temp_store=MEMORY → run the query → tear down (SqliteStore.cs:152, InMemorySqliteStore.cs:21). Each "round-trip" here
+  is a connection open + pragma command + SQL query under the RW-lock.
 
   Counting what the method issues per distinct table:
 
@@ -87,9 +96,9 @@ I have the full picture now. I traced every store call this method makes down to
 
   Findings, by impact
 
-  1. The second GetKeySchemaAsync is pure waste (:167). Loop 2 re-fetches the key schema only to read keyInfo.AttributeDefinitions (:174) —
+  1. The second GetKeySchemaAsync is pure waste (:167). Loop 2 re-fetches the key schema only to read keyInfo.AttributeDefinitions (:174),
   which loop 1 already held in keyInfo and threw away. Capture it in loop 1 and this entire connection+lock+pragma+query disappears (25% of
-  the read traffic). Bonus: it removes a redundant ResourceNotFoundException re-check and a TOCTOU window where a table dropped between the
+  the read traffic). It also removes a redundant ResourceNotFoundException re-check and a TOCTOU window where a table dropped between the
   two loops would throw spuriously.
 
   2. The two passes should be one (:123 and :162). Loop 2 has no dependency on loop 1's results — both just enumerate request.RequestItems.
@@ -100,7 +109,7 @@ I have the full picture now. I traced every store call this method makes down to
   3. GetKeySchemaAsync and GetIndexDefinitionsAsync read the same row. key_schema_json, attribute_definitions_json,
   global_secondary_indexes_json, local_secondary_indexes_json are all columns of the single tables row (SqliteStore.cs:364 vs :910). Two
   connections fetch four columns of one row. A combined store method (one SELECT, optionally LEFT JOIN ttl_config to fold in TTL too)
-  collapses 4 reads → 1 read per table. This is the real structural win, but it's a store-API change, so it's the bigger/optional one.
+  collapses 4 reads → 1 read per table. This is the structural win, but it's a store-API change, so it's the bigger/optional one.
   GetTableDescriptionAsync already selects all those columns, so the query shape exists.
 
   4. Dead guards + a pointless dictionary (:121, :128, :164). RequestItems is a Dictionary → keys are unique → each tableName is iterated
@@ -148,5 +157,5 @@ I have the full picture now. I traced every store call this method makes down to
   maintenance is a cross-cutting design decision, so I'm flagging it rather than folding it into a "fix the batch method" change.
 
   ---
-  Want me to apply findings 1/2/4/5 (safe, local, behavior-preserving), and optionally draft the combined store method for finding 3? I'd run
-  the batch tests (BatchOperationsTests, BatchParityTests) after.
+  Next: apply findings 1/2/4/5 (safe, local, behavior-preserving), and optionally draft the combined store method for finding 3. Run the
+  batch tests (BatchOperationsTests, BatchParityTests) after.

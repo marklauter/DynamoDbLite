@@ -1,3 +1,15 @@
+---
+title: Time To Live
+type: note
+summary: "Each item carries an absolute expiration epoch, reads filter expired rows out, and a throttled sweep on the read path deletes them."
+tags: [ttl, sqlite, read-path]
+created: 2026-05-15
+status: locked
+tracks: "[[implementation-phases]]"
+constrained-by: "[[no-background-work]]"
+cites: "[[parity-with-dynamodb-local]]"
+---
+
 # Time To Live
 
 Each item carries an absolute expiration epoch, reads filter expired rows out, and a throttled sweep on the read path deletes them. Tracks Phase 7 in [`decisions/implementation-phases.md`](../decisions/implementation-phases.md).

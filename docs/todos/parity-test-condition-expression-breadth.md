@@ -1,8 +1,14 @@
 ---
 title: Parity test — condition expression breadth
-summary: Cross-backend assertions for ConditionExpression primitives beyond attribute_exists/not_exists and size — attribute_type, contains on string and list, begins_with inside ConditionExpression, and AND/OR/NOT trees.
-tags: [note, todo, parity, v1.1]
+type: todo
+summary: "Cross-backend assertions for ConditionExpression primitives beyond attribute_exists/not_exists and size — attribute_type, contains on string and list, begins_with inside ConditionExpression, and AND/OR/NOT trees."
+tags: [parity, v1.1]
 created: 2026-05-27
+priority: medium
+status: open
+part-of: "[[parity-parser-divergence-test-set]]"
+refines: "[[parity-coverage-gaps-in-operation-variants]]"
+cites: "[[parity-coverage-status]]"
 ---
 
 # Parity test — condition expression breadth
@@ -19,9 +25,9 @@ Today's parity suite covers `attribute_exists`, `attribute_not_exists` (in `Item
 - `begins_with(field, :v)` inside a `ConditionExpression` — parser path differs from `begins_with` in a `KeyConditionExpression`.
 - Compound logic: `AND`, `OR`, `NOT`, parenthesized nesting (`((a AND b) OR (c AND d))`).
 
-## Why parser-divergence risk
+## Parser-divergence risk
 
-`ConditionExpression` is parsed and translated to SQL by [[docs/notes/parser-result-caching.md]]'s expression engine. Each missing primitive exercises code paths that the main suite hits in-proc but no parity test ever compares against real DynamoDB. Operator precedence and short-circuit semantics in compound trees are the highest-drift surfaces.
+`ConditionExpression` is parsed and translated to SQL by [[docs/notes/parser-result-caching.md]]'s expression engine. Each missing primitive exercises code paths the main suite hits in-proc. No parity test compares those paths against real DynamoDB. Operator precedence and short-circuit semantics in compound trees are the highest-drift surfaces.
 
 ## Acceptance
 

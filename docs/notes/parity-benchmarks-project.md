@@ -1,8 +1,16 @@
+---
+title: Parity benchmarks project
+type: note
+summary: "BenchmarkDotNet project comparing DdbLite / DdbLiteFile / amazon/dynamodb-local on the same workloads; quantifies the perf asymmetry and gates future optimization."
+tags: [release, v1.1, performance, bench]
+created: 2026-05-15
+status: evolving
+measures: "[[dynamodblite-write-path-is-slower-than-read-path]]"
+---
+
 # Parity benchmarks project
 
-Tags: release, v1.1, performance, bench
 BenchmarkDotNet project comparing DdbLite / DdbLiteFile / amazon/dynamodb-local on the same workloads; quantifies the perf asymmetry and gates future optimization.
-
 
 ## Observation
 
@@ -10,7 +18,7 @@ No benchmark project exists yet. The perf hypothesis in [dynamodblite-write-path
 
 ## Interpretation
 
-Without numbers, every perf claim ("ddblite is faster on reads") and every perf "optimization" is folklore. The bench project is the load-bearing validator for the perf-asymmetry hypothesis and the parser-caching opportunity in [parser-result-caching](parser-result-caching.md). It also catches regressions in the SQLite store as the schema evolves.
+Without numbers, perf claims like "ddblite is faster on reads" are guesses, and so is any perf "optimization". The bench project is what validates the perf-asymmetry hypothesis and the parser-caching opportunity in [parser-result-caching](parser-result-caching.md). It also catches regressions in the SQLite store as the schema evolves.
 
 ## Next
 

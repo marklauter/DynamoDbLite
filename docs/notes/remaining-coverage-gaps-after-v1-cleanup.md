@@ -1,7 +1,16 @@
+---
+title: Remaining coverage gaps after v1.0 cleanup
+type: note
+summary: "Honest-test coverage in DynamoDbLite.Tests is exhausted; the uncovered lines that remain are defensive throws, background error arms, half-implemented edge cases, dead code, and time-dependent paths. None warrant a new test."
+tags: [coverage, known-limitation, dead-code, defensive-throws]
+created: 2026-05-16
+status: evolving
+constrained-by: "[[no-background-work]]"
+---
+
 # Remaining coverage gaps after v1.0 cleanup
 
-Tags: coverage, known-limitation, dead-code, defensive-throws
-The honest-test coverage gaps in `DynamoDbLite.Tests` are exhausted at ~97% line / ~87% branch. The remaining uncovered lines fall into four explicit categories — none warrant a new test.
+Honest-test coverage in `DynamoDbLite.Tests` is exhausted at ~97% line / ~87% branch. The remaining uncovered lines fall into five categories. None warrant a new test.
 
 ## Observation
 
@@ -31,7 +40,7 @@ The happy path is covered. The error-arm-of-the-error-arm is not.
 
 ### 3. Half-implemented edge cases (~10 lines)
 
-- `ExpressionHelper.cs:84` — `SetAtPath` extends a list with `{ NULL = true }` placeholders when the index is beyond the list length. The next iteration reads `current.M` from a NULL placeholder, which is `null` — a subsequent property access NREs. The path is partially implemented; a test that exercises line 84 also surfaces the latent bug. Not in scope for this cycle.
+- `ExpressionHelper.cs:84` — `SetAtPath` extends a list with `{ NULL = true }` placeholders when the index is beyond the list length. The next iteration reads `current.M` from a NULL placeholder, which is `null`, so a subsequent property access NREs. The path is partially implemented. A test that exercises line 84 also surfaces the latent bug. Not in scope for this cycle.
 
 ### 4. Dead code (~10 lines)
 
@@ -43,13 +52,13 @@ The happy path is covered. The error-arm-of-the-error-arm is not.
 
 ## Interpretation
 
-The coverage gate is at 97.15% line / 86.89% branch / 98.06% method with 779 tests. The remaining gap is structural — pursuing it further means either touching production code (extract dead, inject TimeProvider, fix the list-extend bug) or escaping the gate with `[ExcludeFromCodeCoverage]`. Neither is free, and neither is a coverage problem per se.
+The coverage gate is at 97.15% line / 86.89% branch / 98.06% method. The remaining gap is structural. Pursuing it further means either touching production code (extract dead, inject TimeProvider, fix the list-extend bug) or escaping the gate with `[ExcludeFromCodeCoverage]`. Neither is free, and neither is a coverage problem.
 
 ## Next
 
 - If we want to ratchet the coverage thresholds (`Directory.Build.props` MSBuild properties), 97/86/98 are the current achievable ceiling without product-code changes. Set thresholds at those numbers (or one point below as a buffer).
 - Consider a follow-up cleanup that:
   - Deletes `UpdateIndexMetadataAsync` (or wire it to a caller if intended).
-  - Decides on `[ExcludeFromCodeCoverage]` for the bucket-1 defensive throws. The argument either way is a single conversation, not a test.
+  - Decides on `[ExcludeFromCodeCoverage]` for the bucket-1 defensive throws. Settle it in a single conversation.
   - Adds a `TimeProvider` injection point so `Transactions.cs:320` becomes testable alongside other time-dependent code paths.
 - The half-implemented list-extend in `ExpressionHelper.cs` deserves its own note if pursued — file separately when it surfaces in a real scenario.

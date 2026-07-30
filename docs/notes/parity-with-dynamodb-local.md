@@ -1,6 +1,16 @@
+---
+title: Parity with dynamodb-local
+type: note
+summary: "Authoritative file-by-file list of every scenario the parity test suite asserts across DdbLite, DdbLiteFile, and amazon/dynamodb-local."
+tags: [parity, coverage, reference, dynamodb-local]
+created: 2026-05-15
+status: evolving
+tracks: "[[implementation-phases]]"
+constrained-by: ["[[behavioral-fidelity]]", "[[out-of-scope-operations]]"]
+---
+
 # Parity with dynamodb-local
 
-Tags: parity, coverage, reference, dynamodb-local
 Authoritative file-by-file list of every scenario the parity test suite asserts across DdbLite, DdbLiteFile, and amazon/dynamodb-local.
 
 
@@ -34,11 +44,11 @@ The suite under [`tests/DynamoDbLite.Parity.Tests/`](../../tests/DynamoDbLite.Pa
 
 ## Uncovered (permanently out of scope)
 
-Each item below is deliberate — there's a load-bearing reason that doesn't go away with more time or effort.
+Each item below is deliberate, and the reason for it doesn't go away with more time or effort.
 
 - **Real AWS DynamoDB cloud backend.** Requires credentials, costs money, network-dependent. The three local backends already exercise the contract; a cloud backend would prove the same thing at recurring cost and CI flakiness.
-- **TTL parity.** `amazon/dynamodb-local` runs TTL on a long internal cron — expiration windows are minutes-to-hours, which makes CI-friendly cross-backend tests impractical. DynamoDbLite's own TTL behaviour is covered in the main test suite; cross-backend equivalence isn't observable without waiting for the container's cron.
-- **Export / Import.** Out of scope per [`docs/decisions/implementation-phases.md`](../decisions/implementation-phases.md). The semantics are S3-coupled in real DynamoDB; an in-process emulator and `amazon/dynamodb-local` necessarily diverge from S3, so there's nothing meaningful to assert across the three backends.
+- **TTL parity.** `amazon/dynamodb-local` runs TTL on a long internal cron — expiration windows are minutes-to-hours, which makes CI-friendly cross-backend tests impractical. DynamoDbLite's own TTL behavior is covered in the main test suite; cross-backend equivalence isn't observable without waiting for the container's cron.
+- **Export / Import.** Out of scope per [`docs/decisions/implementation-phases.md`](../decisions/implementation-phases.md). The semantics are S3-coupled in real DynamoDB. An in-process emulator and `amazon/dynamodb-local` necessarily diverge from S3, so there's nothing to assert across the three backends.
 - **Cross-client response-shape equality.** Replaced by the explicit-expected-outcome strategy. The three clients legitimately differ on `TableArn`, `CreationDateTime`, `ResponseMetadata.RequestId`, capacity numbers, and free-text error messages; a shared bug between two implementations would also pass cross-comparison silently. Each test asserts what the AWS API contract says should happen, not what each client happens to return.
 
 ## Three-backend rationale
@@ -58,7 +68,7 @@ public enum ParityBackend
 }
 ```
 
-The collection fixture at [`DynamoDbFixture`](../../tests/DynamoDbLite.Parity.Tests/Fixtures/DynamoDbFixture.cs) owns one client per backend. Tests are `[Theory]` methods with a single [`[BackendData]`](../../tests/DynamoDbLite.Parity.Tests/Fixtures/BackendDataAttribute.cs) attribute that emits one row per backend tagged with a `Backend` trait, and resolve the client through `fixture.ClientAsync(backend, ct)`. Adding a parity scenario costs one method body and one `[BackendData]` line. The trait is what makes `--filter "Backend=DdbLite"` work — see [Running selectively](#running-selectively) below.
+The collection fixture at [`DynamoDbFixture`](../../tests/DynamoDbLite.Parity.Tests/Fixtures/DynamoDbFixture.cs) owns one client per backend. Tests are `[Theory]` methods with a single [`[BackendData]`](../../tests/DynamoDbLite.Parity.Tests/Fixtures/BackendDataAttribute.cs) attribute, which emits one row per backend tagged with a `Backend` trait. Each test resolves its client through `fixture.ClientAsync(backend, ct)`. Adding a parity scenario costs one method body and one `[BackendData]` line. The trait is what makes `--filter "Backend=DdbLite"` work — see [Running selectively](#running-selectively) below.
 
 ## Container lifecycle
 
@@ -85,7 +95,7 @@ Production code branches on DynamoDB error codes. Tests assert on exception type
 - `ValidationException` for malformed requests
 - `TransactionCanceledException` with `CancellationReasons[i].Code` matching the failing item's index
 
-This is the surface where `amazon/dynamodb-local` sometimes diverges from real DynamoDB. Tracking which behavior DynamoDbLite implements is a deliberate decision per scenario, not a default.
+This is the surface where `amazon/dynamodb-local` sometimes diverges from real DynamoDB. Which of the two behaviors DynamoDbLite implements is decided and tracked per scenario.
 
 ## Reserved keywords
 
@@ -100,7 +110,7 @@ docker.host=npipe://./pipe/podman-machine-default
 ryuk.disabled=true
 ```
 
-Docker Desktop users need no file — defaults work. Linux runners (CI) use the native `/var/run/docker.sock` automatically; no env vars needed. Hardcoding the endpoint in C# would break mixed-environment teams; the per-user file is the right knob.
+Docker Desktop users need no file — defaults work. Linux runners (CI) use the native `/var/run/docker.sock` automatically; no env vars needed. Hardcoding the endpoint in C# would break mixed-environment teams, so the endpoint stays in the per-user file.
 
 ## Running selectively
 
@@ -113,4 +123,4 @@ dotnet test tests/DynamoDbLite.Parity.Tests --filter "Backend=DynamoDbLocal"    
 dotnet test tests/DynamoDbLite.Parity.Tests --filter "Backend=DdbLite|Backend=DdbLiteFile"   # both lite backends, no container
 ```
 
-Wall-clock difference matters for the inner-dev loop — the container is the bulk of the cost, so filtering to lite backends roughly halves run time. CI should always run the full matrix (no filter).
+The container is the bulk of the wall-clock cost, so filtering to the lite backends roughly halves run time in the inner-dev loop. CI should always run the full matrix (no filter).
