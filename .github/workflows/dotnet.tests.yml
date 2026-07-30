@@ -1,12 +1,16 @@
-name: .NET Test
+name: .NET Tests
 
+# Every input the build gate reads is listed, because anything that can change the gate's verdict
+# must be able to trigger it. .editorconfig was missing when #98 raised five analyzer rules to error,
+# so the one PR that could break the gate was the one PR that could not run it, and main went red
+# unnoticed. bench/ is in the solution, so it belongs here too.
 on:
   push:
     branches: [ "main" ]
-    paths: [ "src/**", "tests/**", "Directory.Build.props", "Directory.Packages.props", ".github/workflows/**" ]
+    paths: [ "src/**", "tests/**", "bench/**", "DynamoDbLite.slnx", "Directory.Build.props", "Directory.Build.targets", "Directory.Packages.props", ".editorconfig", ".gitattributes", "global.json", ".github/workflows/dotnet.tests.yml", ".github/actions/setup-dotnet/action.yml" ]
   pull_request:
     branches: [ "main" ]
-    paths: [ "src/**", "tests/**", "Directory.Build.props", "Directory.Packages.props", ".github/workflows/**" ]
+    paths: [ "src/**", "tests/**", "bench/**", "DynamoDbLite.slnx", "Directory.Build.props", "Directory.Build.targets", "Directory.Packages.props", ".editorconfig", ".gitattributes", "global.json", ".github/workflows/dotnet.tests.yml", ".github/actions/setup-dotnet/action.yml" ]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -34,8 +38,11 @@ jobs:
     - uses: actions/checkout@v7
     - uses: ./.github/actions/setup-dotnet
 
+    - name: Restore dependencies
+      run: dotnet restore "tests/DynamoDbLite.Tests/DynamoDbLite.Tests.csproj"
+
     - name: Build
-      run: dotnet build "tests/DynamoDbLite.Tests/DynamoDbLite.Tests.csproj" -c ${{ matrix.configuration }}
+      run: dotnet build "tests/DynamoDbLite.Tests/DynamoDbLite.Tests.csproj" -c ${{ matrix.configuration }} --no-restore
 
     - name: Test
       run: dotnet test "tests/DynamoDbLite.Tests/DynamoDbLite.Tests.csproj" -c ${{ matrix.configuration }} --no-build
@@ -57,8 +64,11 @@ jobs:
     - uses: actions/checkout@v7
     - uses: ./.github/actions/setup-dotnet
 
+    - name: Restore dependencies
+      run: dotnet restore "tests/DynamoDbLite.Parity.Tests/DynamoDbLite.Parity.Tests.csproj"
+
     - name: Build
-      run: dotnet build "tests/DynamoDbLite.Parity.Tests/DynamoDbLite.Parity.Tests.csproj" -c ${{ matrix.configuration }}
+      run: dotnet build "tests/DynamoDbLite.Parity.Tests/DynamoDbLite.Parity.Tests.csproj" -c ${{ matrix.configuration }} --no-restore
 
     - name: Test
       run: dotnet test "tests/DynamoDbLite.Parity.Tests/DynamoDbLite.Parity.Tests.csproj" -c ${{ matrix.configuration }} --no-build

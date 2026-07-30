@@ -5,7 +5,7 @@ tags: [todo, remediation, ddblite, ci, root-cause]
 created: 2026-07-16
 priority: high
 effort: low
-status: open
+status: closed
 ---
 
 **Root cause of the red main.** `dotnet.tests.yml` (which hosts both the `format`
@@ -43,3 +43,27 @@ Applying this filter is what makes CI start running the gate — turning the hid
 errors into a red PR. Land the analyzer fixes ([[01-ca1515-public-test-classes]]
 through [[05-ca2214-virtual-call-in-ctor]]) in the same change, or ahead of it, so
 the branch is green when the gate first runs.
+
+## Resolution
+
+Closed 2026-07-29. `dotnet.tests.yml` now lists every input the gate reads, on both `push` and
+`pull_request`: the canonical set plus `bench/**` (it is in the solution) and `DynamoDbLite.slnx`.
+
+The solution file is a deviation from plumber's filter, which omits it. It is included here for the
+same reason this item exists: `dotnet format` reads the solution, and adding a project changes what
+gets built and tested, so it can change the gate's verdict and must be able to trigger it. plumber
+and pool should adopt it too.
+
+Also folded in: workflow renamed `.NET Test` -> `.NET Tests`, and both test jobs now restore, then
+build `--no-restore`, then test `--no-build`.
+
+Not needed after checking: no cp1252 `0x97` bytes anywhere in the workflows or actions; the coverage
+artifact paths were already pinned per project with `if-no-files-found: error`; and
+`dotnet.publish.yml` already restores then packs the solution with `--no-restore`.
+
+Deliberately kept: the split `unit-tests` / `parity-tests` jobs, rather than collapsing to plumber's
+single solution-wide `test` job. The two suites differ — the parity project carries a `Threshold=0`
+coverage override and exercises a different backend — and collapsing them would change what runs
+where for no gain. Renaming was safe to do because the `main` ruleset requires no status checks
+(rules: deletion, non_fast_forward, required_linear_history, pull_request), so no check name is
+referenced anywhere.
