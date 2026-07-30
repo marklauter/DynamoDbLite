@@ -254,6 +254,32 @@ public abstract class ExportTestsBase
             {
                 ExportArn = "arn:aws:dynamodb:local:000000000000:table/X/export/fake"
             }, TestContext.Current.CancellationToken));
+
+    [Fact]
+    public async Task Export_Failing_Mid_Flight_Records_Internal_Error()
+    {
+        // A file where the export directory needs to go: creating the directory tree under it
+        // fails, which is the failure the export reports rather than throws.
+        _ = Directory.CreateDirectory(tempDir);
+        var blocker = Path.Combine(tempDir, "blocked-destination");
+        await File.WriteAllTextAsync(blocker, string.Empty, TestContext.Current.CancellationToken);
+
+        var response = await client.ExportTableToPointInTimeAsync(new ExportTableToPointInTimeRequest
+        {
+            TableArn = TableArn,
+            S3Bucket = blocker,
+            ExportFormat = ExportFormat.DYNAMODB_JSON
+        }, TestContext.Current.CancellationToken);
+
+        var described = await client.DescribeExportAsync(new DescribeExportRequest
+        {
+            ExportArn = response.ExportDescription.ExportArn
+        }, TestContext.Current.CancellationToken);
+
+        Assert.Equal(ExportStatus.FAILED, described.ExportDescription.ExportStatus);
+        Assert.Equal("INTERNAL_ERROR", described.ExportDescription.FailureCode);
+        Assert.NotEmpty(described.ExportDescription.FailureMessage);
+    }
 }
 
 public sealed class InMemoryExportTests : ExportTestsBase

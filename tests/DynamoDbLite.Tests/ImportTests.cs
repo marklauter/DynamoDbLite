@@ -426,6 +426,78 @@ public abstract class ImportTestsBase
 
         Assert.NotNull(page2.ImportSummaryList);
     }
+
+    // Writes an export layout the importer will find: <root>/AWSDynamoDB/<id>/data/data.json,
+    // one JSON object per line.
+    private static async Task<string> WriteExportLayoutAsync(string root, params string[] lines)
+    {
+        var dataDir = Path.Combine(root, "AWSDynamoDB", Guid.NewGuid().ToString("N"), "data");
+        _ = Directory.CreateDirectory(dataDir);
+        await File.WriteAllLinesAsync(
+            Path.Combine(dataDir, "data.json"), lines, TestContext.Current.CancellationToken);
+        return root;
+    }
+
+    private static ImportTableRequest ImportFrom(string source, string tableName) =>
+        new()
+        {
+            S3BucketSource = new S3BucketSource { S3Bucket = source },
+            InputFormat = InputFormat.DYNAMODB_JSON,
+            TableCreationParameters = new TableCreationParameters
+            {
+                TableName = tableName,
+                KeySchema = [new KeySchemaElement { AttributeName = "PK", KeyType = KeyType.HASH }],
+                AttributeDefinitions =
+                    [new AttributeDefinition { AttributeName = "PK", AttributeType = ScalarAttributeType.S }]
+            }
+        };
+
+    [Fact]
+    public async Task Import_Failing_Mid_Flight_Records_Internal_Error()
+    {
+        var source = await WriteExportLayoutAsync(
+            Path.Combine(tempDir, "malformed"),
+            """{"Item":{"PK":{"S":"pk1"}}}""",
+            "{ this is not json");
+
+        var response = await client.ImportTableAsync(
+            ImportFrom(source, "MalformedImportTable"), TestContext.Current.CancellationToken);
+
+        var described = await client.DescribeImportAsync(new DescribeImportRequest
+        {
+            ImportArn = response.ImportTableDescription.ImportArn
+        }, TestContext.Current.CancellationToken);
+
+        Assert.Equal(ImportStatus.FAILED, described.ImportTableDescription.ImportStatus);
+        Assert.Equal("INTERNAL_ERROR", described.ImportTableDescription.FailureCode);
+        Assert.NotEmpty(described.ImportTableDescription.FailureMessage);
+    }
+
+    [Fact]
+    public async Task Import_Skips_Blank_Lines_In_Data_File()
+    {
+        var source = await WriteExportLayoutAsync(
+            Path.Combine(tempDir, "blanklines"),
+            """{"Item":{"PK":{"S":"pk1"}}}""",
+            string.Empty,
+            "   ",
+            """{"Item":{"PK":{"S":"pk2"}}}""");
+
+        var response = await client.ImportTableAsync(
+            ImportFrom(source, "BlankLineImportTable"), TestContext.Current.CancellationToken);
+
+        var described = await client.DescribeImportAsync(new DescribeImportRequest
+        {
+            ImportArn = response.ImportTableDescription.ImportArn
+        }, TestContext.Current.CancellationToken);
+
+        Assert.Equal(ImportStatus.COMPLETED, described.ImportTableDescription.ImportStatus);
+        Assert.Equal(2, described.ImportTableDescription.ImportedItemCount);
+
+        var scan = await client.ScanAsync(
+            new ScanRequest { TableName = "BlankLineImportTable" }, TestContext.Current.CancellationToken);
+        Assert.Equal(2, scan.Count);
+    }
 }
 
 public sealed class InMemoryImportTests : ImportTestsBase
