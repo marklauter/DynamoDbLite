@@ -1442,7 +1442,9 @@ internal abstract class SqliteStore
 
     // ── TTL cleanup & backfill ──────────────────────────────────────
 
-    internal async Task CleanupExpiredItemsAsync(string tableName, CancellationToken cancellationToken = default)
+    // Overridable so a test can fail the sweep while reads still succeed: the client's resilience to
+    // a failing sweep is behaviour worth pinning, and it cannot be provoked through real SQLite.
+    internal virtual async Task CleanupExpiredItemsAsync(string tableName, CancellationToken cancellationToken = default)
     {
         // Callers await this on the read path, so the sweep's cost is amortised across every read
         // in the window: one call per table per minute does the work, the rest return here.

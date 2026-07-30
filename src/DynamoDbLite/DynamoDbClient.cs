@@ -13,9 +13,7 @@ namespace DynamoDbLite;
 /// In-process <see cref="Amazon.DynamoDBv2.IAmazonDynamoDB"/> implementation backed by SQLite. Construct directly via
 /// <c>new DynamoDbClient(options)</c> or register via <see cref="ServiceCollectionExtensions.AddDynamoDbLite"/>.
 /// </summary>
-public sealed partial class DynamoDbClient(
-    DynamoDbLiteOptions options,
-    ILogger<DynamoDbClient>? logger = null)
+public sealed partial class DynamoDbClient
     : IAmazonDynamoDB
     , IAmazonService
     , IDisposable
@@ -23,11 +21,40 @@ public sealed partial class DynamoDbClient(
     private const int DefaultListTablesLimit = 100;
     private const int MaxTransactItems = 100;
 
-    private readonly SqliteStore store = CreateStore(options);
-    private readonly int maxBatchWriteItems = options.MaxBatchWriteItems;
+    private readonly SqliteStore store;
+    private readonly int maxBatchWriteItems;
     private readonly ConcurrentDictionary<string, (DateTime Expiry, TransactWriteItemsResponse Response)> transactWriteTokenCache = new();
-    private readonly ILogger<DynamoDbClient> logger = logger ?? NullLogger<DynamoDbClient>.Instance;
+    private readonly ILogger<DynamoDbClient> logger;
     private bool disposed;
+
+    /// <summary>
+    /// Creates a client over the store described by <paramref name="options"/>: an in-memory store
+    /// when the connection string names one, a file-backed store otherwise.
+    /// </summary>
+    /// <param name="options">Connection string and store settings.</param>
+    /// <param name="logger">Optional logger; defaults to a no-op logger.</param>
+    public DynamoDbClient(DynamoDbLiteOptions options, ILogger<DynamoDbClient>? logger = null)
+        : this(static o => CreateStore(o), options, logger)
+    {
+    }
+
+    // Takes a store factory rather than a store so a test can supply one that fails on demand: the
+    // failure paths on this client only run when the store throws, which real SQLite will not do to
+    // order. It is a factory rather than the store itself so the client always creates what it
+    // disposes — a field holding a store that is sometimes owned and sometimes injected is a
+    // disposal hazard, and IDISP008 says so.
+    internal DynamoDbClient(
+        Func<DynamoDbLiteOptions, SqliteStore> storeFactory,
+        DynamoDbLiteOptions options,
+        ILogger<DynamoDbClient>? logger = null)
+    {
+        ArgumentNullException.ThrowIfNull(storeFactory);
+        ArgumentNullException.ThrowIfNull(options);
+
+        store = storeFactory(options);
+        this.logger = logger ?? NullLogger<DynamoDbClient>.Instance;
+        maxBatchWriteItems = options.MaxBatchWriteItems;
+    }
 
     /// <inheritdoc/>
     public IClientConfig Config { get; } = new AmazonDynamoDBConfig();
