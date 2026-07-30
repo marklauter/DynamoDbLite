@@ -17,7 +17,7 @@ Six operation areas have known missing parity variants. Backend drift in those a
 
 The parity suite under [`tests/DynamoDbLite.Parity.Tests/`](../../tests/DynamoDbLite.Parity.Tests/) passes against three backends (DdbLite, DdbLiteFile, DynamoDbLocal) and gives 57% line / 46% branch coverage of the library. That is lower than the main suite (93% / 81%). Part of the difference is structural: TTL, Export/Import, ORM, and out-of-scope operations are intentionally excluded. The rest is variant-coverage gaps where adding scenarios would catch real cross-backend drift.
 
-Covered list is in [parity-with-dynamodb-local](parity-with-dynamodb-local.md); permanent out-of-scope items are in [parity-coverage-status](parity-coverage-status.md). The gaps below are non-structural: scenarios that are in scope, with AWS-API-observable behavior, not yet asserted across the three backends.
+Covered list is in [parity-with-dynamodb-local](../notes/parity-with-dynamodb-local.md); permanent out-of-scope items are in [parity-coverage-status](../notes/parity-coverage-status.md). The gaps below are non-structural: scenarios that are in scope, with AWS-API-observable behavior, not yet asserted across the three backends.
 
 ### Update expressions
 
@@ -110,4 +110,4 @@ Sequenced from highest value (most likely place for silent drift) to lowest:
 
 5. **Transaction shape parity** — mixed-action transactions, oversize transactions, `ReturnConsumedCapacity` shape.
 
-When the expansion lands, update [parity-with-dynamodb-local](parity-with-dynamodb-local.md)'s Covered list per scenario and recalculate the coverage delta in [parity-coverage-status](parity-coverage-status.md).
+When the expansion lands, update [parity-with-dynamodb-local](../notes/parity-with-dynamodb-local.md)'s Covered list per scenario and recalculate the coverage delta in [parity-coverage-status](../notes/parity-coverage-status.md).
