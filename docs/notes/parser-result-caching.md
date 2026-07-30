@@ -15,9 +15,9 @@ Cache parsed expression ASTs keyed by raw expression text; converts per-call par
 
 ## Observation
 
-`ConditionExpression`, `UpdateExpression`, `KeyConditionExpression`, `FilterExpression`, and `ProjectionExpression` are parsed on every API call. Real workloads call `PutItem` / `UpdateItem` with the same expression text many times — once per item in a batch, once per row in a sweep, once per request in a hot loop. Each call goes through `ConditionExpressionParser.Parse` / `UpdateExpressionParser.Parse` / `ProjectionExpressionParser.Parse` from scratch.
+`ConditionExpression`, `UpdateExpression`, `KeyConditionExpression`, `FilterExpression`, and `ProjectionExpression` are parsed on every API call. Real workloads call `PutItem` / `UpdateItem` with the same expression text many times — once per item in a batch, once per row in a bulk update, once per request in a hot loop. Each call goes through `ConditionExpressionParser.Parse` / `UpdateExpressionParser.Parse` / `ProjectionExpressionParser.Parse` from scratch.
 
-Measurement puts SQLite writes at ~10-20 ms with the indexes shipped in commit `6c6a8ca`. The parser dominates the rest. See [dynamodblite-write-path-is-slower-than-read-path](dynamodblite-write-path-is-slower-than-read-path.md).
+Measurement puts batched SQLite writes at ~10-20 µs/op with the indexes shipped in commit `6c6a8ca` (see [write-path-performance-findings](write-path-performance-findings.md)). The parser is the suspected remainder. See [dynamodblite-write-path-is-slower-than-read-path](dynamodblite-write-path-is-slower-than-read-path.md).
 
 ## Interpretation
 
@@ -29,7 +29,7 @@ The risk is shared cache state across `DynamoDbClient` instances; instance-local
 
 ## Next
 
-1. Land the bench project (see [parity-benchmarks-project](parity-benchmarks-project.md)) so a "before" number exists.
+1. Land the parity benchmarks project (see [parity-benchmarks-project](parity-benchmarks-project.md)) so a "before" number exists.
 2. Pick one parser to start with — `ConditionExpressionParser.Parse` is the most-called.
 3. Add a `ConcurrentDictionary<string, ConditionNode>` keyed by raw expression text, with size cap and LRU eviction. Instance-local on the `DynamoDbClient` (or its `SqliteStore`).
 4. Verify the AST is genuinely immutable (read-only); if any node carries mutable state, the cache is unsafe.

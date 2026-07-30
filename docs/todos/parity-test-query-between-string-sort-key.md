@@ -33,4 +33,4 @@ Add cases to `QueryParityTests.cs` (or extend `QueryNumericSortKeyParityTests` i
 
 ## Sequencing
 
-Fourth in the [[docs/notes/parity-parser-divergence-test-set.md]] epic. The surface is small, and the two-column-typed-sort-key design allows silent drift. Listed in the Query gap section of [[docs/notes/parity-coverage-gaps-in-operation-variants.md]].
+Fourth in the [[parity-parser-divergence-test-set]] epic. The surface is small, and the two-column-typed-sort-key design allows silent drift. Listed in the Query gap section of [[parity-coverage-gaps-in-operation-variants]].

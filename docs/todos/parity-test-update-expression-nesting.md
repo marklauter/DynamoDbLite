@@ -40,4 +40,4 @@ Extend `UpdateExpressionParityTests.cs` with one `[Theory]` per missing variant,
 
 ## Sequencing
 
-Second in the [[docs/notes/parity-parser-divergence-test-set.md]] epic. Parser depth and JSON-path interaction make this near-equivalent in risk to condition-expression breadth. Listed as the parser-variant pillar in [[docs/notes/parity-coverage-gaps-in-operation-variants.md]].
+Second in the [[parity-parser-divergence-test-set]] epic. Parser depth and JSON-path interaction make this near-equivalent in risk to condition-expression breadth. Listed as the parser-variant pillar in [[parity-coverage-gaps-in-operation-variants]].

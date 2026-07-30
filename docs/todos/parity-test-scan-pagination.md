@@ -35,10 +35,10 @@ Add cases to `ScanParityTests.cs`:
 
 - Plain pagination: seed 25 items, scan with `Limit = 10`, walk three pages, assert union of pages equals seed set with no duplicates.
 - Filtered pagination: seed 25 items where 10 match a filter, scan with `Limit = 5` + `FilterExpression`, walk pages until `LastEvaluatedKey` is null, assert the filtered subset emerges correctly across page boundaries.
-- Parameterize over the three backends per the [[docs/notes/parity-coverage-status.md]] strategy.
+- Parameterize over the three backends per the [[parity-coverage-status]] strategy.
 
 ## Sequencing
 
-Third in the [[docs/notes/parity-parser-divergence-test-set.md]] epic. Lower parser risk than expression breadth, higher consumer-surface impact. Pagination drift is the kind of bug a drop-in user files first.
+Third in the [[parity-parser-divergence-test-set]] epic. Lower parser risk than expression breadth, higher consumer-surface impact. Pagination drift is the kind of bug a drop-in user files first.
 
-This gap was not in [[docs/notes/parity-coverage-gaps-in-operation-variants.md]]; surfaced by the 2026-05-27 audit.
+This gap was not in [[parity-coverage-gaps-in-operation-variants]]; surfaced by the 2026-05-27 audit.

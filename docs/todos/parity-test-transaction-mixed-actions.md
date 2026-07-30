@@ -36,4 +36,4 @@ Add to `TransactionParityTests.cs`:
 
 ## Sequencing
 
-Fifth in the [[docs/notes/parity-parser-divergence-test-set.md]] epic. Parser risk is lower than the expression-shape items; the semantic surface is real. Listed in the Transactions gap section of [[docs/notes/parity-coverage-gaps-in-operation-variants.md]].
+Fifth in the [[parity-parser-divergence-test-set]] epic. Parser risk is lower than the expression-shape items; the semantic surface is real. Listed in the Transactions gap section of [[parity-coverage-gaps-in-operation-variants]].

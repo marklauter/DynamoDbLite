@@ -13,13 +13,13 @@ Writes trail amazon/dynamodb-local; reads beat it. Expression parser is the susp
 
 ## Observation
 
-From Mark's prior experiment, no formal numbers yet. On the same workload, `DynamoDbLite` is slower than `amazon/dynamodb-local` on writes and faster on reads. The asymmetry is consistent and reproducible across the parity test workloads.
+From Mark's prior experiment, no formal numbers yet. On the same workload, `DynamoDbLite` is slower than `amazon/dynamodb-local` on writes and faster on reads. The asymmetry is consistent and reproducible across the parity test scenarios.
 
 ## Interpretation
 
 Hypothesis: the expression parser is the dominant write-side cost. It runs on every mutating call — `PutItem`, `UpdateItem`, `DeleteItem`, `TransactWriteItems` — for `ConditionExpression` and `UpdateExpression`. The read path touches the parser less; `GetItem` skips it entirely when no `ProjectionExpression` is supplied, and `Query` / `Scan` pay the parser cost once per request, amortized over every result row.
 
-Nothing here is measured yet. The read-path win could also come from indexed SQLite lookups beating HTTP-over-loopback round-trips to `amazon/dynamodb-local`.
+The cross-backend comparison is unmeasured and the parser hypothesis is unconfirmed: a SQLite write-path sweep has since run (`write-path-performance-findings.md`), and it did not measure the parser's share. The read-path win could also come from indexed SQLite lookups beating HTTP-over-loopback round-trips to `amazon/dynamodb-local`.
 
 ## Next
 

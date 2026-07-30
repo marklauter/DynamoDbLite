@@ -38,4 +38,4 @@ Add to `BatchParityTests.cs`:
 
 ## Sequencing
 
-Sixth and last in the [[docs/notes/parity-parser-divergence-test-set.md]] epic. The surface is narrow and validation-only, and closing it supports drop-in confidence. Subset of the broader Batch gap section in [[docs/notes/parity-coverage-gaps-in-operation-variants.md]] (which also covers `UnprocessedItems`; explicitly excluded here for parity-framework feasibility).
+Sixth and last in the [[parity-parser-divergence-test-set]] epic. The surface is narrow and validation-only, and closing it supports drop-in confidence. Subset of the broader Batch gap section in [[parity-coverage-gaps-in-operation-variants]] (which also covers `UnprocessedItems`; explicitly excluded here for parity-framework feasibility).

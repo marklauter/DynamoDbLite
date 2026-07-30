@@ -1,7 +1,7 @@
 ---
 title: Parity with dynamodb-local
 type: note
-summary: "Authoritative file-by-file list of every scenario the parity test suite asserts across DdbLite, DdbLiteFile, and amazon/dynamodb-local."
+summary: "Canonical file-by-file list of every scenario the parity test suite asserts across DdbLite, DdbLiteFile, and amazon/dynamodb-local."
 tags: [parity, coverage, reference, dynamodb-local]
 created: 2026-05-15
 status: evolving
@@ -11,10 +11,10 @@ constrained-by: ["[[behavioral-fidelity]]", "[[out-of-scope-operations]]"]
 
 # Parity with dynamodb-local
 
-Authoritative file-by-file list of every scenario the parity test suite asserts across DdbLite, DdbLiteFile, and amazon/dynamodb-local.
+Canonical file-by-file list of every scenario the parity test suite asserts across DdbLite, DdbLiteFile, and amazon/dynamodb-local.
 
 
-The suite under [`tests/DynamoDbLite.Parity.Tests/`](../../tests/DynamoDbLite.Parity.Tests/) runs each scenario three times — once per backend — and asserts the same explicit AWS-API-contract outcome on each. The main test project stays container-free; only this suite touches `amazon/dynamodb-local`. Tracks Phase 14 in [`docs/decisions/implementation-phases.md`](../decisions/implementation-phases.md). Closed library gaps and the v1.0 audit history live in [`parity-coverage-status.md`](parity-coverage-status.md).
+The parity suite under [`tests/DynamoDbLite.Parity.Tests/`](../../tests/DynamoDbLite.Parity.Tests/) runs each scenario three times — once per backend — and asserts the same explicit AWS-API-contract outcome on each. The main test suite stays container-free; only the parity suite touches `amazon/dynamodb-local`. Tracks Phase 14 in [`docs/decisions/implementation-phases.md`](../decisions/implementation-phases.md). Closed library gaps and the v1.0 audit history live in [`parity-coverage-status.md`](parity-coverage-status.md).
 
 ## Backends
 
@@ -28,7 +28,7 @@ The suite under [`tests/DynamoDbLite.Parity.Tests/`](../../tests/DynamoDbLite.Pa
 - [`UpdateExpressionParityTests`](../../tests/DynamoDbLite.Parity.Tests/UpdateExpressionParityTests.cs) — `SET` with `if_not_exists`, `SET` with `list_append`, `ADD` on number, `REMOVE`, `DELETE` on string set.
 - [`QueryParityTests`](../../tests/DynamoDbLite.Parity.Tests/QueryParityTests.cs) — `KeyConditionExpression`; `begins_with` on sort key; `ScanIndexForward = false`; `Limit` + `LastEvaluatedKey` pagination.
 - [`QueryNumericSortKeyParityTests`](../../tests/DynamoDbLite.Parity.Tests/QueryNumericSortKeyParityTests.cs) — `BETWEEN` on numeric sort key returns inclusive range in ascending order.
-- [`ScanParityTests`](../../tests/DynamoDbLite.Parity.Tests/ScanParityTests.cs) — `FilterExpression` with correct `Count` and `ScannedCount`; `contains` on string set; `IN` against a value list; parallel scan with `Segment`/`TotalSegments`.
+- [`ScanParityTests`](../../tests/DynamoDbLite.Parity.Tests/ScanParityTests.cs) — `FilterExpression` with correct `Count` and `ScannedCount`; `contains` on string set; `IN` against a value list; parallel scan with `Segment`/`TotalSegments` and no `Limit` — `Limit` combined with `TotalSegments` still diverges from real DynamoDB, see `parallel-scan-limit-interaction-gap.md`.
 - [`TransactionParityTests`](../../tests/DynamoDbLite.Parity.Tests/TransactionParityTests.cs) — `TransactWriteItems` all-or-nothing rollback with `CancellationReasons[i].Code == "ConditionalCheckFailed"`; multiple simultaneous condition failures populate each index; `ClientRequestToken` idempotency on replay; `ReturnValuesOnConditionCheckFailure = ALL_OLD` includes the prior item.
 - [`TransactGetItemsParityTests`](../../tests/DynamoDbLite.Parity.Tests/TransactGetItemsParityTests.cs) — `TransactGetItems` happy path across two tables in request order; missing key returns empty `Item` at that response index without throwing.
 - [`SelectCountParityTests`](../../tests/DynamoDbLite.Parity.Tests/SelectCountParityTests.cs) — `Select = COUNT` on Query and Scan populates `Count`/`ScannedCount` and returns no items.
@@ -48,7 +48,7 @@ Each item below is deliberate, and the reason for it doesn't go away with more t
 
 - **Real AWS DynamoDB cloud backend.** Requires credentials, costs money, network-dependent. The three local backends already exercise the contract; a cloud backend would prove the same thing at recurring cost and CI flakiness.
 - **TTL parity.** `amazon/dynamodb-local` runs TTL on a long internal cron — expiration windows are minutes-to-hours, which makes CI-friendly cross-backend tests impractical. DynamoDbLite's own TTL behavior is covered in the main test suite; cross-backend equivalence isn't observable without waiting for the container's cron.
-- **Export / Import.** Out of scope per [`docs/decisions/implementation-phases.md`](../decisions/implementation-phases.md). The semantics are S3-coupled in real DynamoDB. An in-process emulator and `amazon/dynamodb-local` necessarily diverge from S3, so there's nothing to assert across the three backends.
+- **Export / Import parity.** Export and import are implemented; asserting them across backends is out of scope per [`docs/decisions/implementation-phases.md`](../decisions/implementation-phases.md). The semantics are S3-coupled in real DynamoDB. An in-process emulator and `amazon/dynamodb-local` necessarily diverge from S3, so there's nothing to assert across the three backends.
 - **Cross-client response-shape equality.** Replaced by the explicit-expected-outcome strategy. The three clients legitimately differ on `TableArn`, `CreationDateTime`, `ResponseMetadata.RequestId`, capacity numbers, and free-text error messages; a shared bug between two implementations would also pass cross-comparison silently. Each test asserts what the AWS API contract says should happen, not what each client happens to return.
 
 ## Three-backend rationale
@@ -57,7 +57,7 @@ Three backends close the file-vs-memory drift surface: the in-memory and file-ba
 
 ## Test shape
 
-A `ParityBackend` enum drives one axis of the test theory, mirroring the `StoreType` pattern in the main test project's [`DynamoDbClientFixture`](../../tests/DynamoDbLite.Tests/Fixtures/DynamoDbClientFixture.cs):
+A `ParityBackend` enum drives one axis of the test theory, mirroring the `StoreType` pattern in the main test suite's [`DynamoDbClientFixture`](../../tests/DynamoDbLite.Tests/Fixtures/DynamoDbClientFixture.cs):
 
 ```csharp
 public enum ParityBackend
@@ -72,7 +72,7 @@ The collection fixture at [`DynamoDbFixture`](../../tests/DynamoDbLite.Parity.Te
 
 ## Container lifecycle
 
-One container for the entire parity-test run, started in `DynamoDbFixture.InitializeAsync`. Container start is the slow step; per-test container start would push the suite into the minute range.
+One container for the entire parity run, created by `DynamoDbFixture` and started lazily on the first test that requests the `DynamoDbLocal` backend. Container start is the slow step; per-test container start would push the suite into the minute range.
 
 Each test creates its own table with a unique name from `TestTables.UniqueName(prefix)` and leaves it. No per-test teardown — the fixture disposes the three backends at the end of the run, and accumulation across the suite is negligible for SQLite and irrelevant for the container.
 
@@ -119,7 +119,7 @@ Every parity test is parameterized through `[BackendData]`, which tags each row 
 ```
 dotnet test tests/DynamoDbLite.Parity.Tests --filter "Backend=DdbLite"           # in-memory only
 dotnet test tests/DynamoDbLite.Parity.Tests --filter "Backend=DdbLiteFile"       # file-backed SQLite only
-dotnet test tests/DynamoDbLite.Parity.Tests --filter "Backend=DynamoDbLocal"     # real DynamoDB Local
+dotnet test tests/DynamoDbLite.Parity.Tests --filter "Backend=DynamoDbLocal"     # amazon/dynamodb-local container
 dotnet test tests/DynamoDbLite.Parity.Tests --filter "Backend=DdbLite|Backend=DdbLiteFile"   # both lite backends, no container
 ```
 

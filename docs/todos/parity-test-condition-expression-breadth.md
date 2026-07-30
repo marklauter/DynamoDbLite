@@ -27,7 +27,7 @@ Today's parity suite covers `attribute_exists`, `attribute_not_exists` (in `Item
 
 ## Parser-divergence risk
 
-`ConditionExpression` is parsed and translated to SQL by [[docs/notes/parser-result-caching.md]]'s expression engine. Each missing primitive exercises code paths the main suite hits in-proc. No parity test compares those paths against real DynamoDB. Operator precedence and short-circuit semantics in compound trees are the highest-drift surfaces.
+`ConditionExpression` is parsed and translated to SQL by [[parser-result-caching]]'s expression engine. Each missing primitive exercises code paths the main suite hits in-proc. No parity test compares those paths against real DynamoDB. Operator precedence and short-circuit semantics in compound trees are the highest-drift surfaces.
 
 ## Acceptance
 
@@ -35,10 +35,10 @@ Add `ConditionExpressionParityTests.cs` with `[Theory]` per primitive, each para
 
 - Puts a fixture item.
 - Runs `UpdateItem` or `DeleteItem` with the condition.
-- Asserts success or `ConditionalCheckFailedException` on the AWS-API contract — not on cross-client response equality (per the strategy in [[docs/notes/parity-coverage-status.md]]).
+- Asserts success or `ConditionalCheckFailedException` on the AWS-API contract — not on cross-client response equality (per the strategy in [[parity-coverage-status]]).
 
 Cover at least one positive and one negative case per primitive, plus one compound-tree scenario combining `AND` / `OR` / `NOT` over mixed primitives.
 
 ## Sequencing
 
-First in the [[docs/notes/parity-parser-divergence-test-set.md]] epic — broadest divergence surface.
+First in the [[parity-parser-divergence-test-set]] epic — broadest divergence surface.
