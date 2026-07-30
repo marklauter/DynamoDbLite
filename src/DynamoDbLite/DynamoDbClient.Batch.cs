@@ -67,7 +67,7 @@ public sealed partial class DynamoDbClient
         var results = await store.BatchGetItemsAsync(allKeys, nowEpoch, cancellationToken);
 
         foreach (var tableName in request.RequestItems.Keys)
-            TriggerBackgroundCleanup(tableName);
+            await CleanupExpiredItemsSafeAsync(tableName, cancellationToken);
 
         var responsesByTable = new Dictionary<string, List<Dictionary<string, AttributeValue>>>();
         foreach (var (tableName, itemJson) in results)

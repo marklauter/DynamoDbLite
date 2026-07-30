@@ -1237,6 +1237,99 @@ public sealed class SecondaryIndexTests
             }, TestContext.Current.CancellationToken));
     }
 
+    // -- UpdateTable: Create GSI validation ------------------------------
+
+    private static GlobalSecondaryIndexUpdate CreateGsiUpdate(string indexName, string hashAttribute) =>
+        new()
+        {
+            Create = new CreateGlobalSecondaryIndexAction
+            {
+                IndexName = indexName,
+                KeySchema = [new KeySchemaElement { AttributeName = hashAttribute, KeyType = KeyType.HASH }],
+                Projection = new Projection { ProjectionType = ProjectionType.ALL }
+            }
+        };
+
+    [Theory]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
+    public async Task UpdateTableAsync_CreateGsi_Rejects_Duplicate_Index_Name(StoreType st)
+    {
+        var client = Client(st);
+        await CreateTableWithGsiAsync(client);
+
+        var ex = await Assert.ThrowsAsync<AmazonDynamoDBException>(() =>
+            client.UpdateTableAsync(new UpdateTableRequest
+            {
+                TableName = TestTableName,
+                GlobalSecondaryIndexUpdates = [CreateGsiUpdate("GSI1", "GSI_PK")]
+            }, TestContext.Current.CancellationToken));
+
+        Assert.Contains("Duplicate index name", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
+    public async Task UpdateTableAsync_CreateGsi_Rejects_Key_Attribute_Not_In_AttributeDefinitions(StoreType st)
+    {
+        var client = Client(st);
+        await CreateTableWithGsiAsync(client);
+
+        // No AttributeDefinitions on the request, so the table's own definitions are used — and they
+        // do not define UNDECLARED_PK.
+        var ex = await Assert.ThrowsAsync<AmazonDynamoDBException>(() =>
+            client.UpdateTableAsync(new UpdateTableRequest
+            {
+                TableName = TestTableName,
+                GlobalSecondaryIndexUpdates = [CreateGsiUpdate("GSI2", "UNDECLARED_PK")]
+            }, TestContext.Current.CancellationToken));
+
+        Assert.Contains("UNDECLARED_PK", ex.Message, StringComparison.Ordinal);
+        Assert.Contains("not defined in AttributeDefinitions", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
+    public async Task UpdateTableAsync_CreateGsi_Rejects_Sixth_Index(StoreType st)
+    {
+        var client = Client(st);
+
+        static AttributeDefinition Attr(string name) =>
+            new() { AttributeName = name, AttributeType = ScalarAttributeType.S };
+
+        _ = await client.CreateTableAsync(new CreateTableRequest
+        {
+            TableName = TestTableName,
+            KeySchema = [new KeySchemaElement { AttributeName = "PK", KeyType = KeyType.HASH }],
+            // Exactly the attributes the key schemas use: DynamoDB rejects unused definitions, so G6
+            // cannot be declared until the index that uses it is requested.
+            AttributeDefinitions =
+            [
+                Attr("PK"), Attr("G1"), Attr("G2"), Attr("G3"), Attr("G4"), Attr("G5")
+            ],
+            GlobalSecondaryIndexes =
+            [
+                .. Enumerable.Range(1, 5).Select(i => new GlobalSecondaryIndex
+                {
+                    IndexName = $"GSI{i}",
+                    KeySchema = [new KeySchemaElement { AttributeName = $"G{i}", KeyType = KeyType.HASH }],
+                    Projection = new Projection { ProjectionType = ProjectionType.ALL }
+                })
+            ]
+        }, TestContext.Current.CancellationToken);
+
+        var ex = await Assert.ThrowsAsync<AmazonDynamoDBException>(() =>
+            client.UpdateTableAsync(new UpdateTableRequest
+            {
+                TableName = TestTableName,
+                GlobalSecondaryIndexUpdates = [CreateGsiUpdate("GSI6", "G6")]
+            }, TestContext.Current.CancellationToken));
+
+        Assert.Contains("per-table limit of 5", ex.Message, StringComparison.Ordinal);
+    }
+
     // -- UpdateTable: Create GSI with backfill ---------------------------
 
     [Theory]
@@ -1745,4 +1838,77 @@ public sealed class SecondaryIndexTests
         }, TestContext.Current.CancellationToken);
         Assert.Equal(1, newResp.Count);
     }
+
+    // -- Batch delete index maintenance ----------------------------------
+
+    [Theory]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
+    public async Task BatchWrite_Delete_Removes_Gsi_Entries(StoreType st)
+    {
+        var client = Client(st);
+        await CreateTableWithGsiAsync(client);
+
+        for (var i = 1; i <= 2; i++)
+        {
+            _ = await client.PutItemAsync(new PutItemRequest
+            {
+                TableName = TestTableName,
+                Item = new Dictionary<string, AttributeValue>
+                {
+                    ["PK"] = new() { S = $"pk{i}" },
+                    ["SK"] = new() { S = "sk" },
+                    ["GSI_PK"] = new() { S = "shared_gsi_pk" },
+                    ["GSI_SK"] = new() { S = $"gsi_sk{i}" }
+                }
+            }, TestContext.Current.CancellationToken);
+        }
+
+        var before = await QueryGsiAsync(client, "shared_gsi_pk");
+        Assert.Equal(2, before.Count);
+
+        _ = await client.BatchWriteItemAsync(new BatchWriteItemRequest
+        {
+            RequestItems = new Dictionary<string, List<WriteRequest>>
+            {
+                [TestTableName] =
+                [
+                    new WriteRequest
+                    {
+                        DeleteRequest = new DeleteRequest
+                        {
+                            Key = new Dictionary<string, AttributeValue>
+                            {
+                                ["PK"] = new() { S = "pk1" },
+                                ["SK"] = new() { S = "sk" }
+                            }
+                        }
+                    }
+                ]
+            }
+        }, TestContext.Current.CancellationToken);
+
+        // The base table row is gone, and so is its index entry — a batch delete that skipped
+        // index maintenance would leave the GSI pointing at a row that no longer exists.
+        var after = await QueryGsiAsync(client, "shared_gsi_pk");
+        Assert.Equal(1, after.Count);
+        Assert.Equal("gsi_sk2", after.Items[0]["GSI_SK"].S);
+
+        var deleted = await client.GetItemAsync(TestTableName,
+            new Dictionary<string, AttributeValue> { ["PK"] = new() { S = "pk1" }, ["SK"] = new() { S = "sk" } },
+            TestContext.Current.CancellationToken);
+        Assert.False(deleted.IsItemSet);
+    }
+
+    private Task<QueryResponse> QueryGsiAsync(DynamoDbClient client, string gsiPk) =>
+        client.QueryAsync(new QueryRequest
+        {
+            TableName = TestTableName,
+            IndexName = "GSI1",
+            KeyConditionExpression = "GSI_PK = :gpk",
+            ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+            {
+                [":gpk"] = new() { S = gsiPk }
+            }
+        }, TestContext.Current.CancellationToken);
 }

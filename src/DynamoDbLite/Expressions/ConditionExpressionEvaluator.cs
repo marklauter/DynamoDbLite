@@ -33,7 +33,8 @@ internal static class ConditionExpressionEvaluator
                 ? v
                 : throw new ArgumentException($"Expression attribute value {valueRef.ValueRef} is not defined"),
             SizeFunctionOperand sizeOp => EvaluateSize(sizeOp, item, expressionAttributeNames),
-            LiteralOperand lit => lit.Value, // reserved: parser does not currently emit inline literals
+            // DynamoDB expressions carry values as :placeholder refs, never as inline literals, so
+            // the three arms above are the whole grammar.
             _ => throw new ArgumentException($"Unknown operand type: {operand.GetType().Name}") // defensive: unreachable from parser
         };
 

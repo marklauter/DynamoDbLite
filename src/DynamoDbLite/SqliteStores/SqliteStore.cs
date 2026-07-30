@@ -1270,19 +1270,6 @@ internal abstract class SqliteStore
 
     // ── Update table metadata (for UpdateTableAsync GSI changes) ───
 
-    internal async Task UpdateIndexMetadataAsync(
-        string tableName,
-        List<IndexDefinition> gsiDefinitions,
-        CancellationToken cancellationToken = default)
-    {
-        var gsiJson = gsiDefinitions.ToJson();
-        using var connection = await OpenConnectionAsync(cancellationToken);
-        _ = await connection.ExecuteAsync(
-            "UPDATE tables SET global_secondary_indexes_json = @gsiJson WHERE table_name = @tableName",
-            new { tableName, gsiJson });
-        InvalidateMetadata(tableName);
-    }
-
     private static async Task UpdateIndexMetadataInTransactionAsync(
         DbConnection connection,
         DbTransaction transaction,
@@ -1314,10 +1301,11 @@ internal abstract class SqliteStore
         string tableName,
         CancellationToken cancellationToken = default)
     {
+        var nowEpoch = NowEpoch();
         using var connection = await OpenConnectionAsync(cancellationToken);
         return (await connection.QueryAsync<ItemRow>(
-            "SELECT pk AS Pk, sk AS Sk, item_json AS ItemJson FROM items WHERE table_name = @tableName",
-            new { tableName })).AsList();
+            "SELECT pk AS Pk, sk AS Sk, item_json AS ItemJson FROM items WHERE table_name = @tableName AND (ttl_epoch IS NULL OR ttl_epoch >= @nowEpoch)",
+            new { tableName, nowEpoch })).AsList();
     }
 
     // ── Consolidated write+index methods ─────────────────────────
@@ -1454,11 +1442,15 @@ internal abstract class SqliteStore
 
     // ── TTL cleanup & backfill ──────────────────────────────────────
 
-    internal async Task CleanupExpiredItemsAsync(string tableName, CancellationToken cancellationToken = default)
+    // Overridable so a test can fail the sweep while reads still succeed: the client's resilience to
+    // a failing sweep is behaviour worth pinning, and it cannot be provoked through real SQLite.
+    internal virtual async Task CleanupExpiredItemsAsync(string tableName, CancellationToken cancellationToken = default)
     {
+        // Callers await this on the read path, so the sweep's cost is amortised across every read
+        // in the window: one call per table per minute does the work, the rest return here.
         var now = DateTime.UtcNow;
         if (lastCleanupByTable.TryGetValue(tableName, out var lastCleanup)
-            && (now - lastCleanup).TotalSeconds < 30)
+            && (now - lastCleanup).TotalSeconds < 60)
             return;
 
         lastCleanupByTable[tableName] = now;

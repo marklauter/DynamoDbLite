@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
-		<Include>[DynamoDbLite*]*</Include>
+		<Include>[DynamoDbLite]*</Include>
 	</PropertyGroup>
 
 	<ItemGroup>

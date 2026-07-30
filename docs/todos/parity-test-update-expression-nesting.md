@@ -1,8 +1,13 @@
 ---
 title: Parity test — update expression nesting
-summary: Cross-backend assertions for UpdateExpression shapes beyond single-clause scalar SET/ADD/REMOVE/DELETE — nested map paths, list-index assignment, multi-clause SET, ADD/DELETE on number and string sets.
-tags: [note, todo, parity, v1.1]
+type: todo
+summary: "Cross-backend assertions for UpdateExpression shapes beyond single-clause scalar SET/ADD/REMOVE/DELETE — nested map paths, list-index assignment, multi-clause SET, ADD/DELETE on number and string sets."
+tags: [parity, v1.1]
 created: 2026-05-27
+priority: medium
+status: open
+part-of: "[[parity-parser-divergence-test-set]]"
+cites: "[[parity-coverage-gaps-in-operation-variants]]"
 ---
 
 # Parity test — update expression nesting
@@ -23,7 +28,7 @@ Today's `UpdateExpressionParityTests` covers `SET if_not_exists`, `SET list_appe
 
 ## Why parser-divergence risk
 
-Each variant exercises a distinct branch in the update-expression parser and a different SQL translation. Nested-map and list-index paths in particular interact with JSON path handling in the SQLite store — a surface the main suite tests in-proc but no parity test cross-checks.
+Each variant exercises a distinct branch in the update-expression parser and a different SQL translation. Nested-map and list-index paths interact with JSON path handling in the SQLite store — a surface the main suite tests in-proc but no parity test cross-checks.
 
 ## Acceptance
 
@@ -35,4 +40,4 @@ Extend `UpdateExpressionParityTests.cs` with one `[Theory]` per missing variant,
 
 ## Sequencing
 
-Second in the [[docs/notes/parity-parser-divergence-test-set.md]] epic — parser depth and JSON-path interaction make this near-equivalent in risk to condition-expression breadth. Listed as the parser-variant pillar in [[docs/notes/parity-coverage-gaps-in-operation-variants.md]].
+Second in the [[parity-parser-divergence-test-set]] epic. Parser depth and JSON-path interaction make this near-equivalent in risk to condition-expression breadth. Listed as the parser-variant pillar in [[parity-coverage-gaps-in-operation-variants]].

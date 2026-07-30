@@ -6,9 +6,15 @@ internal static class FileBasedTestHelper
 {
     internal static (DynamoDbClient Client, string DbPath) CreateFileBasedClient()
     {
-        var path = Path.Combine(Path.GetTempPath(), $"dynamo_test_{Guid.NewGuid():N}.db");
-        return (new DynamoDbClient(new DynamoDbLiteOptions($"Data Source={path}")), path);
+        var path = NewDbPath();
+        return (CreateFileBasedClient(path), path);
     }
+
+    internal static string NewDbPath() =>
+        Path.Combine(Path.GetTempPath(), $"dynamo_test_{Guid.NewGuid():N}.db");
+
+    internal static DynamoDbClient CreateFileBasedClient(string dbPath) =>
+        new(new DynamoDbLiteOptions($"Data Source={dbPath}"));
 
     internal static void Cleanup(string? dbPath)
     {

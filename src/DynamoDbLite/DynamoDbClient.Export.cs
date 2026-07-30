@@ -36,7 +36,11 @@ public sealed partial class DynamoDbClient
         await store.CreateExportRecordAsync(
             exportArn, tableName, format, s3Bucket, s3Prefix, startTime, request.ClientToken, cancellationToken);
 
-        _ = ExecuteExportAsync(exportArn, tableName, s3Bucket, s3Prefix, format, startTime);
+        // Real DynamoDB completes the export server-side after responding, so the response always
+        // reports IN_PROGRESS and the caller polls DescribeExport for the terminal status. There is
+        // no server here, so the work runs inline and the record is already terminal by the time
+        // the caller can poll. The reported status stays IN_PROGRESS for parity with the API shape.
+        await ExecuteExportAsync(exportArn, tableName, s3Bucket, s3Prefix, format, startTime);
 
         return new ExportTableToPointInTimeResponse
         {
@@ -54,7 +58,7 @@ public sealed partial class DynamoDbClient
         };
     }
 
-    [SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Fire-and-forget background task; failures are recorded as FAILED status")]
+    [SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Export failures are reported through the export record's FAILED status, matching the API contract, rather than thrown")]
     private async Task ExecuteExportAsync(
         string exportArn, string tableName, string s3Bucket, string s3Prefix, string format, string startTime)
     {
@@ -77,10 +81,6 @@ public sealed partial class DynamoDbClient
             await store.UpdateExportStatusAsync(
                 exportArn, "COMPLETED", endTime, manifestPath, itemCount, billedSize, null, null);
         }
-        catch (ObjectDisposedException)
-        {
-            // Store disposed during background operation (e.g. test cleanup) — silently abandon
-        }
         catch (Exception ex)
         {
             LogExportFailed(ex, exportArn);
@@ -89,10 +89,6 @@ public sealed partial class DynamoDbClient
                 var endTime = DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture);
                 await store.UpdateExportStatusAsync(
                     exportArn, "FAILED", endTime, null, null, null, "INTERNAL_ERROR", ex.Message);
-            }
-            catch (ObjectDisposedException)
-            {
-                // Store disposed during background operation — silently abandon
             }
             catch (Exception writeEx)
             {

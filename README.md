@@ -3,7 +3,6 @@
 [![NuGet](https://img.shields.io/nuget/v/MSL.DynamoDbLite?logo=nuget)](https://www.nuget.org/packages/MSL.DynamoDbLite/)
 [![.NET](https://img.shields.io/badge/.NET-10.0-blue)](https://dotnet.microsoft.com/en-us/download/dotnet/10.0/)
 
-![DynamoDbLite](https://raw.githubusercontent.com/marklauter/DynamoDbLite/main/images/ddblite.png)
 ![MSL Armory](https://raw.githubusercontent.com/marklauter/DynamoDbLite/main/images/msl.armory.small.png "MSL Armory")
 
 # DynamoDbLite
@@ -40,5 +39,5 @@ For the operation-by-operation support matrix and limitations, see the [API Pari
 ## Documentation
 
 - [Wiki](https://github.com/marklauter/DynamoDbLite/wiki) — usage guide, API reference, and behaviour notes
-- [Architecture Decisions](docs/adrs/index.md) — design rationale and phase status
+- [Decisions](docs/decisions/) — design rationale and phase status
 - [API Parity](https://github.com/marklauter/DynamoDbLite/wiki/API-Parity) — what's supported, what's stubbed, what's out of scope

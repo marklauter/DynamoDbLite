@@ -82,7 +82,7 @@ public sealed class BatchWriteLimitTests
                 RequestItems = new Dictionary<string, List<WriteRequest>> { [TableName] = Puts(6) }
             }, ct));
 
-        Assert.Contains("Too many items", ex.Message);
+        Assert.Contains("Too many items", ex.Message, StringComparison.Ordinal);
     }
 
     private static async Task CreateTableAsync(IAmazonDynamoDB client, CancellationToken ct) =>

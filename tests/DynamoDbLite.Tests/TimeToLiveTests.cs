@@ -85,7 +85,7 @@ public sealed class TimeToLiveTests
 
         var ex = await Assert.ThrowsAsync<ResourceNotFoundException>(() =>
             client.DescribeTimeToLiveAsync("NoSuchTable", TestContext.Current.CancellationToken));
-        Assert.Contains("NoSuchTable", ex.Message);
+        Assert.Contains("NoSuchTable", ex.Message, StringComparison.Ordinal);
     }
 
     [Theory]
@@ -134,7 +134,7 @@ public sealed class TimeToLiveTests
                 TableName = TestTableName,
                 TimeToLiveSpecification = new TimeToLiveSpecification { Enabled = true, AttributeName = "ttl" }
             }, TestContext.Current.CancellationToken));
-        Assert.Contains("already enabled", ex.Message);
+        Assert.Contains("already enabled", ex.Message, StringComparison.Ordinal);
     }
 
     [Theory]
@@ -150,7 +150,7 @@ public sealed class TimeToLiveTests
                 TableName = TestTableName,
                 TimeToLiveSpecification = new TimeToLiveSpecification { Enabled = false, AttributeName = "ttl" }
             }, TestContext.Current.CancellationToken));
-        Assert.Contains("already disabled", ex.Message);
+        Assert.Contains("already disabled", ex.Message, StringComparison.Ordinal);
     }
 
     [Theory]
@@ -166,7 +166,7 @@ public sealed class TimeToLiveTests
                 TableName = "NoSuchTable",
                 TimeToLiveSpecification = new TimeToLiveSpecification { Enabled = true, AttributeName = "ttl" }
             }, TestContext.Current.CancellationToken));
-        Assert.Contains("NoSuchTable", ex.Message);
+        Assert.Contains("NoSuchTable", ex.Message, StringComparison.Ordinal);
     }
 
     [Theory]

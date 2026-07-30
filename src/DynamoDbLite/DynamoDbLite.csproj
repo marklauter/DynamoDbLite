@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
+		<IsPackable>true</IsPackable>
 		<Title>DynamoDbLite: In-Process DynamoDB for .NET</Title>
 		<PackageId>MSL.$(AssemblyName)</PackageId>
 		<ProductName>DynamoDbLite: In-Process DynamoDB for .NET</ProductName>
@@ -16,8 +17,7 @@
 		<SymbolPackageFormat>snupkg</SymbolPackageFormat>
 		<PackageReadmeFile>README.md</PackageReadmeFile>
 		<PackageLicenseFile>LICENSE</PackageLicenseFile>
-		<PackageIcon>dynamodblite-logo-2.png</PackageIcon>
-		<GenerateDocumentationFile>true</GenerateDocumentationFile>
+		<PackageIcon>msl.rocket.tx.clean.small.png</PackageIcon>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -38,7 +38,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<None Include="..\..\images\dynamodblite-logo-2.png">
+		<None Include="..\..\images\msl.rocket.tx.clean.small.png">
 			<Pack>True</Pack>
 			<PackagePath>\</PackagePath>
 		</None>

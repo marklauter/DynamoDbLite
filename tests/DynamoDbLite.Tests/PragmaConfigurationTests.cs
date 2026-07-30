@@ -1,5 +1,6 @@
 using Amazon.DynamoDBv2;
 using DynamoDbLite.Tests.Fixtures;
+using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace DynamoDbLite.Tests;
@@ -138,6 +139,46 @@ public sealed class PragmaConfigurationTests
 
         Assert.True(invoked);
         Assert.Equal(1500, observedBusyTimeout);
+    }
+
+    // WAL is opt-in and off by default, so both settings need pinning: the journal mode a file store
+    // lands in with the option set, and the mode it keeps without it.
+    [Theory]
+    [InlineData(true, "wal")]
+    [InlineData(false, "delete")]
+    public async Task File_Store_Journal_Mode_Follows_UseWriteAheadLog(bool useWal, string expectedMode)
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"wal_{Guid.NewGuid():N}.db");
+
+        try
+        {
+            using (var client = new DynamoDbClient(new DynamoDbLiteOptions($"Data Source={path}", useWal)))
+            {
+                _ = await client.ListTablesAsync(TestContext.Current.CancellationToken);
+            }
+
+            using var conn = new SqliteConnection($"Data Source={path}");
+            await conn.OpenAsync(TestContext.Current.CancellationToken);
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "PRAGMA journal_mode;";
+            var mode = (string)(await cmd.ExecuteScalarAsync(TestContext.Current.CancellationToken))!;
+
+            Assert.Equal(expectedMode, mode, ignoreCase: true);
+        }
+        finally
+        {
+            FileBasedTestHelper.Cleanup(path);
+        }
+    }
+
+    [Fact]
+    public void WithWriteAheadLog_Returns_Builder_For_Chaining()
+    {
+        var builder = new DynamoDbLiteOptionsBuilder();
+
+        var result = builder.WithWriteAheadLog();
+
+        Assert.Same(builder, result);
     }
 
     // File-based: confirms the configured pragma takes effect AND the library's default pragmas still apply

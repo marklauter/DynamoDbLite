@@ -177,7 +177,7 @@ public sealed class TagTests
                 ResourceArn = TableArn,
                 Tags = tags
             }, TestContext.Current.CancellationToken));
-        Assert.Contains("Too many tags", ex.Message);
+        Assert.Contains("Too many tags", ex.Message, StringComparison.Ordinal);
     }
 
     [Theory]
@@ -192,7 +192,7 @@ public sealed class TagTests
                 ResourceArn = TableArn,
                 Tags = [new Tag { Key = new string('k', 129), Value = "v" }]
             }, TestContext.Current.CancellationToken));
-        Assert.Contains("Tag key exceeds", ex.Message);
+        Assert.Contains("Tag key exceeds", ex.Message, StringComparison.Ordinal);
     }
 
     [Theory]
@@ -207,7 +207,7 @@ public sealed class TagTests
                 ResourceArn = TableArn,
                 Tags = [new Tag { Key = "k", Value = new string('v', 257) }]
             }, TestContext.Current.CancellationToken));
-        Assert.Contains("Tag value exceeds", ex.Message);
+        Assert.Contains("Tag value exceeds", ex.Message, StringComparison.Ordinal);
     }
 
     [Theory]
@@ -222,7 +222,7 @@ public sealed class TagTests
                 ResourceArn = "arn:aws:dynamodb:us-east-1:000000000000:table/NoSuchTable",
                 Tags = [new Tag { Key = "k", Value = "v" }]
             }, TestContext.Current.CancellationToken));
-        Assert.Contains("NoSuchTable", ex.Message);
+        Assert.Contains("NoSuchTable", ex.Message, StringComparison.Ordinal);
     }
 
     [Theory]
@@ -237,7 +237,7 @@ public sealed class TagTests
                 ResourceArn = "arn:aws:dynamodb:us-east-1:000000000000:table/NoSuchTable",
                 TagKeys = ["k"]
             }, TestContext.Current.CancellationToken));
-        Assert.Contains("NoSuchTable", ex.Message);
+        Assert.Contains("NoSuchTable", ex.Message, StringComparison.Ordinal);
     }
 
     [Theory]
@@ -251,7 +251,7 @@ public sealed class TagTests
             {
                 ResourceArn = "arn:aws:dynamodb:us-east-1:000000000000:table/NoSuchTable"
             }, TestContext.Current.CancellationToken));
-        Assert.Contains("NoSuchTable", ex.Message);
+        Assert.Contains("NoSuchTable", ex.Message, StringComparison.Ordinal);
     }
 
     [Theory]

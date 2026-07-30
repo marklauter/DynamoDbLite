@@ -116,7 +116,7 @@ public sealed partial class DynamoDbClient
         var (pk, sk) = KeyHelper.ExtractKeys(request.Key, keyInfo.KeySchema, keyInfo.AttributeDefinitions);
         var itemJson = await store.GetItemAsync(request.TableName, pk, sk, nowEpoch, cancellationToken);
 
-        TriggerBackgroundCleanup(request.TableName);
+        await CleanupExpiredItemsSafeAsync(request.TableName, cancellationToken);
 
         var response = new GetItemResponse { HttpStatusCode = System.Net.HttpStatusCode.OK };
 

@@ -3,14 +3,15 @@ namespace DynamoDbLite.Tests.Fixtures;
 internal sealed class FileBasedDynamoFactory
     : DynamoDbContextFactory
 {
-    public string DbPath { get; private set; } = null!;
+    public string DbPath { get; }
 
-    protected override DynamoDbClient CreateClient()
+    public FileBasedDynamoFactory()
+        : this(FileBasedTestHelper.NewDbPath())
     {
-        var (c, path) = FileBasedTestHelper.CreateFileBasedClient();
-        DbPath = path;
-        return c;
     }
+
+    private FileBasedDynamoFactory(string dbPath)
+        : base(() => FileBasedTestHelper.CreateFileBasedClient(dbPath)) => DbPath = dbPath;
 
     public override void Dispose()
     {

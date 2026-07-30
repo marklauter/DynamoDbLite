@@ -1,5 +1,3 @@
-using Amazon.DynamoDBv2.Model;
-
 namespace DynamoDbLite.Expressions;
 
 // ── Path elements ──────────────────────────────────────────────────────
@@ -60,9 +58,6 @@ internal sealed record ValueRefOperand(string ValueRef)
     : Operand;
 
 internal sealed record SizeFunctionOperand(AttributePath Path)
-    : Operand;
-
-internal sealed record LiteralOperand(AttributeValue Value)
     : Operand;
 
 // ── Update AST ─────────────────────────────────────────────────────────

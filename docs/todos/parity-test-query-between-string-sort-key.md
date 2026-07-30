@@ -1,8 +1,13 @@
 ---
 title: Parity test — Query BETWEEN on string sort key
-summary: Cross-backend assertion that Query KeyConditionExpression with BETWEEN on a string-typed sort key matches real DynamoDB's lexicographic ordering; numeric BETWEEN is covered, the string parser path is not.
-tags: [note, todo, parity, v1.1]
+type: todo
+summary: "Cross-backend assertion that Query KeyConditionExpression with BETWEEN on a string-typed sort key matches real DynamoDB's lexicographic ordering; numeric BETWEEN is covered, the string parser path is not."
+tags: [parity, v1.1]
 created: 2026-05-27
+priority: medium
+status: open
+part-of: "[[parity-parser-divergence-test-set]]"
+refines: "[[parity-coverage-gaps-in-operation-variants]]"
 ---
 
 # Parity test — Query BETWEEN on string sort key
@@ -15,7 +20,7 @@ Cross-backend assertion that `Query` `KeyConditionExpression` with `BETWEEN` on 
 
 ## Why parser-divergence risk
 
-Numeric and string sort keys land in separate columns in the SQLite schema (`sk_num` versus `sk`). `BETWEEN` on each goes through a different SQL builder branch. The main suite exercises both in-proc, but the cross-backend agreement on lexicographic edge cases — case sensitivity, embedded numerics in strings (`"item-9"` vs `"item-10"`), inclusive endpoints — is not asserted.
+Numeric and string sort keys land in separate columns in the SQLite schema (`sk_num` versus `sk`). `BETWEEN` on each goes through a different SQL builder branch. The main suite exercises both in-proc. Cross-backend agreement on lexicographic edge cases is not asserted: case sensitivity, embedded numerics in strings (`"item-9"` vs `"item-10"`), inclusive endpoints.
 
 ## Acceptance
 
@@ -28,4 +33,4 @@ Add cases to `QueryParityTests.cs` (or extend `QueryNumericSortKeyParityTests` i
 
 ## Sequencing
 
-Fourth in the [[docs/notes/parity-parser-divergence-test-set.md]] epic — small surface, but the two-column-typed-sort-key design makes silent drift plausible. Listed in the Query gap section of [[docs/notes/parity-coverage-gaps-in-operation-variants.md]].
+Fourth in the [[parity-parser-divergence-test-set]] epic. The surface is small, and the two-column-typed-sort-key design allows silent drift. Listed in the Query gap section of [[parity-coverage-gaps-in-operation-variants]].

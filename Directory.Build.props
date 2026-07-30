@@ -25,17 +25,23 @@
 		<Exclude>[*]*Exception</Exclude>
 		<!-- Source-generated files (e.g. [LoggerMessage] partials) are plumbing too. -->
 		<ExcludeByFile>**/obj/**/*.g.cs</ExcludeByFile>
-		<!-- Coverage ratchet: lock floors at currently-achieved totals (line, branch, method). -->
-		<!-- Raise only — never lower — and bump whenever new code reliably pushes totals up. -->
-		<!-- Current: 97.15 / 86.89 / 98.06 (see docs/notes/remaining-coverage-gaps-after-v1-cleanup.md). -->
+		<!-- Coverage floors (line, branch, method). Raise only — never lower. -->
+		<!-- Measured 97.35 / 86.00 / 98.16, identical across repeated runs (see
+		     docs/notes/remaining-coverage-gaps-after-v1-cleanup.md). Export and import run inline,
+		     so no background work races the run and the totals are reproducible. The floors sit
+		     deliberately below the measured totals, leaving room for honest local variation rather
+		     than reding the build on a single branch. -->
 		<Threshold>95,85,95</Threshold>
 		<ThresholdType>line,branch,method</ThresholdType>
+		<!-- ThresholdStat compares across modules, not classes. This solution ships one module, so
+		     total, average, and minimum are the same number here. -->
 		<ThresholdStat>total</ThresholdStat>
 		<!-- CA1707: xUnit test method names use underscores (Method_Scenario_Outcome). -->
 		<!-- CA1051: test fixtures expose public fields for brevity. -->
 		<!-- IDISP026: test fixture base classes are unsealed by design (abstract base + sealed subclasses pattern). -->
 		<!-- IDE1006: naming-rule violations (e.g. missing 'Async' suffix) are noise on test methods. -->
-		<NoWarn>$(NoWarn);CA1707;CA1051;IDISP026;IDE1006</NoWarn>
+		<!-- CA1515: xUnit discovers [Fact]/[Theory] on public classes, so "make public types internal" does not apply. -->
+		<NoWarn>$(NoWarn);CA1707;CA1051;IDISP026;IDE1006;CA1515</NoWarn>
 	</PropertyGroup>
 
 </Project>

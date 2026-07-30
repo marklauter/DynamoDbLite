@@ -1,13 +1,23 @@
+---
+title: Parity coverage gaps in operation variants
+type: todo
+summary: "Six operation areas have parity-suite variants missing, so backend drift there lands silently between releases."
+tags: [parity, gap, v1.1]
+created: 2026-05-16
+priority: medium
+status: open
+cites: ["[[parity-with-dynamodb-local]]", "[[parity-coverage-status]]"]
+---
+
 # Parity coverage gaps in operation variants
 
-Tags: todo,parity,gap,v1.1
-Today's parity suite samples the contract surface but doesn't exhaust it; six operation areas have known missing variants where backend drift could land silently between releases.
+Six operation areas have known missing parity variants. Backend drift in those areas lands silently between releases.
 
 ## Observation
 
-The parity suite under [`tests/DynamoDbLite.Parity.Tests/`](../../tests/DynamoDbLite.Parity.Tests/) passes 192/192 tests against three backends (DdbLite, DdbLiteFile, DynamoDbLocal) and gives 57% line / 46% branch coverage of the library. Per-suite coverage being lower than the main suite (93% / 81%) is partly structural — TTL, Export/Import, ORM, and out-of-scope operations are intentionally excluded — but partly variant-coverage gaps where adding scenarios would catch real cross-backend drift.
+The parity suite under [`tests/DynamoDbLite.Parity.Tests/`](../../tests/DynamoDbLite.Parity.Tests/) passes against three backends (DdbLite, DdbLiteFile, DynamoDbLocal) and gives 57% line / 46% branch coverage of the library. That is lower than the main suite (93% / 81%). Part of the difference is structural: TTL, Export/Import, ORM, and out-of-scope operations are intentionally excluded. The rest is variant-coverage gaps where adding scenarios would catch real cross-backend drift.
 
-Covered list is in [parity-with-dynamodb-local](parity-with-dynamodb-local.md); permanent out-of-scope items are in [parity-coverage-status](parity-coverage-status.md). What follows is the non-structural gap: scenarios that *are* in scope and *do* have AWS-API-observable behavior, but aren't yet asserted across the three backends.
+Covered list is in [parity-with-dynamodb-local](../notes/parity-with-dynamodb-local.md); permanent out-of-scope items are in [parity-coverage-status](../notes/parity-coverage-status.md). The gaps below are non-structural: scenarios that are in scope, with AWS-API-observable behavior, not yet asserted across the three backends.
 
 ### Update expressions
 
@@ -82,9 +92,9 @@ Missing:
 
 ## Interpretation
 
-The 192 tests today were the v1.0 floor: every major API works the same on all three backends. Variant coverage is the next layer — operators, projections, and error paths that *might* drift between backends but haven't been asked about yet. Absence of evidence isn't evidence of absence; parity hasn't observed drift on `BETWEEN` against a string sort key because parity hasn't tested it.
+Today's suite is the v1.0 floor: every major API works the same on all three backends. Variant coverage is the next layer: operators, projections, and error paths that may drift between backends but haven't been asked about yet. Parity hasn't observed drift on `BETWEEN` against a string sort key because parity hasn't tested it.
 
-If we're shipping a library that consumers expect to be drop-in for real DynamoDB, the variant coverage matters: a consumer writing a `SET map.field = :v` update expression today gets the same answer from DdbLite as from real DynamoDB *empirically* (the main suite tests it), but not *parity-asserted* (no cross-backend confirmation). That gap is acceptable for v1.0; it's worth closing for v1.1.
+Consumers expect the library to be drop-in for real DynamoDB. A consumer writing a `SET map.field = :v` update expression today gets the same answer from DdbLite as from real DynamoDB empirically, since the main suite tests it. It isn't parity-asserted; there's no cross-backend confirmation. That gap is acceptable for v1.0. Close it for v1.1.
 
 ## Next
 
@@ -100,4 +110,4 @@ Sequenced from highest value (most likely place for silent drift) to lowest:
 
 5. **Transaction shape parity** — mixed-action transactions, oversize transactions, `ReturnConsumedCapacity` shape.
 
-When the expansion lands, update [parity-with-dynamodb-local](parity-with-dynamodb-local.md)'s Covered list per scenario and recalculate the coverage delta in [parity-coverage-status](parity-coverage-status.md).
+When the expansion lands, update [parity-with-dynamodb-local](../notes/parity-with-dynamodb-local.md)'s Covered list per scenario and recalculate the coverage delta in [parity-coverage-status](../notes/parity-coverage-status.md).

@@ -3,7 +3,7 @@ using Amazon.DynamoDBv2.DataModel;
 namespace DynamoDbLite.Tests.Models;
 
 [DynamoDBTable("GsiItems")]
-internal class GsiItem
+internal sealed class GsiItem
 {
     [DynamoDBHashKey]
     public string PK { get; set; } = "";

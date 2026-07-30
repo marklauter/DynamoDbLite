@@ -41,7 +41,7 @@ public sealed partial class DynamoDbClient
         var rows = await store.ScanItemsAsync(
             request.TableName, request.Limit, exclusiveStartPk, exclusiveStartSk, nowEpoch, cancellationToken);
 
-        TriggerBackgroundCleanup(request.TableName);
+        await CleanupExpiredItemsSafeAsync(request.TableName, cancellationToken);
 
         if (request.TotalSegments is int total && total > 1)
             rows = [.. rows.Where(r => SegmentOf(r.Pk, total) == request.Segment!.Value)];
