@@ -1270,19 +1270,6 @@ internal abstract class SqliteStore
 
     // ── Update table metadata (for UpdateTableAsync GSI changes) ───
 
-    internal async Task UpdateIndexMetadataAsync(
-        string tableName,
-        List<IndexDefinition> gsiDefinitions,
-        CancellationToken cancellationToken = default)
-    {
-        var gsiJson = gsiDefinitions.ToJson();
-        using var connection = await OpenConnectionAsync(cancellationToken);
-        _ = await connection.ExecuteAsync(
-            "UPDATE tables SET global_secondary_indexes_json = @gsiJson WHERE table_name = @tableName",
-            new { tableName, gsiJson });
-        InvalidateMetadata(tableName);
-    }
-
     private static async Task UpdateIndexMetadataInTransactionAsync(
         DbConnection connection,
         DbTransaction transaction,

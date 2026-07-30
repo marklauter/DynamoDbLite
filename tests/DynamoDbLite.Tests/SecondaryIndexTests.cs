@@ -1745,4 +1745,77 @@ public sealed class SecondaryIndexTests
         }, TestContext.Current.CancellationToken);
         Assert.Equal(1, newResp.Count);
     }
+
+    // -- Batch delete index maintenance ----------------------------------
+
+    [Theory]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
+    public async Task BatchWrite_Delete_Removes_Gsi_Entries(StoreType st)
+    {
+        var client = Client(st);
+        await CreateTableWithGsiAsync(client);
+
+        for (var i = 1; i <= 2; i++)
+        {
+            _ = await client.PutItemAsync(new PutItemRequest
+            {
+                TableName = TestTableName,
+                Item = new Dictionary<string, AttributeValue>
+                {
+                    ["PK"] = new() { S = $"pk{i}" },
+                    ["SK"] = new() { S = "sk" },
+                    ["GSI_PK"] = new() { S = "shared_gsi_pk" },
+                    ["GSI_SK"] = new() { S = $"gsi_sk{i}" }
+                }
+            }, TestContext.Current.CancellationToken);
+        }
+
+        var before = await QueryGsiAsync(client, "shared_gsi_pk");
+        Assert.Equal(2, before.Count);
+
+        _ = await client.BatchWriteItemAsync(new BatchWriteItemRequest
+        {
+            RequestItems = new Dictionary<string, List<WriteRequest>>
+            {
+                [TestTableName] =
+                [
+                    new WriteRequest
+                    {
+                        DeleteRequest = new DeleteRequest
+                        {
+                            Key = new Dictionary<string, AttributeValue>
+                            {
+                                ["PK"] = new() { S = "pk1" },
+                                ["SK"] = new() { S = "sk" }
+                            }
+                        }
+                    }
+                ]
+            }
+        }, TestContext.Current.CancellationToken);
+
+        // The base table row is gone, and so is its index entry — a batch delete that skipped
+        // index maintenance would leave the GSI pointing at a row that no longer exists.
+        var after = await QueryGsiAsync(client, "shared_gsi_pk");
+        Assert.Equal(1, after.Count);
+        Assert.Equal("gsi_sk2", after.Items[0]["GSI_SK"].S);
+
+        var deleted = await client.GetItemAsync(TestTableName,
+            new Dictionary<string, AttributeValue> { ["PK"] = new() { S = "pk1" }, ["SK"] = new() { S = "sk" } },
+            TestContext.Current.CancellationToken);
+        Assert.False(deleted.IsItemSet);
+    }
+
+    private Task<QueryResponse> QueryGsiAsync(DynamoDbClient client, string gsiPk) =>
+        client.QueryAsync(new QueryRequest
+        {
+            TableName = TestTableName,
+            IndexName = "GSI1",
+            KeyConditionExpression = "GSI_PK = :gpk",
+            ExpressionAttributeValues = new Dictionary<string, AttributeValue>
+            {
+                [":gpk"] = new() { S = gsiPk }
+            }
+        }, TestContext.Current.CancellationToken);
 }
