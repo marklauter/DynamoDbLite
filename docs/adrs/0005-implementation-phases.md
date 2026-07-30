@@ -2,6 +2,11 @@
 
 Status: Informational (status log, not a decision)
 
+The execution model recorded in phases 7 and 10 below — background TTL cleanup with a 30s throttle,
+and `Task.Run` export/import — is superseded by [ADR 0009](0009-no-background-work.md). All three run
+inline now, and the throttle is 60s. The phase text is left as written, because this file records what
+was delivered at the time.
+
 Phased delivery of the public API surface. Each phase below is complete unless flagged otherwise.
 
 1. **Phase 1 — Table management:** `CreateTableAsync`, `DeleteTableAsync`, `DescribeTableAsync`, `ListTablesAsync`
