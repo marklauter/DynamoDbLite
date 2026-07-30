@@ -45,8 +45,8 @@ public sealed partial class DynamoDbClient
             importArn, tableName, format, compression, s3Bucket, s3KeyPrefix,
             tableCreationJson, startTime, request.ClientToken, cancellationToken);
 
-        // Create the table synchronously before handing off to the background task
-        // to avoid a race where another caller creates the same table between check and creation.
+        // Create the table before importing into it, so another caller cannot create the same
+        // table between the check and the creation.
         var tableParams = request.TableCreationParameters;
         _ = await CreateTableAsync(new CreateTableRequest
         {
@@ -57,7 +57,11 @@ public sealed partial class DynamoDbClient
             GlobalSecondaryIndexes = tableParams.GlobalSecondaryIndexes,
         }, cancellationToken);
 
-        _ = ExecuteImportAsync(importArn, tableName, s3Bucket, s3KeyPrefix);
+        // Real DynamoDB completes the import server-side after responding, so the response always
+        // reports IN_PROGRESS and the caller polls DescribeImport for the terminal status. There is
+        // no server here, so the work runs inline and the record is already terminal by the time
+        // the caller can poll. The reported status stays IN_PROGRESS for parity with the API shape.
+        await ExecuteImportAsync(importArn, tableName, s3Bucket, s3KeyPrefix);
 
         return new ImportTableResponse
         {
@@ -75,7 +79,7 @@ public sealed partial class DynamoDbClient
         };
     }
 
-    [SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Fire-and-forget background task; failures are recorded as FAILED status")]
+    [SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Import failures are reported through the import record's FAILED status, matching the API contract, rather than thrown")]
     private async Task ExecuteImportAsync(
         string importArn, string tableName,
         string s3Bucket, string s3KeyPrefix)
@@ -139,10 +143,6 @@ public sealed partial class DynamoDbClient
                 importArn, "COMPLETED", endTime,
                 importedCount, processedCount, processedBytes, 0L, null, null);
         }
-        catch (ObjectDisposedException)
-        {
-            // Store disposed during background operation (e.g. test cleanup) — silently abandon
-        }
         catch (Exception ex)
         {
             LogImportFailed(ex, importArn);
@@ -151,10 +151,6 @@ public sealed partial class DynamoDbClient
                 var endTime = DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture);
                 await store.UpdateImportStatusAsync(
                     importArn, "FAILED", endTime, null, null, null, null, "INTERNAL_ERROR", ex.Message);
-            }
-            catch (ObjectDisposedException)
-            {
-                // Store disposed during background operation — silently abandon
             }
             catch (Exception writeEx)
             {
