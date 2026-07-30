@@ -600,9 +600,9 @@ public sealed class ConditionExpressionTests
         var ex = Assert.Throws<AmazonDynamoDBException>(() =>
             ConditionExpressionParser.Parse("name = :v"));
 
-        Assert.Contains("ConditionExpression", ex.Message);
-        Assert.Contains("reserved keyword", ex.Message);
-        Assert.Contains("name", ex.Message);
+        Assert.Contains("ConditionExpression", ex.Message, StringComparison.Ordinal);
+        Assert.Contains("reserved keyword", ex.Message, StringComparison.Ordinal);
+        Assert.Contains("name", ex.Message, StringComparison.Ordinal);
     }
 
     [Fact]

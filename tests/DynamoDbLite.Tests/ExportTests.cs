@@ -62,6 +62,7 @@ public abstract class ExportTestsBase
             // Best-effort: background export task may still hold file handles
         }
 
+        GC.SuppressFinalize(this);
         return ValueTask.CompletedTask;
     }
 
@@ -76,7 +77,7 @@ public abstract class ExportTestsBase
         }, TestContext.Current.CancellationToken);
 
         Assert.Equal(ExportStatus.IN_PROGRESS, response.ExportDescription.ExportStatus);
-        Assert.StartsWith("arn:aws:dynamodb:local:000000000000:table/ExportTable/export/", response.ExportDescription.ExportArn);
+        Assert.StartsWith("arn:aws:dynamodb:local:000000000000:table/ExportTable/export/", response.ExportDescription.ExportArn, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -138,7 +139,7 @@ public abstract class ExportTestsBase
 
         Assert.NotEmpty(response.ExportSummaries);
         Assert.All(response.ExportSummaries, s =>
-            Assert.StartsWith("arn:aws:dynamodb:local:000000000000:table/ExportTable/export/", s.ExportArn));
+            Assert.StartsWith("arn:aws:dynamodb:local:000000000000:table/ExportTable/export/", s.ExportArn, StringComparison.Ordinal));
     }
 
     [Fact]
@@ -208,7 +209,7 @@ public abstract class ExportTestsBase
 
         Assert.NotEmpty(response.ExportSummaries);
         Assert.All(response.ExportSummaries, s =>
-            Assert.StartsWith($"{TableArn}/export/", s.ExportArn));
+            Assert.StartsWith($"{TableArn}/export/", s.ExportArn, StringComparison.Ordinal));
     }
 
     [Fact]

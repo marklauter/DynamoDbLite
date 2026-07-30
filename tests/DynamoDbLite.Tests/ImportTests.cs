@@ -93,6 +93,7 @@ public abstract class ImportTestsBase
             // Best-effort: background import task may still hold file handles
         }
 
+        GC.SuppressFinalize(this);
         return ValueTask.CompletedTask;
     }
 

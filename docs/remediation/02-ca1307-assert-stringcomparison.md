@@ -5,7 +5,7 @@ tags: [todo, remediation, ddblite, analyzers, tests, ca1307]
 created: 2026-07-16
 priority: high
 effort: medium
-status: open
+status: closed
 ---
 
 CA1307 ("specify StringComparison for clarity") is an **error** since #98. The
@@ -39,3 +39,9 @@ human-facing text. 36 sites across 10 files — mechanical but must be done per 
 - QueryTests.cs:219
 - TagTests.cs:180, :195, :210, :225, :240, :254
 - TimeToLiveTests.cs:88, :137, :153, :169
+
+## Resolution
+
+Closed 2026-07-29. Added `StringComparison.Ordinal` to all 36 flagged calls across 11
+files. Three sites in `ExportTests.cs` sat a line below the reported line, because the
+diagnostic anchors to the start of the enclosing statement, not the call.

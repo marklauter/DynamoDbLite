@@ -5,7 +5,7 @@ tags: [todo, remediation, ddblite, analyzers, tests, ca1515]
 created: 2026-07-16
 priority: high
 effort: low
-status: open
+status: closed
 ---
 
 CA1515 ("types can be made internal") is an **error** since the canonical
@@ -40,3 +40,8 @@ them regardless of count.
 - tests/DynamoDbLite.Tests/ImportTests.cs:430, :436
 
 See [[06-align-ci-path-filter-to-canon]] for why this went unnoticed.
+
+## Resolution
+
+Closed 2026-07-29. Appended `CA1515` to the `.Tests` `NoWarn` group in
+`Directory.Build.props`. Cleared all 64 `format` sites and all 7 `build` sites.

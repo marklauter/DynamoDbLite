@@ -5,7 +5,7 @@ tags: [todo, remediation, ddblite, analyzers, tests, ca1816]
 created: 2026-07-16
 priority: high
 effort: low
-status: open
+status: closed
 ---
 
 CA1816 ("call GC.SuppressFinalize correctly") fires on two `DisposeAsync`
@@ -31,3 +31,8 @@ Confirm the exact shape against the existing method bodies before editing —
 
 - tests/DynamoDbLite.Tests/ExportTests.cs:52 (ExportTestsBase.DisposeAsync)
 - tests/DynamoDbLite.Tests/ImportTests.cs:83 (ImportTestsBase.DisposeAsync)
+
+## Resolution
+
+Closed 2026-07-29. Added `GC.SuppressFinalize(this)` to both `DisposeAsync` bodies,
+after the existing best-effort temp-directory cleanup.

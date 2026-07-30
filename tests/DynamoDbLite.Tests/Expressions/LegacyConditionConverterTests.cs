@@ -191,7 +191,7 @@ public sealed class LegacyConditionConverterTests
         };
 
         var ex = Assert.Throws<ArgumentException>(() => LegacyConditionConverter.Convert(conditions));
-        Assert.Contains("BOGUS", ex.Message);
+        Assert.Contains("BOGUS", ex.Message, StringComparison.Ordinal);
     }
 
     [Fact]

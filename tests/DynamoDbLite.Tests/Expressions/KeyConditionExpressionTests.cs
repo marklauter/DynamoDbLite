@@ -114,8 +114,8 @@ public sealed class KeyConditionExpressionTests
         var ex = Assert.Throws<AmazonDynamoDBException>(() =>
             KeyConditionExpressionParser.Parse("name = :pk"));
 
-        Assert.Contains("KeyConditionExpression", ex.Message);
-        Assert.Contains("reserved keyword", ex.Message);
+        Assert.Contains("KeyConditionExpression", ex.Message, StringComparison.Ordinal);
+        Assert.Contains("reserved keyword", ex.Message, StringComparison.Ordinal);
     }
 
     [Fact]

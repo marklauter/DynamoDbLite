@@ -286,7 +286,7 @@ public sealed class UpdateExpressionTests
                 ast, item, null,
                 new Dictionary<string, AttributeValue> { [":val"] = new() { S = "not-a-list" } }));
 
-        Assert.Contains("list_append", ex.Message);
+        Assert.Contains("list_append", ex.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -304,7 +304,7 @@ public sealed class UpdateExpressionTests
                 ast, item, null,
                 new Dictionary<string, AttributeValue> { [":val"] = new() { N = "42" } }));
 
-        Assert.Contains("list_append", ex.Message);
+        Assert.Contains("list_append", ex.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -325,7 +325,7 @@ public sealed class UpdateExpressionTests
                     [":b"] = new() { N = "42" },
                 }));
 
-        Assert.Contains("list_append", ex.Message);
+        Assert.Contains("list_append", ex.Message, StringComparison.Ordinal);
     }
 
     // ── Combined clauses ───────────────────────────────────────────────
@@ -550,7 +550,7 @@ public sealed class UpdateExpressionTests
             ast, item, null,
             new Dictionary<string, AttributeValue> { [":v"] = new() { S = "X" } }));
 
-        Assert.Contains("document path", ex.Message);
+        Assert.Contains("document path", ex.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -575,7 +575,7 @@ public sealed class UpdateExpressionTests
             ast, item, null,
             new Dictionary<string, AttributeValue> { [":v"] = new() { S = "X" } }));
 
-        Assert.Contains("document path", ex.Message);
+        Assert.Contains("document path", ex.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -628,9 +628,9 @@ public sealed class UpdateExpressionTests
         var ex = Assert.Throws<AmazonDynamoDBException>(() =>
             UpdateExpressionParser.Parse("SET name = :v"));
 
-        Assert.Contains("UpdateExpression", ex.Message);
-        Assert.Contains("reserved keyword", ex.Message);
-        Assert.Contains("name", ex.Message);
+        Assert.Contains("UpdateExpression", ex.Message, StringComparison.Ordinal);
+        Assert.Contains("reserved keyword", ex.Message, StringComparison.Ordinal);
+        Assert.Contains("name", ex.Message, StringComparison.Ordinal);
     }
 
     [Fact]

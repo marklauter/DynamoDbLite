@@ -216,7 +216,7 @@ public sealed class QueryTests
         }, TestContext.Current.CancellationToken);
 
         Assert.Equal(2, response.Count);
-        Assert.All(response.Items, item => Assert.StartsWith("ORDER#", item["SK"].S));
+        Assert.All(response.Items, item => Assert.StartsWith("ORDER#", item["SK"].S, StringComparison.Ordinal));
     }
 
     [Theory]

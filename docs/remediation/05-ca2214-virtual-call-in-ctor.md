@@ -5,7 +5,7 @@ tags: [todo, remediation, ddblite, analyzers, tests, ca2214]
 created: 2026-07-16
 priority: high
 effort: low
-status: open
+status: closed
 ---
 
 CA2214 ("do not call overridable methods in constructors") fires once, in a test
@@ -30,3 +30,15 @@ Do not blanket-suppress — decide per the actual design.
 ## Blocking site (1)
 
 - tests/DynamoDbLite.Tests/Fixtures/DynamoDbContextFactory.cs:14
+
+## Resolution
+
+Closed 2026-07-29. Removed the virtual call instead of suppressing. `DynamoDbContextFactory`
+now takes a `Func<DynamoDbClient>` and the abstract `CreateClient` is gone, so nothing
+dispatches to a subclass during base construction. Passing the client in directly was tried
+first and tripped `IDISP007` ("don't dispose injected") — the creation function keeps
+ownership with the factory, so disposal stays correct without a suppression.
+
+`FileBasedDynamoFactory.DbPath` became get-only in the process: the path is now created
+first and the client derived from it, so the property no longer needs a private setter or a
+`null!` initializer.

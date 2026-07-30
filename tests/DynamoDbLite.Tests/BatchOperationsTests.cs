@@ -293,7 +293,7 @@ public sealed class BatchOperationsTests
                 }
             }, TestContext.Current.CancellationToken));
 
-        Assert.Contains("Too many items", ex.Message);
+        Assert.Contains("Too many items", ex.Message, StringComparison.Ordinal);
     }
 
     [Theory]
@@ -331,7 +331,7 @@ public sealed class BatchOperationsTests
                 RequestItems = []
             }, TestContext.Current.CancellationToken));
 
-        Assert.Contains("requestItems", ex.Message);
+        Assert.Contains("requestItems", ex.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -667,7 +667,7 @@ public sealed class BatchOperationsTests
                 }
             }, TestContext.Current.CancellationToken));
 
-        Assert.Contains("Too many items", ex.Message);
+        Assert.Contains("Too many items", ex.Message, StringComparison.Ordinal);
     }
 
     [Theory]
@@ -695,7 +695,7 @@ public sealed class BatchOperationsTests
                 }
             }, TestContext.Current.CancellationToken));
 
-        Assert.Contains("duplicates", ex.Message);
+        Assert.Contains("duplicates", ex.Message, StringComparison.Ordinal);
     }
 
     [Theory]
@@ -736,7 +736,7 @@ public sealed class BatchOperationsTests
                 RequestItems = []
             }, TestContext.Current.CancellationToken));
 
-        Assert.Contains("requestItems", ex.Message);
+        Assert.Contains("requestItems", ex.Message, StringComparison.Ordinal);
     }
 
     [Fact]

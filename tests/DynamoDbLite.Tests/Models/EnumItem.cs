@@ -10,7 +10,7 @@ internal enum ItemStatus
 }
 
 [DynamoDBTable("EnumItems")]
-internal class EnumItem
+internal sealed class EnumItem
 {
     [DynamoDBHashKey]
     public string Id { get; set; } = "";

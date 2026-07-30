@@ -5,7 +5,7 @@ tags: [todo, remediation, ddblite, analyzers, tests, ca1852]
 created: 2026-07-16
 priority: high
 effort: low
-status: open
+status: closed
 ---
 
 CA1852 ("type can be sealed") fires on seven test-fixture model classes that have
@@ -33,3 +33,7 @@ house convention (sealed concretes).
 - tests/DynamoDbLite.Tests/Models/NumericKeyItem.cs:6
 - tests/DynamoDbLite.Tests/Models/SimpleItem.cs:6
 - tests/DynamoDbLite.Tests/Models/VersionedItem.cs:6
+
+## Resolution
+
+Closed 2026-07-29. Sealed all seven model types.

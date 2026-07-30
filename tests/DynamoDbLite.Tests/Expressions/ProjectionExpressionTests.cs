@@ -340,8 +340,8 @@ public sealed class ProjectionExpressionTests
         var ex = Assert.Throws<AmazonDynamoDBException>(() =>
             ProjectionExpressionParser.Parse("name"));
 
-        Assert.Contains("ProjectionExpression", ex.Message);
-        Assert.Contains("reserved keyword", ex.Message);
+        Assert.Contains("ProjectionExpression", ex.Message, StringComparison.Ordinal);
+        Assert.Contains("reserved keyword", ex.Message, StringComparison.Ordinal);
     }
 
     [Fact]
