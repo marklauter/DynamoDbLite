@@ -1,14 +1,21 @@
 ---
-title: Performance pass
-type: note
-summary: "Raw write-path benchmark sweep across journal mode, WAL checkpoint interval, and batch size, plus the per-operation metadata-read and SELECT-old cost analysis."
+title: Write-path measurement sweep and the BatchWriteItem cost trace
+type: journal
+summary: "Raw session record: two benchmark sweeps over journal mode, WAL checkpoint interval, and batch size, then a per-store-call cost trace of BatchWriteItemAsync with five findings."
 tags: [performance, write-path, batch, wal, sqlite, bench]
 created: 2026-06-01
-status: evolving
 part-of: "[[write-path-performance-findings]]"
 ---
 
-# Performance pass
+# Write-path measurement sweep and the BatchWriteItem cost trace
+
+## Context
+
+Two things ran in this session, both on the write path. First a benchmark sweep over the levers available to a file-backed store — rollback journal versus WAL, WAL autocheckpoint interval, and batch size — to find where the write cost actually sits. Then a per-store-call cost trace of `DynamoDbClient.BatchWriteItemAsync`, counting the SQLite connections one logical batch opens.
+
+What follows is the raw record, in the order it came out. It is unedited: the numbered fragments are partial, the voice is first and second person, and the two tables cover overlapping configs while reporting different numbers for them — `inmem` single reads 874 in the first and 934 in the second. Nothing here records whether those are two runs of the same build or one run at two commits. The distilled conclusions live in [write-path-performance-findings](../notes/write-path-performance-findings.md); this entry is what they were drawn from.
+
+## The sweep
 
     9f95f6f (after "cache table metadata" commits)
     ┌─────────────────────────────┬──────────────────┬─────────────────┐
