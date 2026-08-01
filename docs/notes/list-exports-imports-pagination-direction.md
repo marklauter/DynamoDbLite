@@ -6,7 +6,6 @@ tags: [known-limitation, pagination, exports, imports]
 created: 2026-05-16
 status: evolving
 constrained-by: "[[behavioral-fidelity]]"
-cites: "[[export-and-import-get-the-minimal-fix-only]]"
 ---
 
 # ListExports / ListImports pagination filter direction
@@ -33,7 +32,7 @@ Comparing `ROWID <` instead was measured and rejected. Within a tie group SQLite
 
 ## What remains
 
-`start_time` is not unique and the comparison is strictly less-than, so when two records share a timestamp one of them can be skipped. No single-column cursor closes this. A composite `(start_time, arn)` token would, and it is out of scope by [export and import get the minimal fix only](../decisions/export-and-import-get-the-minimal-fix-only.md).
+`start_time` is not unique and the comparison is strictly less-than, so when two records share a timestamp one of them can be skipped. No single-column cursor closes this. A composite `(start_time, arn)` token would, and it was not built: whether these operations should exist at all is an open question, since the AWS contract they implement is defined against S3 and this implementation substitutes the local filesystem.
 
 Exposure is low. `start_time` carries tick resolution from `DateTime.UtcNow.ToString("O")`, and each record is written with file I/O in between, so distinct timestamps are the normal case.
 
