@@ -141,15 +141,23 @@ public abstract class ListExportsPaginatorTestsBase
 
     // ── Caller-supplied NextToken ───────────────────────────────────
 
-    // The first request carries whatever token the caller supplied. A paginator handed the token
-    // from page one starts at page two, so its first page differs from an untokened paginator's.
+    // The first request carries whatever token the caller supplied, so a paginator handed the token
+    // from page one delivers exactly the remainder: the whole set minus the summaries page one
+    // already returned, none re-read and none skipped. Asserted on content rather than on the
+    // resumed page merely differing from an unresumed one, which a cursor that both duplicates and
+    // skips would also satisfy. Compared as sorted sequences: summaries sharing a start_time have no
+    // defined relative order.
     [Fact]
     public async Task ListExports_CallerSuppliedNextToken_ResumesAfterIt()
     {
         await SeedExportsAsync(5);
 
+        var unpaged = await client.ListExportsAsync(Request(), TestContext.Current.CancellationToken);
         var firstPage = await client.ListExportsAsync(Request(maxResults: 2), TestContext.Current.CancellationToken);
         Assert.False(string.IsNullOrEmpty(firstPage.NextToken));
+
+        var expected = Arns(unpaged).Except(Arns(firstPage), StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
+        Assert.Equal(3, expected.Length);
 
         var resumed = await CollectAsync(
             client.Paginators!.ListExports(new ListExportsRequest
@@ -160,12 +168,10 @@ public abstract class ListExportsPaginatorTestsBase
             }).Responses,
             TestContext.Current.CancellationToken);
 
-        var fromStart = await CollectAsync(
-            client.Paginators!.ListExports(Request(maxResults: 2)).Responses,
-            TestContext.Current.CancellationToken);
+        var delivered = resumed.SelectMany(Arns).Order(StringComparer.Ordinal).ToArray();
 
-        Assert.NotEqual(Arns(fromStart[0]), Arns(resumed[0]));
-        Assert.Equal(Arns(firstPage), Arns(fromStart[0]));
+        Assert.Equal(expected, delivered);
+        Assert.Equal(delivered.Length, delivered.Distinct(StringComparer.Ordinal).Count());
     }
 
     // ── Exactly-once delivery ───────────────────────────────────────

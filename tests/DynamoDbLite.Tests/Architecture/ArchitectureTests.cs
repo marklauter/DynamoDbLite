@@ -93,6 +93,31 @@ public sealed class ArchitectureTests
             .NotBePublic()
             .Because("The SQLite layout, expression AST/parsers, serialization wire records, and paginator implementations are intentionally not part of the public API; leaking them would lock the package into the current internals. Callers reach the paginators through the AWS SDK's IDynamoDBv2PaginatorFactory interfaces only."));
 
+    // The namespace rule above only binds types that land in DynamoDbLite.Paginators, so a public
+    // paginator in any other namespace slips past it. This one is keyed on the type surface: wherever
+    // a paginator lives, it must not be public.
+    //
+    // Keyed on the name rather than on the implemented interface deliberately. The obvious form,
+    // AreAssignableTo(Interfaces().That().HaveFullNameMatching("Amazon.DynamoDBv2.Model.I*Paginator")),
+    // compiles and is permanently dead: only DynamoDbLite.dll is loaded into the architecture, and
+    // probing that form against Amazon.DynamoDBv2.IAmazonDynamoDB — which DynamoDbClient does
+    // implement, publicly — matched zero types. Do not "strengthen" this rule back into that shape
+    // without re-running that probe.
+    //
+    // WithoutRequiringPositiveResults because this is a forward guard: ArchUnitNET fails a rule whose
+    // predicate matches nothing, and no paginator types exist yet. It binds the moment one does.
+    [Fact]
+    public void PaginatorImplementationsAreNotPublic() =>
+        Verify(Types()
+            .That()
+            .HaveNameContaining("Paginator")
+            .And()
+            .DoNotHaveNameContaining("<")
+            .Should()
+            .NotBePublic()
+            .Because("Paginators are reached through the AWS SDK's IDynamoDBv2PaginatorFactory interfaces; a public concrete paginator would put our paging internals in the API surface.")
+            .WithoutRequiringPositiveResults());
+
     private static void Verify(IArchRule rule)
     {
         if (!rule.HasNoViolations(DynamoDbLite))

@@ -171,8 +171,11 @@ public sealed class ScanPaginatorTests
             }).Responses,
             TestContext.Current.CancellationToken);
 
-        Assert.Equal(4, PartitionKeys(pages).Count);
-        Assert.DoesNotContain(firstPage.Items[0]["PK"].S, PartitionKeys(pages), StringComparer.Ordinal);
+        // An exact sequence, not a count plus a does-not-contain: PartitionKeys sorts without
+        // de-duplicating, so those two are jointly satisfied by a resumption that skips one item and
+        // duplicates another.
+        Assert.Equal("PK#0", firstPage.Items[0]["PK"].S);
+        Assert.Equal(["PK#1", "PK#2", "PK#3", "PK#4"], PartitionKeys(pages));
     }
 
     // ── Single use ──────────────────────────────────────────────────

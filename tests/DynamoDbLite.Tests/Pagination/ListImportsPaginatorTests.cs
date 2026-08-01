@@ -42,17 +42,15 @@ public abstract class ListImportsPaginatorTestsBase
             ExportFormat = ExportFormat.DYNAMODB_JSON
         }, TestContext.Current.CancellationToken);
 
-        for (var i = 0; i < 100; i++)
+        // ExportTableToPointInTimeAsync runs the export inline, so the record is already terminal.
+        // Assert that rather than polling for it: the import tests all read this export's output, and
+        // a FAILED export must fail here loudly instead of becoming their silent input.
+        var described = await client.DescribeExportAsync(new DescribeExportRequest
         {
-            await Task.Delay(100, TestContext.Current.CancellationToken);
-            var described = await client.DescribeExportAsync(new DescribeExportRequest
-            {
-                ExportArn = export.ExportDescription.ExportArn
-            }, TestContext.Current.CancellationToken);
+            ExportArn = export.ExportDescription.ExportArn
+        }, TestContext.Current.CancellationToken);
 
-            if (described.ExportDescription.ExportStatus != ExportStatus.IN_PROGRESS)
-                break;
-        }
+        Assert.Equal(ExportStatus.COMPLETED, described.ExportDescription.ExportStatus);
     }
 
     public virtual ValueTask DisposeAsync()
@@ -165,15 +163,23 @@ public abstract class ListImportsPaginatorTestsBase
 
     // ── Caller-supplied NextToken ───────────────────────────────────
 
-    // The first request carries whatever token the caller supplied. A paginator handed the token
-    // from page one starts at page two, so its first page differs from an untokened paginator's.
+    // The first request carries whatever token the caller supplied, so a paginator handed the token
+    // from page one delivers exactly the remainder: the whole set minus the summaries page one
+    // already returned, none re-read and none skipped. Asserted on content rather than on the
+    // resumed page merely differing from an unresumed one, which a cursor that both duplicates and
+    // skips would also satisfy. Compared as sorted sequences: summaries sharing a start_time have no
+    // defined relative order.
     [Fact]
     public async Task ListImports_CallerSuppliedNextToken_ResumesAfterIt()
     {
         await SeedImportsAsync(5);
 
+        var unpaged = await client.ListImportsAsync(Request(), TestContext.Current.CancellationToken);
         var firstPage = await client.ListImportsAsync(Request(pageSize: 2), TestContext.Current.CancellationToken);
         Assert.False(string.IsNullOrEmpty(firstPage.NextToken));
+
+        var expected = Arns(unpaged).Except(Arns(firstPage), StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
+        Assert.Equal(3, expected.Length);
 
         var resumed = await CollectAsync(
             client.Paginators!.ListImports(new ListImportsRequest
@@ -183,12 +189,10 @@ public abstract class ListImportsPaginatorTestsBase
             }).Responses,
             TestContext.Current.CancellationToken);
 
-        var fromStart = await CollectAsync(
-            client.Paginators!.ListImports(Request(pageSize: 2)).Responses,
-            TestContext.Current.CancellationToken);
+        var delivered = resumed.SelectMany(Arns).Order(StringComparer.Ordinal).ToArray();
 
-        Assert.NotEqual(Arns(fromStart[0]), Arns(resumed[0]));
-        Assert.Equal(Arns(firstPage), Arns(fromStart[0]));
+        Assert.Equal(expected, delivered);
+        Assert.Equal(delivered.Length, delivered.Distinct(StringComparer.Ordinal).Count());
     }
 
     // ── Exactly-once delivery ───────────────────────────────────────
