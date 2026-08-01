@@ -44,7 +44,10 @@ internal sealed class OperationPaginator<TRequest, TResponse, TToken>(
     /// Deliberate deviation: the token is written onto the request instance the caller supplied rather
     /// than onto a per-page clone. The AWS SDK's own paginators do the same, and cloning would mean
     /// hand-copying every property of each request type — code that silently rots as the SDK adds
-    /// properties. The cost is that one request instance must not back two concurrent enumerations.
+    /// properties. The cost is that a request instance is spent once it has backed an enumeration:
+    /// it still carries the last continuation token, so reusing it for a later paginator resumes
+    /// where the previous enumeration stopped rather than starting over. That applies to sequential
+    /// reuse, not only to concurrent use. The AWS SDK's own paginators degrade identically.
     /// </remarks>
     public async IAsyncEnumerable<TResponse> PaginateAsync(
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
