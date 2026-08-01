@@ -21,7 +21,7 @@ public sealed class ArchitectureTests
             .DoNotHaveNameContaining("<") // exclude compiler-generated closures / async state machines
             .Should()
             .ResideInNamespaceMatching(@"^DynamoDbLite(\..*)?$")
-            .Because("Allowed sub-namespaces are Expressions, Serialization, SqliteStores, SqliteStores.Models. New top-level sub-namespaces require explicit design review."));
+            .Because("Allowed sub-namespaces are Expressions, Paginators, Serialization, SqliteStores, SqliteStores.Models. New top-level sub-namespaces require explicit design review."));
 
     [Fact]
     public void ConcreteClassesAreSealed() =>
@@ -104,8 +104,10 @@ public sealed class ArchitectureTests
     // implement, publicly — matched zero types. Do not "strengthen" this rule back into that shape
     // without re-running that probe.
     //
-    // WithoutRequiringPositiveResults because this is a forward guard: ArchUnitNET fails a rule whose
-    // predicate matches nothing, and no paginator types exist yet. It binds the moment one does.
+    // The rule matches the paginator types in this assembly, so it is not marked
+    // WithoutRequiringPositiveResults. ArchUnitNET fails a rule whose predicate matches nothing, and
+    // that failure is wanted here: if the types are renamed off the "Paginator" substring, the rule
+    // stops covering anything and must say so rather than pass silently.
     [Fact]
     public void PaginatorImplementationsAreNotPublic() =>
         Verify(Types()
@@ -115,8 +117,7 @@ public sealed class ArchitectureTests
             .DoNotHaveNameContaining("<")
             .Should()
             .NotBePublic()
-            .Because("Paginators are reached through the AWS SDK's IDynamoDBv2PaginatorFactory interfaces; a public concrete paginator would put our paging internals in the API surface.")
-            .WithoutRequiringPositiveResults());
+            .Because("Paginators are reached through the AWS SDK's IDynamoDBv2PaginatorFactory interfaces; a public concrete paginator would put our paging internals in the API surface."));
 
     private static void Verify(IArchRule rule)
     {
