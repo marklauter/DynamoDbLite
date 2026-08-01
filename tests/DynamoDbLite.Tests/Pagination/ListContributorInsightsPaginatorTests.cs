@@ -50,16 +50,55 @@ public sealed class ListContributorInsightsPaginatorTests
             () => CollectAsync(paginator.Responses, TestContext.Current.CancellationToken));
     }
 
+    // ── Single use ──────────────────────────────────────────────────
+
+    // The paginator carries no special case for the unsupported operation, single use included:
+    // the first enumeration consumes it even though that enumeration threw, so the second
+    // enumeration fails the single-use guard before it reaches the operation. There is no
+    // abandoned-partway case here — enumeration throws on the first pull, so it can never be
+    // abandoned mid-flight.
     [Theory]
     [InlineData(StoreType.DdbLiteFile)]
     [InlineData(StoreType.DdbLite)]
-    public async Task ListContributorInsights_ReEnumerated_ThrowsNotSupportedAgain(StoreType st)
+    public async Task ListContributorInsights_EnumeratedTwice_ThrowsInvalidOperationOnSecond(StoreType st)
     {
         var paginator = Client(st).Paginators!.ListContributorInsights(new ListContributorInsightsRequest());
 
         _ = await Assert.ThrowsAsync<NotSupportedException>(
             () => CollectAsync(paginator.Responses, TestContext.Current.CancellationToken));
+
+        _ = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => CollectAsync(paginator.Responses, TestContext.Current.CancellationToken));
+    }
+
+    [Theory]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
+    public async Task ListContributorInsights_ResponsesReadWithoutEnumerating_DoesNotConsume(StoreType st)
+    {
+        var paginator = Client(st).Paginators!.ListContributorInsights(new ListContributorInsightsRequest());
+
+        _ = paginator.Responses;
+        _ = paginator.Responses;
+
         _ = await Assert.ThrowsAsync<NotSupportedException>(
             () => CollectAsync(paginator.Responses, TestContext.Current.CancellationToken));
+    }
+
+    [Theory]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
+    public async Task ListContributorInsights_FreshPaginatorAfterConsumption_ThrowsNotSupported(StoreType st)
+    {
+        var client = Client(st);
+
+        var consumed = client.Paginators!.ListContributorInsights(new ListContributorInsightsRequest());
+        _ = await Assert.ThrowsAsync<NotSupportedException>(
+            () => CollectAsync(consumed.Responses, TestContext.Current.CancellationToken));
+
+        var fresh = client.Paginators!.ListContributorInsights(new ListContributorInsightsRequest());
+
+        _ = await Assert.ThrowsAsync<NotSupportedException>(
+            () => CollectAsync(fresh.Responses, TestContext.Current.CancellationToken));
     }
 }

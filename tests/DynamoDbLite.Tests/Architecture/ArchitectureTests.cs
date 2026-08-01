@@ -86,12 +86,12 @@ public sealed class ArchitectureTests
     public void InternalNamespacesContainOnlyInternalTypes() =>
         Verify(Types()
             .That()
-            .ResideInNamespaceMatching(@"^DynamoDbLite\.(SqliteStores|SqliteStores\.Models|Expressions|Serialization)$")
+            .ResideInNamespaceMatching(@"^DynamoDbLite\.(SqliteStores|SqliteStores\.Models|Expressions|Serialization|Paginators)$")
             .And()
             .DoNotHaveNameContaining("<")
             .Should()
             .NotBePublic()
-            .Because("The SQLite layout, expression AST/parsers, and serialization wire records are intentionally not part of the public API; leaking them would lock the package into the current internals."));
+            .Because("The SQLite layout, expression AST/parsers, serialization wire records, and paginator implementations are intentionally not part of the public API; leaking them would lock the package into the current internals. Callers reach the paginators through the AWS SDK's IDynamoDBv2PaginatorFactory interfaces only."));
 
     private static void Verify(IArchRule rule)
     {

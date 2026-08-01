@@ -68,6 +68,9 @@ public abstract class ListExportsPaginatorTestsBase
     private static ListExportsRequest Request(int? maxResults = null) =>
         new() { TableArn = TableArn, MaxResults = maxResults };
 
+    private static IEnumerable<string> Arns(ListExportsResponse page) =>
+        page.ExportSummaries.Select(static s => s.ExportArn);
+
     // ── Laziness ────────────────────────────────────────────────────
 
     [Fact]
@@ -136,27 +139,123 @@ public abstract class ListExportsPaginatorTestsBase
         Assert.True(string.IsNullOrEmpty(pages[^1].NextToken));
     }
 
-    // ── Re-enumeration ──────────────────────────────────────────────
+    // ── Caller-supplied NextToken ───────────────────────────────────
+
+    // The first request carries whatever token the caller supplied. A paginator handed the token
+    // from page one starts at page two, so its first page differs from an untokened paginator's.
+    [Fact]
+    public async Task ListExports_CallerSuppliedNextToken_ResumesAfterIt()
+    {
+        await SeedExportsAsync(5);
+
+        var firstPage = await client.ListExportsAsync(Request(maxResults: 2), TestContext.Current.CancellationToken);
+        Assert.False(string.IsNullOrEmpty(firstPage.NextToken));
+
+        var resumed = await CollectAsync(
+            client.Paginators!.ListExports(new ListExportsRequest
+            {
+                TableArn = TableArn,
+                MaxResults = 2,
+                NextToken = firstPage.NextToken,
+            }).Responses,
+            TestContext.Current.CancellationToken);
+
+        var fromStart = await CollectAsync(
+            client.Paginators!.ListExports(Request(maxResults: 2)).Responses,
+            TestContext.Current.CancellationToken);
+
+        Assert.NotEqual(Arns(fromStart[0]), Arns(resumed[0]));
+        Assert.Equal(Arns(firstPage), Arns(fromStart[0]));
+    }
+
+    // ── Exactly-once delivery ───────────────────────────────────────
+
+    // Enumerating to completion yields every summary the unpaged call returns, each exactly once.
+    // Compared as sorted sequences: summaries sharing a start_time have no defined relative order,
+    // which is a known limitation and deliberately not asserted against.
+    [Fact]
+    public async Task ListExports_MaxResultsBelowExportCount_YieldsEverySummaryExactlyOnce()
+    {
+        await SeedExportsAsync(5);
+
+        var unpaged = await client.ListExportsAsync(Request(), TestContext.Current.CancellationToken);
+
+        var pages = await CollectAsync(
+            client.Paginators!.ListExports(Request(maxResults: 2)).Responses,
+            TestContext.Current.CancellationToken);
+
+        var paged = pages.SelectMany(Arns).Order(StringComparer.Ordinal).ToArray();
+
+        Assert.Equal(5, unpaged.ExportSummaries.Count);
+        Assert.Equal(Arns(unpaged).Order(StringComparer.Ordinal), paged);
+        Assert.Equal(paged.Length, paged.Distinct(StringComparer.Ordinal).Count());
+    }
+
+    // ── Single use ──────────────────────────────────────────────────
 
     [Fact]
-    public async Task ListExports_ReEnumerated_RestartsAndYieldsSamePages()
+    public async Task ListExports_EnumeratedTwice_ThrowsInvalidOperation()
     {
         await SeedExportsAsync(3);
 
         var paginator = client.Paginators!.ListExports(Request(maxResults: 2));
 
-        var first = await CollectAsync(paginator.Responses, TestContext.Current.CancellationToken);
-        var second = await CollectAsync(paginator.Responses, TestContext.Current.CancellationToken);
+        _ = await CollectAsync(paginator.Responses, TestContext.Current.CancellationToken);
 
-        Assert.Equal(
-            first.Select(static p => p.ExportSummaries.Select(static s => s.ExportArn)),
-            second.Select(static p => p.ExportSummaries.Select(static s => s.ExportArn)));
+        _ = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => CollectAsync(paginator.Responses, TestContext.Current.CancellationToken));
+    }
+
+    // Consumption is marked when enumeration begins, not when it completes.
+    [Fact]
+    public async Task ListExports_FirstEnumerationAbandonedPartway_SecondThrowsInvalidOperation()
+    {
+        await SeedExportsAsync(3);
+
+        var paginator = client.Paginators!.ListExports(Request(maxResults: 2));
+
+        await BeginAndAbandonAsync(paginator.Responses, TestContext.Current.CancellationToken);
+
+        _ = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => CollectAsync(paginator.Responses, TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task ListExports_ResponsesReadWithoutEnumerating_DoesNotConsume()
+    {
+        await SeedExportsAsync(3);
+
+        var paginator = client.Paginators!.ListExports(Request(maxResults: 2));
+
+        _ = paginator.Responses;
+        _ = paginator.Responses;
+
+        var pages = await CollectAsync(paginator.Responses, TestContext.Current.CancellationToken);
+
+        Assert.Equal(3, pages.SelectMany(Arns).Distinct(StringComparer.Ordinal).Count());
+    }
+
+    [Fact]
+    public async Task ListExports_FreshPaginatorAfterConsumption_PagesNormally()
+    {
+        await SeedExportsAsync(3);
+
+        var consumed = client.Paginators!.ListExports(Request(maxResults: 2));
+        _ = await CollectAsync(consumed.Responses, TestContext.Current.CancellationToken);
+
+        var fresh = client.Paginators!.ListExports(Request(maxResults: 2));
+        var pages = await CollectAsync(fresh.Responses, TestContext.Current.CancellationToken);
+
+        Assert.Equal(3, pages.SelectMany(Arns).Distinct(StringComparer.Ordinal).Count());
     }
 
     // ── Cancellation ────────────────────────────────────────────────
 
+    // Pins the SDK wrapper's guard, not token propagation. PaginatedResponse<T> re-checks the token
+    // after pulling each page, so this throws whether or not the paginator passes the token down.
+    // Propagation is not observable through the AWS-public surface, so no test here pins it.
     [Fact]
-    public async Task ListExports_CancelledToken_ThrowsOperationCanceled()
+    public async Task ListExports_CancelledToken_SdkWrapperThrowsOperationCanceled()
     {
         await SeedExportsAsync(1);
 

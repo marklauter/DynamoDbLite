@@ -165,31 +165,86 @@ public sealed class QueryPaginatorTests
         Assert.Equal(["SK#1", "SK#2", "SK#3", "SK#4"], SortKeys(pages));
     }
 
-    // ── Re-enumeration ──────────────────────────────────────────────
+    // ── Single use ──────────────────────────────────────────────────
 
     [Theory]
     [InlineData(StoreType.DdbLiteFile)]
     [InlineData(StoreType.DdbLite)]
-    public async Task Query_ReEnumerated_RestartsAndYieldsSamePages(StoreType st)
+    public async Task Query_EnumeratedTwice_ThrowsInvalidOperation(StoreType st)
     {
         var client = Client(st);
         await SeedAsync(client, 5);
 
         var paginator = client.Paginators!.Query(Request(limit: 2));
 
-        var first = await CollectAsync(paginator.Responses, TestContext.Current.CancellationToken);
-        var second = await CollectAsync(paginator.Responses, TestContext.Current.CancellationToken);
+        _ = await CollectAsync(paginator.Responses, TestContext.Current.CancellationToken);
 
-        Assert.Equal(first.Select(static p => p.Items.Count), second.Select(static p => p.Items.Count));
-        Assert.Equal(SortKeys(first), SortKeys(second));
+        _ = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => CollectAsync(paginator.Responses, TestContext.Current.CancellationToken));
     }
 
-    // ── Cancellation ────────────────────────────────────────────────
+    // Consumption is marked when enumeration begins, not when it completes.
+    [Theory]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
+    public async Task Query_FirstEnumerationAbandonedPartway_SecondThrowsInvalidOperation(StoreType st)
+    {
+        var client = Client(st);
+        await SeedAsync(client, 5);
+
+        var paginator = client.Paginators!.Query(Request(limit: 2));
+
+        await BeginAndAbandonAsync(paginator.Responses, TestContext.Current.CancellationToken);
+
+        _ = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => CollectAsync(paginator.Responses, TestContext.Current.CancellationToken));
+    }
 
     [Theory]
     [InlineData(StoreType.DdbLiteFile)]
     [InlineData(StoreType.DdbLite)]
-    public async Task Query_CancelledToken_ThrowsOperationCanceled(StoreType st)
+    public async Task Query_ResponsesReadWithoutEnumerating_DoesNotConsume(StoreType st)
+    {
+        var client = Client(st);
+        await SeedAsync(client, 5);
+
+        var paginator = client.Paginators!.Query(Request(limit: 2));
+
+        _ = paginator.Responses;
+        _ = paginator.Responses;
+
+        var pages = await CollectAsync(paginator.Responses, TestContext.Current.CancellationToken);
+
+        Assert.Equal(["SK#0", "SK#1", "SK#2", "SK#3", "SK#4"], SortKeys(pages));
+    }
+
+    [Theory]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
+    public async Task Query_FreshPaginatorAfterConsumption_PagesNormally(StoreType st)
+    {
+        var client = Client(st);
+        await SeedAsync(client, 5);
+
+        var consumed = client.Paginators!.Query(Request(limit: 2));
+        _ = await CollectAsync(consumed.Responses, TestContext.Current.CancellationToken);
+
+        var fresh = client.Paginators!.Query(Request(limit: 2));
+        var pages = await CollectAsync(fresh.Responses, TestContext.Current.CancellationToken);
+
+        Assert.Equal([2, 2, 1], pages.Select(static p => p.Items.Count));
+        Assert.Equal(["SK#0", "SK#1", "SK#2", "SK#3", "SK#4"], SortKeys(pages));
+    }
+
+    // ── Cancellation ────────────────────────────────────────────────
+
+    // Pins the SDK wrapper's guard, not token propagation. PaginatedResponse<T> re-checks the token
+    // after pulling each page, so this throws whether or not the paginator passes the token down.
+    // Propagation is not observable through the AWS-public surface, so no test here pins it.
+    [Theory]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
+    public async Task Query_CancelledToken_SdkWrapperThrowsOperationCanceled(StoreType st)
     {
         var client = Client(st);
         await SeedAsync(client, 3);

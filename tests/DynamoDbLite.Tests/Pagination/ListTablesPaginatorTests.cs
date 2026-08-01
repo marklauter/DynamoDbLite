@@ -134,45 +134,108 @@ public sealed class ListTablesPaginatorTests
         Assert.Equal(TableNames, names);
     }
 
-    // ── Re-enumeration ──────────────────────────────────────────────
+    // ── Single use ──────────────────────────────────────────────────
 
     [Theory]
     [InlineData(StoreType.DdbLiteFile)]
     [InlineData(StoreType.DdbLite)]
-    public async Task ListTables_ResponsesReEnumerated_RestartsAndYieldsSamePages(StoreType st)
+    public async Task ListTables_EnumeratedTwice_ThrowsInvalidOperation(StoreType st)
     {
         var client = Client(st);
         var paginator = client.Paginators!.ListTables(new ListTablesRequest { Limit = 1 });
 
-        var first = await CollectAsync(paginator.Responses, TestContext.Current.CancellationToken);
-        var second = await CollectAsync(paginator.Responses, TestContext.Current.CancellationToken);
+        _ = await CollectAsync(paginator.Responses, TestContext.Current.CancellationToken);
 
-        Assert.Equal(
-            first.Select(static p => p.TableNames),
-            second.Select(static p => p.TableNames));
+        _ = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => CollectAsync(paginator.Responses, TestContext.Current.CancellationToken));
     }
 
     [Theory]
     [InlineData(StoreType.DdbLiteFile)]
     [InlineData(StoreType.DdbLite)]
-    public async Task TableNames_ReEnumerated_RestartsAndYieldsSameNames(StoreType st)
+    public async Task TableNames_EnumeratedTwice_ThrowsInvalidOperation(StoreType st)
     {
         var client = Client(st);
         var paginator = client.Paginators!.ListTables(new ListTablesRequest { Limit = 1 });
 
-        var first = await CollectAsync(paginator.TableNames, TestContext.Current.CancellationToken);
-        var second = await CollectAsync(paginator.TableNames, TestContext.Current.CancellationToken);
+        _ = await CollectAsync(paginator.TableNames, TestContext.Current.CancellationToken);
 
-        Assert.Equal(TableNames, first);
-        Assert.Equal(TableNames, second);
+        _ = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => CollectAsync(paginator.TableNames, TestContext.Current.CancellationToken));
+    }
+
+    // Consumption belongs to the paginator, not to whichever property was enumerated: draining
+    // Responses leaves nothing for TableNames.
+    [Theory]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
+    public async Task TableNames_AfterResponsesEnumerated_ThrowsInvalidOperation(StoreType st)
+    {
+        var client = Client(st);
+        var paginator = client.Paginators!.ListTables(new ListTablesRequest { Limit = 1 });
+
+        _ = await CollectAsync(paginator.Responses, TestContext.Current.CancellationToken);
+
+        _ = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => CollectAsync(paginator.TableNames, TestContext.Current.CancellationToken));
+    }
+
+    // Consumption is marked when enumeration begins, not when it completes.
+    [Theory]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
+    public async Task ListTables_FirstEnumerationAbandonedPartway_SecondThrowsInvalidOperation(StoreType st)
+    {
+        var client = Client(st);
+        var paginator = client.Paginators!.ListTables(new ListTablesRequest { Limit = 1 });
+
+        await BeginAndAbandonAsync(paginator.Responses, TestContext.Current.CancellationToken);
+
+        _ = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => CollectAsync(paginator.Responses, TestContext.Current.CancellationToken));
+    }
+
+    [Theory]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
+    public async Task ListTables_ResponsesReadWithoutEnumerating_DoesNotConsume(StoreType st)
+    {
+        var client = Client(st);
+        var paginator = client.Paginators!.ListTables(new ListTablesRequest { Limit = 1 });
+
+        _ = paginator.Responses;
+        _ = paginator.TableNames;
+
+        var names = await CollectAsync(paginator.TableNames, TestContext.Current.CancellationToken);
+
+        Assert.Equal(TableNames, names);
+    }
+
+    [Theory]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
+    public async Task ListTables_FreshPaginatorAfterConsumption_PagesNormally(StoreType st)
+    {
+        var client = Client(st);
+
+        var consumed = client.Paginators!.ListTables(new ListTablesRequest { Limit = 1 });
+        _ = await CollectAsync(consumed.Responses, TestContext.Current.CancellationToken);
+
+        var fresh = client.Paginators!.ListTables(new ListTablesRequest { Limit = 1 });
+        var names = await CollectAsync(fresh.TableNames, TestContext.Current.CancellationToken);
+
+        Assert.Equal(TableNames, names);
     }
 
     // ── Cancellation ────────────────────────────────────────────────
 
+    // Pins the SDK wrapper's guard, not token propagation. PaginatedResponse<T> re-checks the token
+    // after pulling each page, so this throws whether or not the paginator passes the token down.
+    // Propagation is not observable through the AWS-public surface, so no test here pins it.
     [Theory]
     [InlineData(StoreType.DdbLiteFile)]
     [InlineData(StoreType.DdbLite)]
-    public async Task ListTables_CancelledToken_ThrowsOperationCanceled(StoreType st)
+    public async Task ListTables_CancelledToken_SdkWrapperThrowsOperationCanceled(StoreType st)
     {
         var client = Client(st);
         using var cts = new CancellationTokenSource();
@@ -182,21 +245,6 @@ public sealed class ListTablesPaginatorTests
 
         _ = await Assert.ThrowsAnyAsync<OperationCanceledException>(
             () => CollectAsync(paginator.Responses, cts.Token));
-    }
-
-    [Theory]
-    [InlineData(StoreType.DdbLiteFile)]
-    [InlineData(StoreType.DdbLite)]
-    public async Task TableNames_CancelledToken_ThrowsOperationCanceled(StoreType st)
-    {
-        var client = Client(st);
-        using var cts = new CancellationTokenSource();
-        await cts.CancelAsync();
-
-        var paginator = client.Paginators!.ListTables(new ListTablesRequest());
-
-        _ = await Assert.ThrowsAnyAsync<OperationCanceledException>(
-            () => CollectAsync(paginator.TableNames, cts.Token));
     }
 
     // ── Disposal ────────────────────────────────────────────────────
@@ -225,5 +273,38 @@ public sealed class ListTablesPaginatorTests
 
         _ = await Assert.ThrowsAsync<ObjectDisposedException>(
             () => CollectAsync(paginator.TableNames, TestContext.Current.CancellationToken));
+    }
+}
+
+// The zero-tables equivalence class. It cannot ride the shared fixture, which always creates
+// tables, so these tests build their own empty client.
+public sealed class EmptyListTablesPaginatorTests
+{
+    [Theory]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
+    public async Task ListTables_NoTables_YieldsOnePageWithNoNames(StoreType st)
+    {
+        var dbPath = st == StoreType.DdbLiteFile ? FileBasedTestHelper.NewDbPath() : null;
+
+        using (var client = dbPath is null
+            ? new DynamoDbClient(new DynamoDbLiteOptions($"Data Source=Empty_{Guid.NewGuid():N};Mode=Memory;Cache=Shared"))
+            : FileBasedTestHelper.CreateFileBasedClient(dbPath))
+        {
+            var pages = await CollectAsync(
+                client.Paginators!.ListTables(new ListTablesRequest()).Responses,
+                TestContext.Current.CancellationToken);
+
+            _ = Assert.Single(pages);
+            Assert.Empty(pages[0].TableNames);
+
+            var names = await CollectAsync(
+                client.Paginators!.ListTables(new ListTablesRequest()).TableNames,
+                TestContext.Current.CancellationToken);
+
+            Assert.Empty(names);
+        }
+
+        FileBasedTestHelper.Cleanup(dbPath);
     }
 }

@@ -120,31 +120,86 @@ public sealed class BatchGetItemPaginatorTests
         Assert.Empty(PartitionKeys(pages));
     }
 
-    // ── Re-enumeration ──────────────────────────────────────────────
+    // ── Single use ──────────────────────────────────────────────────
 
     [Theory]
     [InlineData(StoreType.DdbLiteFile)]
     [InlineData(StoreType.DdbLite)]
-    public async Task BatchGetItem_ReEnumerated_RestartsAndYieldsSamePages(StoreType st)
+    public async Task BatchGetItem_EnumeratedTwice_ThrowsInvalidOperation(StoreType st)
     {
         var client = Client(st);
         await SeedAsync(client, 3);
 
         var paginator = client.Paginators!.BatchGetItem(Request(0, 1, 2));
 
-        var first = await CollectAsync(paginator.Responses, TestContext.Current.CancellationToken);
-        var second = await CollectAsync(paginator.Responses, TestContext.Current.CancellationToken);
+        _ = await CollectAsync(paginator.Responses, TestContext.Current.CancellationToken);
 
-        Assert.Equal(first.Count, second.Count);
-        Assert.Equal(PartitionKeys(first), PartitionKeys(second));
+        _ = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => CollectAsync(paginator.Responses, TestContext.Current.CancellationToken));
     }
 
-    // ── Cancellation ────────────────────────────────────────────────
+    // Consumption is marked when enumeration begins, not when it completes.
+    [Theory]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
+    public async Task BatchGetItem_FirstEnumerationAbandonedPartway_SecondThrowsInvalidOperation(StoreType st)
+    {
+        var client = Client(st);
+        await SeedAsync(client, 3);
+
+        var paginator = client.Paginators!.BatchGetItem(Request(0, 1, 2));
+
+        await BeginAndAbandonAsync(paginator.Responses, TestContext.Current.CancellationToken);
+
+        _ = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => CollectAsync(paginator.Responses, TestContext.Current.CancellationToken));
+    }
 
     [Theory]
     [InlineData(StoreType.DdbLiteFile)]
     [InlineData(StoreType.DdbLite)]
-    public async Task BatchGetItem_CancelledToken_ThrowsOperationCanceled(StoreType st)
+    public async Task BatchGetItem_ResponsesReadWithoutEnumerating_DoesNotConsume(StoreType st)
+    {
+        var client = Client(st);
+        await SeedAsync(client, 3);
+
+        var paginator = client.Paginators!.BatchGetItem(Request(0, 1, 2));
+
+        _ = paginator.Responses;
+        _ = paginator.Responses;
+
+        var pages = await CollectAsync(paginator.Responses, TestContext.Current.CancellationToken);
+
+        Assert.Equal(["PK#0", "PK#1", "PK#2"], PartitionKeys(pages));
+    }
+
+    [Theory]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
+    public async Task BatchGetItem_FreshPaginatorAfterConsumption_PagesNormally(StoreType st)
+    {
+        var client = Client(st);
+        await SeedAsync(client, 3);
+
+        var consumed = client.Paginators!.BatchGetItem(Request(0, 1, 2));
+        _ = await CollectAsync(consumed.Responses, TestContext.Current.CancellationToken);
+
+        var fresh = client.Paginators!.BatchGetItem(Request(0, 1, 2));
+        var pages = await CollectAsync(fresh.Responses, TestContext.Current.CancellationToken);
+
+        _ = Assert.Single(pages);
+        Assert.Equal(["PK#0", "PK#1", "PK#2"], PartitionKeys(pages));
+    }
+
+    // ── Cancellation ────────────────────────────────────────────────
+
+    // Pins the SDK wrapper's guard, not token propagation. PaginatedResponse<T> re-checks the token
+    // after pulling each page, so this throws whether or not the paginator passes the token down.
+    // Propagation is not observable through the AWS-public surface, so no test here pins it.
+    [Theory]
+    [InlineData(StoreType.DdbLiteFile)]
+    [InlineData(StoreType.DdbLite)]
+    public async Task BatchGetItem_CancelledToken_SdkWrapperThrowsOperationCanceled(StoreType st)
     {
         var client = Client(st);
         await SeedAsync(client, 3);
