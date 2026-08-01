@@ -1,7 +1,7 @@
 ---
 title: ListExports / ListImports pagination filter direction
 type: note
-summary: "NextToken continuation in ListExportRecordsAsync and ListImportRecordsAsync compares ROWID in the wrong direction, so page 2 overlaps page 1 instead of returning older records."
+summary: "The NextToken continuation compared ROWID against a start_time DESC sort, so page 2 overlapped page 1. Fixed by comparing start_time; records sharing a timestamp can still be skipped."
 tags: [known-limitation, pagination, exports, imports]
 created: 2026-05-16
 status: evolving
@@ -10,43 +10,34 @@ constrained-by: "[[behavioral-fidelity]]"
 
 # ListExports / ListImports pagination filter direction
 
-The `NextToken` continuation in `ListExportRecordsAsync` and `ListImportRecordsAsync` filters with the wrong ROWID comparison direction; second-page results overlap with page 1 instead of returning older records.
+The `NextToken` continuation in `ListExportRecordsAsync` and `ListImportRecordsAsync` compared `ROWID` in the wrong direction against a `start_time DESC` sort, so pages after the first re-read rows already returned and skipped older ones. That is fixed. A narrower limitation remains: records sharing a `start_time` can be skipped.
 
-## Observation
+## What was wrong
 
-`SqliteStore.cs` (≈ lines 1490 and 1592) builds the listing query as:
+The listing query resumed with `ROWID > (SELECT ROWID FROM exports WHERE export_arn = @nextToken)` while ordering `start_time DESC`. `NextToken` is the last row of the previous page, which on a descending sort is its oldest row. Filtering to rows above that ROWID re-selects the newer rows already returned and never reaches the older ones.
+
+With five exports at `MaxResults = 2`, enumeration yielded three records, one of them twice, while the unpaged call returned all five.
+
+## What changed
+
+The cursor now compares the column the query sorts on:
 
 ```sql
-SELECT ...
-FROM exports                -- or imports
-WHERE table_name = @tableName
-  AND ROWID > (SELECT ROWID FROM exports WHERE export_arn = @nextToken)
-ORDER BY start_time DESC
-LIMIT @maxResults;
+start_time < (SELECT start_time FROM exports WHERE export_arn = @nextToken)
 ```
 
-`NextToken` is set to the **last row of the previous page** (`Export.cs:144`, `Import.cs:193`), the oldest row on a `start_time DESC` page. The filter then selects rows whose ROWID is greater than that oldest token's ROWID. On `start_time DESC`, the newer rows already returned on page 1 also satisfy `ROWID > tokenRowId`. Page 2 returns a subset of page 1, excluding only the very oldest token-row, and misses the actually-newer pages of history.
+Same shape in `ListImportRecordsAsync` against `imports`. The public token contract is unchanged — the caller still passes back the opaque `NextToken` they received.
 
-Concrete example with three exports A, B, C (ROWIDs 1, 2, 3 in insertion order, monotonic in `start_time`):
-- Page 1: `ORDER BY start_time DESC LIMIT 2` → `[C, B]`. `NextToken = B.ExportArn` (ROWID 2).
-- Page 2: `WHERE ROWID > 2 ORDER BY start_time DESC` → `[C]` — already returned on page 1, and A is never visible.
+Comparing `ROWID <` instead was measured and rejected. Within a tie group SQLite emits rows in scan order, which ascends against the descending sort, so a ROWID cursor skips in the same positions and duplicates in the rest. Uniqueness of the cursor column buys nothing when the sort is on a different column.
 
-## Interpretation
+## What remains
 
-The intended pagination over a `DESC`-ordered result set should advance to **older** records, i.e. either `ROWID <` against the token's ROWID, or `start_time <` against the token's start_time.
+`start_time` is not unique and the comparison is strictly less-than, so when two records share a timestamp one of them can be skipped. No single-column cursor closes this. A composite `(start_time, arn)` token would, and it was not built: whether these operations should exist at all is an open question, since the AWS contract they implement is defined against S3 and this implementation substitutes the local filesystem.
 
-No test exercises continuation correctness today. `ExportTests.cs` and `ImportTests.cs` only have a `ListExports_With_NextToken_Accepts_Continuation` test that asserts the response is non-null. The lines are covered; the contract is not asserted.
+Exposure is low. `start_time` carries tick resolution from `DateTime.UtcNow.ToString("O")`, and each record is written with file I/O in between, so distinct timestamps are the normal case.
 
-## Proposed fix
+## Coverage
 
-Two options, both touch only `SqliteStore.cs`:
+`ListExports_CallerSuppliedNextToken_ResumesAfterIt` and its `ListImports` twin assert that a resumed enumeration delivers exactly the records the first page did not, each once. Restoring the old `ROWID >` cursor turns 16 tests red, so the defect is pinned against regression.
 
-1. **Flip the comparison.** Change `ROWID >` to `ROWID <` in both `ListExportRecordsAsync` and `ListImportRecordsAsync`. Works because `start_time` is monotonic in insertion order in this codebase (both call `DateTime.UtcNow.ToString("O")` at insert).
-2. **Use `start_time` directly.** Filter by `start_time < (SELECT start_time FROM exports WHERE export_arn = @nextToken)`. Tolerates insertion-order anomalies but adds a sub-select per call.
-
-Option 1 is the minimal fix. Both options preserve the public token contract (caller still passes back the opaque `NextToken` they received).
-
-## Next
-
-- Promote the `_Accepts_Continuation` tests in `ExportTests.cs` / `ImportTests.cs` to assert disjoint page-1/page-2 results that union to the full set (the strong assertion drafted but weakened during C1 coverage work).
-- Land the fix in a separate change.
+The `_Accepts_Continuation` tests in `ExportTests.cs` and `ImportTests.cs` still assert only that the response is non-null. They are now weaker than the behavior the code delivers, and are candidates for strengthening.

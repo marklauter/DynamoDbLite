@@ -25,6 +25,7 @@ DynamoDbLite provides a drop-in replacement for the AWS DynamoDB SDK client, usi
 - **Item CRUD** with `ConditionExpression`, `ProjectionExpression`, `UpdateExpression`, and `ReturnValues`
 - **Querying** with `KeyConditionExpression`, `FilterExpression`, sort-key ordering (string and numeric), pagination, and `Select.COUNT`
 - **Batch** operations: `BatchGetItem`, `BatchWriteItem` (single transaction)
+- **Paginators**: `client.Paginators` over all seven paged operations, single-use like the AWS SDK's own
 - **Transactions**: `TransactWriteItems` and `TransactGetItems` with all-or-nothing semantics, `ClientRequestToken` idempotency, and `ReturnValuesOnConditionCheckFailure`
 - **Secondary indexes**: GSI and LSI with sparse-index support, projection types `ALL`/`KEYS_ONLY`/`INCLUDE`, and `UpdateTable` GSI create/delete with backfill
 - **TTL**: `UpdateTimeToLive`, `DescribeTimeToLive`, read-time filtering, background cleanup

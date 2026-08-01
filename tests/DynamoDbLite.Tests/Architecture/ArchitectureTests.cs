@@ -21,7 +21,7 @@ public sealed class ArchitectureTests
             .DoNotHaveNameContaining("<") // exclude compiler-generated closures / async state machines
             .Should()
             .ResideInNamespaceMatching(@"^DynamoDbLite(\..*)?$")
-            .Because("Allowed sub-namespaces are Expressions, Serialization, SqliteStores, SqliteStores.Models. New top-level sub-namespaces require explicit design review."));
+            .Because("Allowed sub-namespaces are Expressions, Paginators, Serialization, SqliteStores, SqliteStores.Models. New top-level sub-namespaces require explicit design review."));
 
     [Fact]
     public void ConcreteClassesAreSealed() =>
@@ -86,12 +86,38 @@ public sealed class ArchitectureTests
     public void InternalNamespacesContainOnlyInternalTypes() =>
         Verify(Types()
             .That()
-            .ResideInNamespaceMatching(@"^DynamoDbLite\.(SqliteStores|SqliteStores\.Models|Expressions|Serialization)$")
+            .ResideInNamespaceMatching(@"^DynamoDbLite\.(SqliteStores|SqliteStores\.Models|Expressions|Serialization|Paginators)$")
             .And()
             .DoNotHaveNameContaining("<")
             .Should()
             .NotBePublic()
-            .Because("The SQLite layout, expression AST/parsers, and serialization wire records are intentionally not part of the public API; leaking them would lock the package into the current internals."));
+            .Because("The SQLite layout, expression AST/parsers, serialization wire records, and paginator implementations are intentionally not part of the public API; leaking them would lock the package into the current internals. Callers reach the paginators through the AWS SDK's IDynamoDBv2PaginatorFactory interfaces only."));
+
+    // The namespace rule above only binds types that land in DynamoDbLite.Paginators, so a public
+    // paginator in any other namespace slips past it. This one is keyed on the type surface: wherever
+    // a paginator lives, it must not be public.
+    //
+    // Keyed on the name rather than on the implemented interface deliberately. The obvious form,
+    // AreAssignableTo(Interfaces().That().HaveFullNameMatching("Amazon.DynamoDBv2.Model.I*Paginator")),
+    // compiles and is permanently dead: only DynamoDbLite.dll is loaded into the architecture, and
+    // probing that form against Amazon.DynamoDBv2.IAmazonDynamoDB — which DynamoDbClient does
+    // implement, publicly — matched zero types. Do not "strengthen" this rule back into that shape
+    // without re-running that probe.
+    //
+    // The rule matches the paginator types in this assembly, so it is not marked
+    // WithoutRequiringPositiveResults. ArchUnitNET fails a rule whose predicate matches nothing, and
+    // that failure is wanted here: if the types are renamed off the "Paginator" substring, the rule
+    // stops covering anything and must say so rather than pass silently.
+    [Fact]
+    public void PaginatorImplementationsAreNotPublic() =>
+        Verify(Types()
+            .That()
+            .HaveNameContaining("Paginator")
+            .And()
+            .DoNotHaveNameContaining("<")
+            .Should()
+            .NotBePublic()
+            .Because("Paginators are reached through the AWS SDK's IDynamoDBv2PaginatorFactory interfaces; a public concrete paginator would put our paging internals in the API surface."));
 
     private static void Verify(IArchRule rule)
     {

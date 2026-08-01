@@ -1617,18 +1617,26 @@ internal abstract class SqliteStore
         if (nextToken is not null)
         {
             parameters.Add("@nextToken", nextToken);
-            conditions.Add("ROWID > (SELECT ROWID FROM exports WHERE export_arn = @nextToken)");
+            // Keyset cursor over the same total order the query sorts by. start_time alone is not
+            // unique, so a cursor on it skips every record sharing the token's timestamp; export_arn
+            // is the primary key, which makes (start_time, export_arn) unique and the paging
+            // exactly-once regardless of ties. The row-value comparison is lexicographic, so it
+            // descends in step with the ORDER BY below.
+            conditions.Add(
+                "(start_time, export_arn) < (SELECT start_time, export_arn FROM exports WHERE export_arn = @nextToken)");
         }
 
         if (conditions.Count > 0)
             _ = sql.Append(" WHERE ").Append(string.Join(" AND ", conditions));
 
-        _ = sql.Append(" ORDER BY start_time DESC");
+        _ = sql.Append(" ORDER BY start_time DESC, export_arn DESC");
 
         if (maxResults is not null)
         {
-            parameters.Add("@maxResults", maxResults.Value);
-            _ = sql.Append(" LIMIT @maxResults");
+            // One more than asked for, so the caller can tell a full page that ends the listing from
+            // one with more behind it and emit NextToken only in the second case.
+            parameters.Add("@limit", maxResults.Value + 1);
+            _ = sql.Append(" LIMIT @limit");
         }
 
         return (await connection.QueryAsync<ExportSummaryRow>(sql.ToString(), parameters)).AsList();
@@ -1717,18 +1725,26 @@ internal abstract class SqliteStore
         if (nextToken is not null)
         {
             parameters.Add("@nextToken", nextToken);
-            conditions.Add("ROWID > (SELECT ROWID FROM imports WHERE import_arn = @nextToken)");
+            // Keyset cursor over the same total order the query sorts by. start_time alone is not
+            // unique, so a cursor on it skips every record sharing the token's timestamp; import_arn
+            // is the primary key, which makes (start_time, import_arn) unique and the paging
+            // exactly-once regardless of ties. The row-value comparison is lexicographic, so it
+            // descends in step with the ORDER BY below.
+            conditions.Add(
+                "(start_time, import_arn) < (SELECT start_time, import_arn FROM imports WHERE import_arn = @nextToken)");
         }
 
         if (conditions.Count > 0)
             _ = sql.Append(" WHERE ").Append(string.Join(" AND ", conditions));
 
-        _ = sql.Append(" ORDER BY start_time DESC");
+        _ = sql.Append(" ORDER BY start_time DESC, import_arn DESC");
 
         if (pageSize is not null)
         {
-            parameters.Add("@pageSize", pageSize.Value);
-            _ = sql.Append(" LIMIT @pageSize");
+            // One more than asked for, so the caller can tell a full page that ends the listing from
+            // one with more behind it and emit NextToken only in the second case.
+            parameters.Add("@limit", pageSize.Value + 1);
+            _ = sql.Append(" LIMIT @limit");
         }
 
         return (await connection.QueryAsync<ImportSummaryRow>(sql.ToString(), parameters)).AsList();

@@ -1,6 +1,7 @@
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
 using Amazon.Runtime;
+using DynamoDbLite.Paginators;
 using DynamoDbLite.SqliteStores;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -54,12 +55,18 @@ public sealed partial class DynamoDbClient
         store = storeFactory(options);
         this.logger = logger ?? NullLogger<DynamoDbClient>.Instance;
         maxBatchWriteItems = options.MaxBatchWriteItems;
+        Paginators = new DynamoDbPaginatorFactory(this);
     }
 
     /// <inheritdoc/>
     public IClientConfig Config { get; } = new AmazonDynamoDBConfig();
 
-    /// <summary>Not supported in v1.0; returns <see langword="null"/>.</summary>
+    /// <summary>
+    /// Paginator factory over this client's operations. Never <see langword="null"/> — the nullable
+    /// annotation comes from <see cref="IAmazonDynamoDB"/> and cannot be removed. The factory outlives
+    /// <see cref="Dispose"/>: a paginator built from a disposed client throws
+    /// <see cref="ObjectDisposedException"/> when it is enumerated, not when it is built.
+    /// </summary>
     public IDynamoDBv2PaginatorFactory? Paginators { get; }
 
     /// <inheritdoc/>

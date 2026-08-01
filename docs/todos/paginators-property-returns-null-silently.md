@@ -1,17 +1,21 @@
 ---
 title: Paginators property returns null silently
 type: todo
-summary: "DynamoDbClient.Paginators is an auto-property never assigned, so it returns null and NREs in consumer code."
+summary: "DynamoDbClient.Paginators was an auto-property never assigned, so it returned null and NREd in consumer code. Closed: all seven paginator surfaces are implemented."
 tags: [gap]
 created: 2026-05-16
 priority: high
-status: open
+status: done
 constrained-by: "[[not-supported-exception-for-out-of-scope]]"
 ---
 
 # Paginators property returns null silently
 
-DynamoDbClient.Paginators is an auto-property that is never assigned. It returns null for every call, so client.Paginators.ScanAsync() throws an NRE in consumer code.
+Closed. Option 1 shipped: `DynamoDbClient.Paginators` returns a factory implementing all seven surfaces, built from the AWS SDK's public paginator pieces. Paginators are single-use and lazy, matching the SDK. Behavior is pinned by the unit suite and by parity tests that run the same contract against DynamoDB Local.
+
+The record below is what the defect was.
+
+DynamoDbClient.Paginators was an auto-property that was never assigned. It returned null for every call, so client.Paginators.Scan() threw an NRE in consumer code.
 
 ## Observation
 

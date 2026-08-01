@@ -189,6 +189,13 @@ public sealed partial class DynamoDbClient
         var rows = await store.ListImportRecordsAsync(
             request.TableArn, request.PageSize, request.NextToken, cancellationToken);
 
+        // The store fetches one row beyond PageSize. Its presence is what proves another page
+        // exists, so the token is emitted only then: a page that exactly fills the request and
+        // exhausts the listing ends it, rather than handing back a token that yields nothing.
+        var hasMore = request.PageSize is not null && rows.Count > request.PageSize;
+        if (hasMore)
+            rows.RemoveAt(rows.Count - 1);
+
         var summaries = rows.Select(static r => new ImportSummary
         {
             ImportArn = r.ImportArn,
@@ -200,9 +207,7 @@ public sealed partial class DynamoDbClient
             EndTime = r.EndTime is not null ? DateTime.Parse(r.EndTime, CultureInfo.InvariantCulture) : null
         }).ToList();
 
-        string? nextToken = null;
-        if (request.PageSize is not null && rows.Count == request.PageSize)
-            nextToken = rows[^1].ImportArn;
+        var nextToken = hasMore ? rows[^1].ImportArn : null;
 
         return new ListImportsResponse
         {
