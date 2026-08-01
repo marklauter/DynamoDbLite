@@ -1617,7 +1617,12 @@ internal abstract class SqliteStore
         if (nextToken is not null)
         {
             parameters.Add("@nextToken", nextToken);
-            conditions.Add("ROWID > (SELECT ROWID FROM exports WHERE export_arn = @nextToken)");
+            // The cursor descends to agree with the ORDER BY start_time DESC below, and compares
+            // start_time because that is the column the query sorts on. Known limitation: start_time
+            // is not unique, so when two records share a timestamp one of them can be skipped.
+            // Exactly-once delivery holds when timestamps are distinct, which is the normal case —
+            // they carry tick resolution and each record is written with file I/O in between.
+            conditions.Add("start_time < (SELECT start_time FROM exports WHERE export_arn = @nextToken)");
         }
 
         if (conditions.Count > 0)
@@ -1717,7 +1722,12 @@ internal abstract class SqliteStore
         if (nextToken is not null)
         {
             parameters.Add("@nextToken", nextToken);
-            conditions.Add("ROWID > (SELECT ROWID FROM imports WHERE import_arn = @nextToken)");
+            // The cursor descends to agree with the ORDER BY start_time DESC below, and compares
+            // start_time because that is the column the query sorts on. Known limitation: start_time
+            // is not unique, so when two records share a timestamp one of them can be skipped.
+            // Exactly-once delivery holds when timestamps are distinct, which is the normal case —
+            // they carry tick resolution and each record is written with file I/O in between.
+            conditions.Add("start_time < (SELECT start_time FROM imports WHERE import_arn = @nextToken)");
         }
 
         if (conditions.Count > 0)
