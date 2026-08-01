@@ -127,15 +127,20 @@ public sealed partial class DynamoDbClient
         var rows = await store.ListExportRecordsAsync(
             request.TableArn, request.MaxResults, request.NextToken, cancellationToken);
 
+        // The store fetches one row beyond MaxResults. Its presence is what proves another page
+        // exists, so the token is emitted only then: a page that exactly fills the request and
+        // exhausts the listing ends it, rather than handing back a token that yields nothing.
+        var hasMore = request.MaxResults is not null && rows.Count > request.MaxResults;
+        if (hasMore)
+            rows.RemoveAt(rows.Count - 1);
+
         var summaries = rows.Select(static r => new ExportSummary
         {
             ExportArn = r.ExportArn,
             ExportStatus = r.Status
         }).ToList();
 
-        string? nextToken = null;
-        if (request.MaxResults is not null && rows.Count == request.MaxResults)
-            nextToken = rows[^1].ExportArn;
+        var nextToken = hasMore ? rows[^1].ExportArn : null;
 
         return new ListExportsResponse
         {
