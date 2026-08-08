@@ -191,7 +191,9 @@ public sealed class ScanParityTests(DynamoDbFixture fixture)
         Assert.Equal(expectedPages, pages.Count);
 
         // Every page short of the last fills the Limit, scans exactly what it returns
-        // because no filter runs, and carries a cursor naming its own last item.
+        // because no filter runs, and carries a cursor naming its own last item. The
+        // terminal page needs no cursor assertion: ScanAllPagesAsync stops only on an
+        // empty cursor, so a backend that never cleared it fails there instead.
         foreach (var page in pages.Take(pages.Count - 1))
         {
             Assert.Equal(pageSize, page.Items.Count);
@@ -204,7 +206,6 @@ public sealed class ScanParityTests(DynamoDbFixture fixture)
         Assert.Equal(terminalPageSize, terminal.Items.Count);
         Assert.Equal(terminalPageSize, terminal.Count);
         Assert.Equal(terminalPageSize, terminal.ScannedCount);
-        Assert.True(terminal.LastEvaluatedKey is null or { Count: 0 }, "the terminal page must not carry a cursor");
 
         // Scan order is unspecified, so the pages are compared as sorted sequences.
         // Equal counts rule out duplicates; equal sequences rule out skips.
@@ -242,13 +243,15 @@ public sealed class ScanParityTests(DynamoDbFixture fixture)
         {
             Assert.Equal(pageSize, page.Items.Count);
             Assert.Equal(pageSize, page.Count);
+            Assert.Equal(pageSize, page.ScannedCount);
             AssertCursorNamesLastItem(page);
         }
 
+        // The table was already drained, so the trailing page reads nothing at all.
         var terminal = pages[^1];
         Assert.Empty(terminal.Items);
         Assert.Equal(0, terminal.Count);
-        Assert.True(terminal.LastEvaluatedKey is null or { Count: 0 }, "the terminal page must not carry a cursor");
+        Assert.Equal(0, terminal.ScannedCount);
 
         var returned = pages.SelectMany(page => page.Items).Select(item => item["PK"].S).ToList();
         Assert.Equal(seedCount, returned.Count);

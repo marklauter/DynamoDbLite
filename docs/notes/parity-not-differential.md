@@ -18,7 +18,9 @@ Our parity tests add DynamoDbLocal to our test sweep, and we adjust the tests to
 
 ## What the claim covers
 
-Parity holds on the properties the assertions name, and says nothing outside them. `ScanParityTests.Scan_with_Limit_paginates_via_LastEvaluatedKey_without_duplicates_or_gaps` pins page-count bounds, cursor presence and absence, and the returned key set. Scan-pagination parity means those three properties. A divergence in an unasserted property, such as cursor structure or an omitted attribute, passes on every backend.
+Parity holds on the properties the assertions name, and says nothing outside them. `ScanParityTests.Scan_with_Limit_paginates_via_LastEvaluatedKey_without_duplicates_or_gaps` pins the page count, each page's item and scanned counts, every cursor's contents, and the returned key set. Scan-pagination parity means those properties and no others.
+
+Every assertion in that file projects a returned item down to `item["PK"].S`. The `group` attribute each seeded item carries is never read back, so a backend that dropped it from scan results, or returned it under a different type, passes every case there.
 
 ## Repairing a test that went red on the reference
 
