@@ -283,15 +283,25 @@ public sealed class ScanParityTests(DynamoDbFixture fixture)
             ExpressionAttributeValues = new Dictionary<string, AttributeValue> { [":keep"] = new() { S = "keep" } },
         }, ct);
 
+        // seedCount divides by pageSize, so the last full window still carries a cursor
+        // and the walk ends on a page that reads nothing.
+        Assert.Equal(seedCount / pageSize + 1, pages.Count);
+
         foreach (var page in pages)
             Assert.Equal(page.Items.Count, page.Count);
 
         // A page carrying a cursor stopped because it filled the window, so it scanned
         // exactly Limit rows however many of them survived the filter.
         foreach (var page in pages.Take(pages.Count - 1))
+        {
             Assert.Equal(pageSize, page.ScannedCount);
+            _ = AssertCursorShape(page);
+        }
 
-        Assert.True(pages[^1].ScannedCount <= pageSize, $"terminal page scanned {pages[^1].ScannedCount} rows for Limit {pageSize}");
+        var terminal = pages[^1];
+        Assert.Empty(terminal.Items);
+        Assert.Equal(0, terminal.Count);
+        Assert.Equal(0, terminal.ScannedCount);
 
         var returned = pages.SelectMany(page => page.Items).Select(item => item["PK"].S).ToList();
         Assert.Equal(keepCount, returned.Count);
@@ -329,16 +339,22 @@ public sealed class ScanParityTests(DynamoDbFixture fixture)
         return keys;
     }
 
-    // These tables are hash-key only, so a cursor holds exactly the returned page's last
-    // key. Extra attributes or a different item is divergence that still round-trips
-    // inside one backend, so only a direct assertion on the contents catches it.
-    private static void AssertCursorNamesLastItem(ScanResponse page)
+    // These tables are hash-key only, so a cursor holds exactly one attribute. Extra
+    // attributes still round-trip inside one backend, so only a direct assertion on the
+    // contents catches them. Returns the key the cursor names.
+    private static string AssertCursorShape(ScanResponse page)
     {
         var cursor = page.LastEvaluatedKey;
         Assert.NotNull(cursor);
         Assert.Equal("PK", Assert.Single(cursor.Keys));
-        Assert.Equal(page.Items[^1]["PK"].S, cursor["PK"].S);
+        return cursor["PK"].S;
     }
+
+    // An unfiltered page returns every row it scanned, so its cursor names the last item
+    // in the page. A filtered page's cursor names the last row scanned, which the filter
+    // may have dropped, so only AssertCursorShape applies there.
+    private static void AssertCursorNamesLastItem(ScanResponse page) =>
+        Assert.Equal(page.Items[^1]["PK"].S, AssertCursorShape(page));
 
     // Walks every page of a scan, threading LastEvaluatedKey into the next request.
     // One page per seeded item is the worst legitimate case; past that the cursor is
