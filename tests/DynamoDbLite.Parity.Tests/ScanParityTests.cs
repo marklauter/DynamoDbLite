@@ -236,9 +236,11 @@ public sealed class ScanParityTests(DynamoDbFixture fixture)
         Assert.Equal(seeded.Take(keepCount).Order(), returned.Order());
 
         // Limit bounds the window the scan reads before the filter runs, so a page can
-        // come back short while rows remain. The pages carrying a cursor hold at most
-        // keepCount matches between them, and there are more than keepCount / pageSize
-        // of them, so at least one must return fewer than pageSize items.
+        // come back short while rows remain. Given that, the cursor-carrying pages span
+        // more than keepCount / pageSize windows while holding at most keepCount matches
+        // between them, so one returns fewer than pageSize items whatever order the
+        // backend scans in. A backend applying Limit after the filter fills every page
+        // instead and fails here, which is the divergence this case exists to catch.
         Assert.Contains(pages, page => page.LastEvaluatedKey is { Count: > 0 } && page.Items.Count < pageSize);
     }
 
