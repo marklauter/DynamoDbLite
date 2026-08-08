@@ -1,7 +1,7 @@
 ---
 title: Parity test — scan pagination
 type: todo
-summary: "Scan had no cross-backend assertion for the ExclusiveStartKey/LastEvaluatedKey round-trip while Query did. Closed: three paginated-scan cases now run against all three backends, with cursor contents pinned, not just cursor presence."
+summary: "Scan had no cross-backend assertion for the ExclusiveStartKey/LastEvaluatedKey round-trip while Query did. Closed: five paginated-scan cases now run against all three backends, covering the table and index code paths, with cursor contents pinned rather than cursor presence."
 tags: [parity, v1.1]
 created: 2026-05-27
 priority: medium
@@ -12,11 +12,13 @@ cites: "[[parity-coverage-status]]"
 
 # Parity test — scan pagination
 
-Closed. `ScanParityTests` gained three cases, each parameterized over DdbLite, DdbLiteFile, and DynamoDbLocal:
+Closed. `ScanParityTests` gained five cases, each parameterized over DdbLite, DdbLiteFile, and DynamoDbLocal:
 
 - `Scan_with_Limit_paginates_via_LastEvaluatedKey_without_duplicates_or_gaps` — 25 items at `Limit = 10`, walked to exhaustion. Asserts exactly three pages. Each non-terminal page holds exactly `Limit` items, with `Count` and `ScannedCount` both equal to `Limit` because no filter runs. The terminal page holds the remaining five, and the pages concatenated and sorted equal the sorted seed set. Nothing asserts the terminal page lacks a cursor, because `ScanAllPagesAsync` stops only on an empty one: a backend that never cleared it overruns the page count instead.
 - `Scan_with_Limit_dividing_the_table_exactly_ends_on_an_empty_page` — 20 items at `Limit = 10`. A page that fills the `Limit` carries a cursor even when it drained the table, so the walk ends on an empty third page rather than on the second full one. That trailing page reports `Count` and `ScannedCount` of zero. All three backends agree.
 - `Scan_with_FilterExpression_and_Limit_bounds_the_pre_filter_window` — 25 items of which 10 match, at `Limit = 5`. 25 divides by 5, so this case ends on an empty page too. Asserts `Count` equals the returned item count on every page, each cursor-carrying page scanned exactly `Limit` rows whatever survived the filter, the trailing page reports zero for both counts, all 10 matching items arrive across the pages, and at least one cursor-carrying page returns fewer than `Limit` items.
+
+- `Scan_on_a_global_secondary_index_paginates_via_LastEvaluatedKey` and `Scan_on_a_local_secondary_index_paginates_via_LastEvaluatedKey` — 25 items at `Limit = 10` over each index kind. `ScanIndexAsync` extracts and builds cursors on its own code path, and it had no coverage. A GSI cursor carries `GsiPK`, `GsiSK`, `PK`, and `SK`; an LSI cursor carries `PK`, `SK`, and `LsiSK`. All three backends agree on both shapes.
 
 Every cursor is checked for contents. `AssertCursorShape` asserts it holds exactly the `PK` attribute and nothing else; `AssertCursorNamesLastItem` adds that the value is the page's last returned item. Only the shape check applies under a `FilterExpression`, where the cursor names the last row scanned rather than the last row returned. A cursor carrying extra attributes still round-trips inside one backend, so nothing else in the suite catches that.
 

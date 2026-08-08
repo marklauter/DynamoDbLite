@@ -316,6 +316,132 @@ public sealed class ScanParityTests(DynamoDbFixture fixture)
         Assert.Contains(pages, page => page.LastEvaluatedKey is { Count: > 0 } && page.Items.Count < pageSize);
     }
 
+    [Theory]
+    [BackendData]
+    public async Task Scan_on_a_global_secondary_index_paginates_via_LastEvaluatedKey(ParityBackend backend)
+    {
+        const int seedCount = 25;
+        const int pageSize = 10;
+        const int expectedPages = 3;
+        const int terminalPageSize = seedCount - pageSize * (expectedPages - 1);
+
+        var ct = TestContext.Current.CancellationToken;
+        var client = await fixture.ClientAsync(backend, ct);
+        var tableName = TestTables.UniqueName("scan_gsi");
+        const string indexName = "GsiIndex";
+        await TestTables.CreateAndWaitAsync(client, TestTables.HashKeyStringSortKeyStringWithGsi(tableName, indexName), ct);
+        await TestTables.WaitForGsiActiveAsync(client, tableName, indexName, ct);
+
+        var seeded = new List<string>(seedCount);
+        for (var i = 0; i < seedCount; i++)
+        {
+            var pk = $"item-{i:D2}";
+            seeded.Add(pk);
+            _ = await client.PutItemAsync(new PutItemRequest
+            {
+                TableName = tableName,
+                Item = new Dictionary<string, AttributeValue>
+                {
+                    ["PK"] = new() { S = pk },
+                    ["SK"] = new() { S = "row" },
+                    ["GsiPK"] = new() { S = "bucket" },
+                    ["GsiSK"] = new() { S = $"g-{i:D2}" },
+                },
+            }, ct);
+        }
+
+        var pages = await ScanAllPagesAsync(client, seedCount, cursor => new ScanRequest
+        {
+            TableName = tableName,
+            IndexName = indexName,
+            Limit = pageSize,
+            ExclusiveStartKey = cursor,
+        }, ct);
+
+        Assert.Equal(expectedPages, pages.Count);
+
+        // A GSI cursor carries the index keys and the table keys, because the index key
+        // alone does not identify a row.
+        foreach (var page in pages.Take(pages.Count - 1))
+        {
+            Assert.Equal(pageSize, page.Items.Count);
+            Assert.Equal(pageSize, page.Count);
+            Assert.Equal(pageSize, page.ScannedCount);
+            AssertCursorKeys(page, "GsiPK", "GsiSK", "PK", "SK");
+        }
+
+        var terminal = pages[^1];
+        Assert.Equal(terminalPageSize, terminal.Items.Count);
+        Assert.Equal(terminalPageSize, terminal.Count);
+        Assert.Equal(terminalPageSize, terminal.ScannedCount);
+
+        var returned = pages.SelectMany(page => page.Items).Select(item => item["PK"].S).ToList();
+        Assert.Equal(seedCount, returned.Count);
+        Assert.Equal(seeded.Order(), returned.Order());
+    }
+
+    [Theory]
+    [BackendData]
+    public async Task Scan_on_a_local_secondary_index_paginates_via_LastEvaluatedKey(ParityBackend backend)
+    {
+        const int seedCount = 25;
+        const int pageSize = 10;
+        const int expectedPages = 3;
+        const int terminalPageSize = seedCount - pageSize * (expectedPages - 1);
+
+        var ct = TestContext.Current.CancellationToken;
+        var client = await fixture.ClientAsync(backend, ct);
+        var tableName = TestTables.UniqueName("scan_lsi");
+        const string indexName = "LsiIndex";
+        await TestTables.CreateAndWaitAsync(client, TestTables.HashKeyStringSortKeyStringWithLsi(tableName, indexName), ct);
+
+        var seeded = new List<string>(seedCount);
+        for (var i = 0; i < seedCount; i++)
+        {
+            var sk = $"s-{i:D2}";
+            seeded.Add(sk);
+            _ = await client.PutItemAsync(new PutItemRequest
+            {
+                TableName = tableName,
+                Item = new Dictionary<string, AttributeValue>
+                {
+                    ["PK"] = new() { S = "bucket" },
+                    ["SK"] = new() { S = sk },
+                    ["LsiSK"] = new() { S = $"l-{i:D2}" },
+                },
+            }, ct);
+        }
+
+        var pages = await ScanAllPagesAsync(client, seedCount, cursor => new ScanRequest
+        {
+            TableName = tableName,
+            IndexName = indexName,
+            Limit = pageSize,
+            ExclusiveStartKey = cursor,
+        }, ct);
+
+        Assert.Equal(expectedPages, pages.Count);
+
+        // An LSI shares the table hash key, so the cursor names it once alongside the
+        // table sort key and the index sort key.
+        foreach (var page in pages.Take(pages.Count - 1))
+        {
+            Assert.Equal(pageSize, page.Items.Count);
+            Assert.Equal(pageSize, page.Count);
+            Assert.Equal(pageSize, page.ScannedCount);
+            AssertCursorKeys(page, "PK", "SK", "LsiSK");
+        }
+
+        var terminal = pages[^1];
+        Assert.Equal(terminalPageSize, terminal.Items.Count);
+        Assert.Equal(terminalPageSize, terminal.Count);
+        Assert.Equal(terminalPageSize, terminal.ScannedCount);
+
+        var returned = pages.SelectMany(page => page.Items).Select(item => item["SK"].S).ToList();
+        Assert.Equal(seedCount, returned.Count);
+        Assert.Equal(seeded.Order(), returned.Order());
+    }
+
     // Seeds `count` items keyed item-00..item-NN in insertion order, tagging the first
     // `keepCount` with group=keep so a FilterExpression can select exactly that subset.
     private static async Task<IReadOnlyList<string>> SeedAsync(IAmazonDynamoDB client, string tableName, int count, int keepCount, CancellationToken ct)
@@ -348,6 +474,14 @@ public sealed class ScanParityTests(DynamoDbFixture fixture)
         Assert.NotNull(cursor);
         Assert.Equal("PK", Assert.Single(cursor.Keys));
         return cursor["PK"].S;
+    }
+
+    // Index cursors carry more than one key, so the assertion is on the key set.
+    private static void AssertCursorKeys(ScanResponse page, params string[] expected)
+    {
+        var cursor = page.LastEvaluatedKey;
+        Assert.NotNull(cursor);
+        Assert.Equal(expected.Order(), cursor.Keys.Order());
     }
 
     // An unfiltered page returns every row it scanned, so its cursor names the last item

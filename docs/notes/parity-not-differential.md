@@ -20,7 +20,7 @@ Our parity tests add DynamoDbLocal to our test sweep, and we adjust the tests to
 
 Parity holds on the properties the assertions name, and says nothing outside them. `ScanParityTests.Scan_with_Limit_paginates_via_LastEvaluatedKey_without_duplicates_or_gaps` pins the page count, each page's item and scanned counts, every cursor's contents, and the returned key set. Scan-pagination parity means those properties and no others.
 
-Every assertion in that file projects a returned item down to `item["PK"].S`. The `group` attribute each seeded item carries is never read back, so a backend that dropped it from scan results, or returned it under a different type, passes every case there.
+Every assertion in that file projects a returned item down to a single key attribute. The `group` attribute that `SeedAsync` writes on every item is never read back, so a backend that dropped it from scan results, or returned it under a different type, passes every case there.
 
 ## Repairing a test that went red on the reference
 
