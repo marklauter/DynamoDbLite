@@ -26,7 +26,7 @@ Sequenced from highest divergence risk to lowest:
 
 1. [[parity-test-condition-expression-breadth]] — `attribute_type`, `contains` on string/list, `begins_with` inside `ConditionExpression`, AND/OR/NOT trees.
 2. [[parity-test-update-expression-nesting]] — nested map paths, list-index assignment, multi-clause `SET`, `ADD`/`DELETE` on number/string sets.
-3. [[parity-test-scan-pagination]] — `ExclusiveStartKey`/`LastEvaluatedKey` round-trip on `Scan` (Query has it, Scan doesn't).
+3. [[parity-test-scan-pagination]] — done. `ExclusiveStartKey`/`LastEvaluatedKey` round-trip on `Scan`.
 4. [[parity-test-query-between-string-sort-key]] — lexicographic `BETWEEN` path (numeric is covered).
 5. [[parity-test-transaction-mixed-actions]] — `Put` + `Update` + `Delete` + `ConditionCheck` in one `TransactWriteItems`; >100-item rejection.
 6. [[parity-test-batch-failure-modes]] — condition-check rejection inside `BatchWriteItem`, oversize batch rejection (>25 / >100).
@@ -39,4 +39,4 @@ The broader inventory in [[parity-coverage-gaps-in-operation-variants]] carries 
 
 ## Next
 
-Work the six in listed order. Each child note carries its own acceptance criteria. When the set closes, update [[parity-coverage-status]] Covered list and recompute the line/branch delta against the parity suite.
+Item 3 is closed. Work the remaining five in listed order. Each child note carries its own acceptance criteria. When the set closes, update [[parity-coverage-status]] Covered list and recompute the line/branch delta against the parity suite.

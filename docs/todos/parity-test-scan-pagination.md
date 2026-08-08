@@ -1,7 +1,7 @@
 ---
 title: Parity test — scan pagination
 type: todo
-summary: "Scan had no cross-backend assertion for the ExclusiveStartKey/LastEvaluatedKey round-trip while Query did. Closed: two paginated-scan cases now run against all three backends."
+summary: "Scan had no cross-backend assertion for the ExclusiveStartKey/LastEvaluatedKey round-trip while Query did. Closed: three paginated-scan cases now run against all three backends, with cursor contents pinned, not just cursor presence."
 tags: [parity, v1.1]
 created: 2026-05-27
 priority: medium
@@ -12,12 +12,15 @@ cites: "[[parity-coverage-status]]"
 
 # Parity test — scan pagination
 
-Closed. `ScanParityTests` gained two cases, both parameterized over DdbLite, DdbLiteFile, and DynamoDbLocal:
+Closed. `ScanParityTests` gained three cases, each parameterized over DdbLite, DdbLiteFile, and DynamoDbLocal:
 
-- `Scan_with_Limit_paginates_via_LastEvaluatedKey_without_duplicates_or_gaps` — 25 items at `Limit = 10`, walked to exhaustion. Asserts every page holds at most `Limit` items and scans at most `Limit`, the first page carries a cursor, the terminal page does not, and the pages concatenated and sorted equal the sorted seed set.
-- `Scan_with_FilterExpression_and_Limit_bounds_the_pre_filter_window` — 25 items of which 10 match, at `Limit = 5`. Asserts `ScannedCount` stays within `Limit`, the 10 matching items all arrive across the pages, and at least one cursor-carrying page returns fewer than `Limit` items.
+- `Scan_with_Limit_paginates_via_LastEvaluatedKey_without_duplicates_or_gaps` — 25 items at `Limit = 10`, walked to exhaustion. Asserts exactly three pages. Each non-terminal page holds exactly `Limit` items, with `Count` and `ScannedCount` both equal to `Limit` because no filter runs. The terminal page holds the remaining five and carries no cursor, and the pages concatenated and sorted equal the sorted seed set.
+- `Scan_with_Limit_dividing_the_table_exactly_ends_on_an_empty_page` — 20 items at `Limit = 10`. A page that fills the `Limit` carries a cursor even when it drained the table, so the walk ends on an empty third page rather than on the second full one. All three backends agree.
+- `Scan_with_FilterExpression_and_Limit_bounds_the_pre_filter_window` — 25 items of which 10 match, at `Limit = 5`. Asserts `Count` equals the returned item count on every page. Each cursor-carrying page scanned exactly `Limit` rows whatever survived the filter. All 10 matching items arrive across the pages, and at least one cursor-carrying page returns fewer than `Limit` items.
 
-Scan order is unspecified, so pages are compared as sorted sequences rather than in arrival order. The second case's short-page assertion survives any order too, given the pre-filter semantics it asserts alongside: the cursor-carrying pages span more than two windows while holding at most 10 matches between them, so one of them returns fewer than 5 items. A backend applying `Limit` after the filter fills every page instead and fails there.
+Every cursor is checked for contents. `AssertCursorNamesLastItem` asserts it holds exactly the `PK` attribute and that its value is the page's last returned item. A cursor carrying extra attributes still round-trips inside one backend, so nothing else in the suite catches that.
+
+Scan order is unspecified, so pages are compared as sorted sequences rather than in arrival order. The short-page assertion in the third case survives any order too, given the pre-filter semantics it asserts alongside: the cursor-carrying pages span more than two windows while holding at most 10 matches between them, so one of them returns fewer than 5 items. A backend applying `Limit` after the filter fills every page instead and fails there.
 
 The record below is what the gap was.
 

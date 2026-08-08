@@ -171,6 +171,8 @@ public sealed class ScanParityTests(DynamoDbFixture fixture)
     {
         const int seedCount = 25;
         const int pageSize = 10;
+        const int expectedPages = 3;
+        const int terminalPageSize = seedCount - pageSize * (expectedPages - 1);
 
         var ct = TestContext.Current.CancellationToken;
         var client = await fixture.ClientAsync(backend, ct);
@@ -179,25 +181,75 @@ public sealed class ScanParityTests(DynamoDbFixture fixture)
 
         var seeded = await SeedAsync(client, tableName, seedCount, seedCount, ct);
 
-        var pages = await ScanAllPagesAsync(client, cursor => new ScanRequest
+        var pages = await ScanAllPagesAsync(client, seedCount, cursor => new ScanRequest
         {
             TableName = tableName,
             Limit = pageSize,
             ExclusiveStartKey = cursor,
         }, ct);
 
-        Assert.True(pages.Count > 1, $"{seedCount} items at a page size of {pageSize} must paginate");
-        Assert.NotEmpty(pages[0].LastEvaluatedKey);
-        Assert.True(pages[^1].LastEvaluatedKey is null or { Count: 0 }, "the terminal page must not carry a cursor");
+        Assert.Equal(expectedPages, pages.Count);
 
-        foreach (var page in pages)
+        // Every page short of the last fills the Limit, scans exactly what it returns
+        // because no filter runs, and carries a cursor naming its own last item.
+        foreach (var page in pages.Take(pages.Count - 1))
         {
-            Assert.True(page.Items.Count <= pageSize, $"page returned {page.Items.Count} items for Limit {pageSize}");
-            Assert.True(page.ScannedCount <= pageSize, $"page scanned {page.ScannedCount} items for Limit {pageSize}");
+            Assert.Equal(pageSize, page.Items.Count);
+            Assert.Equal(pageSize, page.Count);
+            Assert.Equal(pageSize, page.ScannedCount);
+            AssertCursorNamesLastItem(page);
         }
+
+        var terminal = pages[^1];
+        Assert.Equal(terminalPageSize, terminal.Items.Count);
+        Assert.Equal(terminalPageSize, terminal.Count);
+        Assert.Equal(terminalPageSize, terminal.ScannedCount);
+        Assert.True(terminal.LastEvaluatedKey is null or { Count: 0 }, "the terminal page must not carry a cursor");
 
         // Scan order is unspecified, so the pages are compared as sorted sequences.
         // Equal counts rule out duplicates; equal sequences rule out skips.
+        var returned = pages.SelectMany(page => page.Items).Select(item => item["PK"].S).ToList();
+        Assert.Equal(seedCount, returned.Count);
+        Assert.Equal(seeded.Order(), returned.Order());
+    }
+
+    [Theory]
+    [BackendData]
+    public async Task Scan_with_Limit_dividing_the_table_exactly_ends_on_an_empty_page(ParityBackend backend)
+    {
+        const int seedCount = 20;
+        const int pageSize = 10;
+
+        var ct = TestContext.Current.CancellationToken;
+        var client = await fixture.ClientAsync(backend, ct);
+        var tableName = TestTables.UniqueName("scan_page_exact");
+        await TestTables.CreateAndWaitAsync(client, TestTables.HashKeyString(tableName), ct);
+
+        var seeded = await SeedAsync(client, tableName, seedCount, seedCount, ct);
+
+        var pages = await ScanAllPagesAsync(client, seedCount, cursor => new ScanRequest
+        {
+            TableName = tableName,
+            Limit = pageSize,
+            ExclusiveStartKey = cursor,
+        }, ct);
+
+        // A page that fills the Limit carries a cursor even when it drained the table,
+        // so the walk ends on an empty page rather than on the last full one.
+        Assert.Equal(seedCount / pageSize + 1, pages.Count);
+
+        foreach (var page in pages.Take(pages.Count - 1))
+        {
+            Assert.Equal(pageSize, page.Items.Count);
+            Assert.Equal(pageSize, page.Count);
+            AssertCursorNamesLastItem(page);
+        }
+
+        var terminal = pages[^1];
+        Assert.Empty(terminal.Items);
+        Assert.Equal(0, terminal.Count);
+        Assert.True(terminal.LastEvaluatedKey is null or { Count: 0 }, "the terminal page must not carry a cursor");
+
         var returned = pages.SelectMany(page => page.Items).Select(item => item["PK"].S).ToList();
         Assert.Equal(seedCount, returned.Count);
         Assert.Equal(seeded.Order(), returned.Order());
@@ -218,7 +270,7 @@ public sealed class ScanParityTests(DynamoDbFixture fixture)
 
         var seeded = await SeedAsync(client, tableName, seedCount, keepCount, ct);
 
-        var pages = await ScanAllPagesAsync(client, cursor => new ScanRequest
+        var pages = await ScanAllPagesAsync(client, seedCount, cursor => new ScanRequest
         {
             TableName = tableName,
             Limit = pageSize,
@@ -229,7 +281,14 @@ public sealed class ScanParityTests(DynamoDbFixture fixture)
         }, ct);
 
         foreach (var page in pages)
-            Assert.True(page.ScannedCount <= pageSize, $"page scanned {page.ScannedCount} items for Limit {pageSize}");
+            Assert.Equal(page.Items.Count, page.Count);
+
+        // A page carrying a cursor stopped because it filled the window, so it scanned
+        // exactly Limit rows however many of them survived the filter.
+        foreach (var page in pages.Take(pages.Count - 1))
+            Assert.Equal(pageSize, page.ScannedCount);
+
+        Assert.True(pages[^1].ScannedCount <= pageSize, $"terminal page scanned {pages[^1].ScannedCount} rows for Limit {pageSize}");
 
         var returned = pages.SelectMany(page => page.Items).Select(item => item["PK"].S).ToList();
         Assert.Equal(keepCount, returned.Count);
@@ -267,14 +326,27 @@ public sealed class ScanParityTests(DynamoDbFixture fixture)
         return keys;
     }
 
+    // These tables are hash-key only, so a cursor holds exactly the returned page's last
+    // key. Extra attributes or a different item is divergence that still round-trips
+    // inside one backend, so only a direct assertion on the contents catches it.
+    private static void AssertCursorNamesLastItem(ScanResponse page)
+    {
+        var cursor = page.LastEvaluatedKey;
+        Assert.NotNull(cursor);
+        Assert.Equal("PK", Assert.Single(cursor.Keys));
+        Assert.Equal(page.Items[^1]["PK"].S, cursor["PK"].S);
+    }
+
     // Walks every page of a scan, threading LastEvaluatedKey into the next request.
-    // Bounded so a cursor that never clears fails the test instead of hanging the suite.
+    // One page per seeded item is the worst legitimate case; past that the cursor is
+    // not advancing and the walk would never end.
     private static async Task<IReadOnlyList<ScanResponse>> ScanAllPagesAsync(
         IAmazonDynamoDB client,
+        int seedCount,
         Func<Dictionary<string, AttributeValue>?, ScanRequest> requestFor,
         CancellationToken ct)
     {
-        const int maxPages = 20;
+        var maxPages = seedCount + 1;
 
         var pages = new List<ScanResponse>();
         Dictionary<string, AttributeValue>? cursor = null;
@@ -288,7 +360,7 @@ public sealed class ScanParityTests(DynamoDbFixture fixture)
                 return pages;
         }
 
-        Assert.Fail($"scan did not exhaust the table within {maxPages} pages");
+        Assert.Fail($"scan returned {maxPages} pages for {seedCount} items, so the cursor is not advancing");
         return pages;
     }
 }
