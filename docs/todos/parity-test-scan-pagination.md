@@ -1,20 +1,27 @@
 ---
 title: Parity test — scan pagination
 type: todo
-summary: "Cross-backend assertion that Scan's ExclusiveStartKey/LastEvaluatedKey round-trip matches real DynamoDB; Query pagination is covered, Scan is not."
+summary: "Scan had no cross-backend assertion for the ExclusiveStartKey/LastEvaluatedKey round-trip while Query did. Closed: two paginated-scan cases now run against all three backends."
 tags: [parity, v1.1]
 created: 2026-05-27
 priority: medium
-status: open
+status: done
 part-of: "[[parity-parser-divergence-test-set]]"
 cites: "[[parity-coverage-status]]"
 ---
 
 # Parity test — scan pagination
 
-Cross-backend assertion that `Scan`'s `ExclusiveStartKey` / `LastEvaluatedKey` round-trip matches real DynamoDB; Query pagination is covered, Scan is not.
+Closed. `ScanParityTests` gained two cases, both parameterized over DdbLite, DdbLiteFile, and DynamoDbLocal:
 
-## What's missing
+- `Scan_with_Limit_paginates_via_LastEvaluatedKey_without_duplicates_or_gaps` — 25 items at `Limit = 10`, walked to exhaustion. Asserts every page holds at most `Limit` items and scans at most `Limit`, the first page carries a cursor, the terminal page does not, and the pages concatenated and sorted equal the sorted seed set.
+- `Scan_with_FilterExpression_and_Limit_bounds_the_pre_filter_window` — 25 items of which 10 match, at `Limit = 5`. Asserts `ScannedCount` stays within `Limit`, the 10 matching items all arrive across the pages, and at least one cursor-carrying page returns fewer than `Limit` items.
+
+Scan order is unspecified, so pages are compared as sorted sequences rather than in arrival order. The second case's short-page assertion also survives any order. At least four pages carry a cursor, and those pages hold at most 10 matches between them, so one of them returns fewer than 5 items.
+
+The record below is what the gap was.
+
+## What was missing
 
 `QueryParityTests` exercises `Limit` + `LastEvaluatedKey` round-trip for `Query`. No parity test does the equivalent for `Scan` even though `ScanParityTests` covers `FilterExpression`, parallel-scan segments, `IN`, and `size()`.
 

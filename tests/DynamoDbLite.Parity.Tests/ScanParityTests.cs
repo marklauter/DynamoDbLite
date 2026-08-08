@@ -1,3 +1,4 @@
+using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
 using DynamoDbLite.Parity.Tests.Fixtures;
 
@@ -162,5 +163,130 @@ public sealed class ScanParityTests(DynamoDbFixture fixture)
 
         Assert.Equal(expected, merged);
         Assert.Equal(20, seg0.Count + seg1.Count);
+    }
+
+    [Theory]
+    [BackendData]
+    public async Task Scan_with_Limit_paginates_via_LastEvaluatedKey_without_duplicates_or_gaps(ParityBackend backend)
+    {
+        const int seedCount = 25;
+        const int pageSize = 10;
+
+        var ct = TestContext.Current.CancellationToken;
+        var client = await fixture.ClientAsync(backend, ct);
+        var tableName = TestTables.UniqueName("scan_page");
+        await TestTables.CreateAndWaitAsync(client, TestTables.HashKeyString(tableName), ct);
+
+        var seeded = await SeedAsync(client, tableName, seedCount, seedCount, ct);
+
+        var pages = await ScanAllPagesAsync(client, cursor => new ScanRequest
+        {
+            TableName = tableName,
+            Limit = pageSize,
+            ExclusiveStartKey = cursor,
+        }, ct);
+
+        Assert.True(pages.Count > 1, $"{seedCount} items at a page size of {pageSize} must paginate");
+        Assert.NotEmpty(pages[0].LastEvaluatedKey);
+        Assert.True(pages[^1].LastEvaluatedKey is null or { Count: 0 }, "the terminal page must not carry a cursor");
+
+        foreach (var page in pages)
+        {
+            Assert.True(page.Items.Count <= pageSize, $"page returned {page.Items.Count} items for Limit {pageSize}");
+            Assert.True(page.ScannedCount <= pageSize, $"page scanned {page.ScannedCount} items for Limit {pageSize}");
+        }
+
+        // Scan order is unspecified, so the pages are compared as sorted sequences.
+        // Equal counts rule out duplicates; equal sequences rule out skips.
+        var returned = pages.SelectMany(page => page.Items).Select(item => item["PK"].S).ToList();
+        Assert.Equal(seedCount, returned.Count);
+        Assert.Equal(seeded.Order(), returned.Order());
+    }
+
+    [Theory]
+    [BackendData]
+    public async Task Scan_with_FilterExpression_and_Limit_bounds_the_pre_filter_window(ParityBackend backend)
+    {
+        const int seedCount = 25;
+        const int keepCount = 10;
+        const int pageSize = 5;
+
+        var ct = TestContext.Current.CancellationToken;
+        var client = await fixture.ClientAsync(backend, ct);
+        var tableName = TestTables.UniqueName("scan_page_filt");
+        await TestTables.CreateAndWaitAsync(client, TestTables.HashKeyString(tableName), ct);
+
+        var seeded = await SeedAsync(client, tableName, seedCount, keepCount, ct);
+
+        var pages = await ScanAllPagesAsync(client, cursor => new ScanRequest
+        {
+            TableName = tableName,
+            Limit = pageSize,
+            ExclusiveStartKey = cursor,
+            FilterExpression = "#g = :keep",
+            ExpressionAttributeNames = new Dictionary<string, string> { ["#g"] = "group" },
+            ExpressionAttributeValues = new Dictionary<string, AttributeValue> { [":keep"] = new() { S = "keep" } },
+        }, ct);
+
+        foreach (var page in pages)
+            Assert.True(page.ScannedCount <= pageSize, $"page scanned {page.ScannedCount} items for Limit {pageSize}");
+
+        var returned = pages.SelectMany(page => page.Items).Select(item => item["PK"].S).ToList();
+        Assert.Equal(keepCount, returned.Count);
+        Assert.Equal(seeded.Take(keepCount).Order(), returned.Order());
+
+        // Limit bounds the window the scan reads before the filter runs, so a page can
+        // come back short while rows remain. The pages carrying a cursor hold at most
+        // keepCount matches between them, and there are more than keepCount / pageSize
+        // of them, so at least one must return fewer than pageSize items.
+        Assert.Contains(pages, page => page.LastEvaluatedKey is { Count: > 0 } && page.Items.Count < pageSize);
+    }
+
+    // Seeds `count` items keyed item-00..item-NN in insertion order, tagging the first
+    // `keepCount` with group=keep so a FilterExpression can select exactly that subset.
+    private static async Task<IReadOnlyList<string>> SeedAsync(IAmazonDynamoDB client, string tableName, int count, int keepCount, CancellationToken ct)
+    {
+        var keys = new List<string>(count);
+        for (var i = 0; i < count; i++)
+        {
+            var pk = $"item-{i:D2}";
+            keys.Add(pk);
+            _ = await client.PutItemAsync(new PutItemRequest
+            {
+                TableName = tableName,
+                Item = new Dictionary<string, AttributeValue>
+                {
+                    ["PK"] = new() { S = pk },
+                    ["group"] = new() { S = i < keepCount ? "keep" : "drop" },
+                },
+            }, ct);
+        }
+
+        return keys;
+    }
+
+    // Walks every page of a scan, threading LastEvaluatedKey into the next request.
+    // Bounded so a cursor that never clears fails the test instead of hanging the suite.
+    private static async Task<IReadOnlyList<ScanResponse>> ScanAllPagesAsync(
+        IAmazonDynamoDB client,
+        Func<Dictionary<string, AttributeValue>?, ScanRequest> requestFor,
+        CancellationToken ct)
+    {
+        const int maxPages = 20;
+
+        var pages = new List<ScanResponse>();
+        Dictionary<string, AttributeValue>? cursor = null;
+
+        while (pages.Count < maxPages)
+        {
+            var page = await client.ScanAsync(requestFor(cursor), ct);
+            pages.Add(page);
+            cursor = page.LastEvaluatedKey;
+            if (cursor is not { Count: > 0 })
+                return pages;
+        }
+
+        Assert.Fail($"scan did not exhaust the table within {maxPages} pages");
+        return pages;
     }
 }
