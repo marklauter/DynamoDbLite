@@ -125,4 +125,12 @@ public sealed partial class DynamoDbClient
     public Task<PutResourcePolicyResponse> PutResourcePolicyAsync(PutResourcePolicyRequest request, CancellationToken cancellationToken = default) => throw new NotSupportedException();
 
     #endregion
+
+    #region Vector search
+
+    /// <summary>Not supported.</summary>
+    [ExcludeFromCodeCoverage]
+    public Task<SearchVectorsResponse> SearchVectorsAsync(SearchVectorsRequest request, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
+    #endregion
 }
