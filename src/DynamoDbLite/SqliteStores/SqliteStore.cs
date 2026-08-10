@@ -138,7 +138,7 @@ internal abstract class SqliteStore
         // a CREATE INDEX prepared alongside the CREATE TABLE that defines its
         // columns fails because the table doesn't exist at prepare time.
         _ = connection.Execute("""
-            -- Partial index for the background TTL sweep; most items have no TTL,
+            -- Partial index for the TTL sweep; most items have no TTL,
             -- so excluding NULL rows keeps the index small.
             CREATE INDEX IF NOT EXISTS idx_items_ttl_epoch
                 ON items (ttl_epoch)
