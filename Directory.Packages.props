@@ -18,7 +18,7 @@
     <PackageVersion Include="Testcontainers.DynamoDb" Version="4.14.0" />
     <PackageVersion Include="TngTech.ArchUnitNET" Version="0.13.3" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
-    <PackageVersion Include="xunit.v3" Version="3.2.2" />
+    <PackageVersion Include="xunit.v3" Version="4.0.0" />
     <!-- Pin SQLitePCLRaw to 3.x: native e_sqlite3 <= 2.1.11 has advisory GHSA-2m69-gcr7-jv3q.
          Microsoft.Data.Sqlite 10.0.x still references 2.1.11, so we pin the whole stack up
          via transitive pinning to the latest SQLite. -->
