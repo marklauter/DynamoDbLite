@@ -9,7 +9,7 @@
     <PackageVersion Include="Microsoft.Data.Sqlite" Version="10.0.14" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.13" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.14" />
-    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.13" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.14" />
     <PackageVersion Include="Superpower" Version="3.2.1" />
     <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.403" />
     <PackageVersion Include="coverlet.collector" Version="10.1.0" />
@@ -22,9 +22,9 @@
     <!-- Pin SQLitePCLRaw to 3.x: native e_sqlite3 <= 2.1.11 has advisory GHSA-2m69-gcr7-jv3q.
          Microsoft.Data.Sqlite 10.0.x still references 2.1.11, so we pin the whole stack up
          via transitive pinning to the latest SQLite. -->
-    <PackageVersion Include="SQLitePCLRaw.core" Version="3.0.3" />
-    <PackageVersion Include="SQLitePCLRaw.provider.e_sqlite3" Version="3.0.3" />
-    <PackageVersion Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.3" />
+    <PackageVersion Include="SQLitePCLRaw.core" Version="3.0.5" />
+    <PackageVersion Include="SQLitePCLRaw.provider.e_sqlite3" Version="3.0.5" />
+    <PackageVersion Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.5" />
     <PackageVersion Include="SQLitePCLRaw.lib.e_sqlite3" Version="3.50.3" />
   </ItemGroup>
   <ItemGroup>
